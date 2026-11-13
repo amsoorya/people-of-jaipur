@@ -288,7 +288,7 @@ const orbGeo = new THREE.SphereGeometry(0.35,16,12), orbMat = new THREE.MeshBasi
 function peerName(e){ const n = e.by && live.names[e.by]; return n || 'Visitor'; }
 function refreshPeerLabels(){
   if (!fontsDone) return;
-  live.peers.forEach(e=>{ const nm = peerName(e); if (e.labelText !== nm){ if (e.label){ scene.remove(e.label); e.label.material.map.dispose(); } e.label = liveSprite(nm); e.labelText = nm; scene.add(e.label); } });
+  live.peers.forEach(e=>{ const nm = e.by && e.by === CREATOR_ID && peerName(e) !== 'Visitor' ? `${peerName(e).split(' ')[0]} · Creator` : peerName(e); if (e.labelText !== nm){ if (e.label){ scene.remove(e.label); e.label.material.map.dispose(); } e.label = liveSprite(nm); e.labelText = nm; scene.add(e.label); } });
 }
 async function resolveNames(){
   if (!live.user) return;
@@ -320,8 +320,14 @@ function syncPeers(list){
     e.tr = num(pr.r); e.moving = !!pr.m; e.fly = !!pr.f; e.sit = !!pr.st; e.wv = num(pr.wv); e.place = typeof pr.place === 'string' ? pr.place.slice(0,60) : '';
   }
   for (const [k,e] of live.peers) if (!seen.has(k)){ scene.remove(e.ch.g); scene.remove(e.orb); if (e.label) scene.remove(e.label); live.peers.delete(k); }
-  live.count = count; updateLivePill(); resolveNames(); refreshPeerLabels();
+  live.count = count; updateLivePill(); resolveNames(); refreshPeerLabels(); syncMemberVisibility();
 }
+/* While someone is online, only their live character shows; their saved spot reappears when they leave. */
+function syncMemberVisibility(){
+  const on = onlineIds();
+  memberMap.forEach(m=>{ const vis = !on.has(m.id); m.ch.g.visible = vis; m.marker.visible = vis; if (m.label) m.label.visible = vis; if (m.circle) m.circle.r = vis ? 0.45 : 0; m.hidden = !vis; });
+}
+function livePeerOf(id){ for (const e of live.peers.values()) if (e.by === id) return e; return null; }
 function updateLivePill(){
   const pill = $('livePill');
   if (!live.room || !live.connected){ pill.hidden = true; return; }
@@ -883,6 +889,7 @@ async function syncMembers(snap){
   if (typeof refreshOffices === 'function') refreshOffices();
   const names = await memberNames([...memberMap.keys()]);
   memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== nm){ if (m.label) scene.remove(m.label); m.label = liveSprite(m.id === CREATOR_ID ? `${nm.split(' ')[0]} · Creator` : nm.split(' ')[0]); m.labelText = nm; m.label.position.set(m.p.pos[0],2.35,m.p.pos[1]); scene.add(m.label); } });
+  syncMemberVisibility();
 }
 function removeMember(id){ const m = memberMap.get(id); if (!m) return; scene.remove(m.ch.g); scene.remove(m.marker); if (m.label) scene.remove(m.label); const i = npcs.indexOf(m); if (i>=0) npcs.splice(i,1); const j = circles.indexOf(m.circle); if (j>=0) circles.splice(j,1); memberMap.delete(id); }
 (async ()=>{
@@ -922,7 +929,9 @@ function meetCreator(isWelcome){
   for (const id of ['coWrap','bizWrap','joinWrap','jobsWrap','recWrap']) $(id).hidden = true;
   if (riding) exitAuto(); if (inShop) exitShop(); if (flying) setFly(false);
   // stand a few metres away on open ground (not pushed out of a wall right next to them), facing the creator
-  const a = m.rot || 0, cx = m.p.pos[0], cz = m.p.pos[1]; let spot = null;
+  const lp = livePeerOf(CREATOR_ID);   // online right now? meet them where they are
+  if (lp && lp.y > 3){ showHint(`${m.p.name.split(' ')[0]} is flying around right now. Try again in a moment.`); setTimeout(()=>showHint(''), 3000); return false; }
+  const a = lp ? (lp.rot || 0) : (m.rot || 0), cx = lp ? lp.cur.x : m.p.pos[0], cz = lp ? lp.cur.z : m.p.pos[1]; let spot = null;
   for (const d of [5, 6, 4.5, 7]){ for (const off of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.6, -2.6, Math.PI]){
     const th = a + off, p = new THREE.Vector3(cx + Math.sin(th)*d, 0, cz + Math.cos(th)*d), q = p.clone(); resolve(q);
     if (q.distanceTo(p) < 0.05){ spot = {p, th}; break; } } if (spot) break; }
@@ -2232,7 +2241,7 @@ function frame(){
   }
 
   if (mode === 'play'){
-    nearNpc = inShop || riding ? null : best;
+    nearNpc = inShop || riding || (best && best.hidden) ? null : best;
     updateAction();
     if (!inShop){ const [a,f] = flying ? areaAt(drone.x,drone.z) : areaAt(P.pos.x,P.pos.z); if (a !== lastArea){ $('area').textContent = a; $('fact').textContent = f; lastArea = a; } }
     drawMap(); if (mapOpen && Math.floor(t*10)%3===0) drawBigMap();
