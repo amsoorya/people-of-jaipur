@@ -3103,7 +3103,13 @@ function meetCreator(isWelcome){
   if (!$('prodWrap').hidden && prod) closeProducts();
   for (const id of ['coWrap','bizWrap','joinWrap','jobsWrap','recWrap']) $(id).hidden = true;
   if (riding) exitAuto(); if (inShop) exitShop(); if (flying) setFly(false);
-  const a = m.rot || 0; P.pos.set(m.p.pos[0] + Math.sin(a)*4.5, 0, m.p.pos[1] + Math.cos(a)*4.5); resolve(P.pos); P.rot = a; dist = Math.max(dist, 4.5); pitch = 0.2; snapCam = true;
+  // stand a few metres away on open ground (not pushed out of a wall right next to them), facing the creator
+  const a = m.rot || 0, cx = m.p.pos[0], cz = m.p.pos[1]; let spot = null;
+  for (const d of [5, 6, 4.5, 7]){ for (const off of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.6, -2.6, Math.PI]){
+    const th = a + off, p = new THREE.Vector3(cx + Math.sin(th)*d, 0, cz + Math.cos(th)*d), q = p.clone(); resolve(q);
+    if (q.distanceTo(p) < 0.05){ spot = {p, th}; break; } } if (spot) break; }
+  if (!spot){ const p = new THREE.Vector3(cx + Math.sin(a)*5, 0, cz + Math.cos(a)*5); resolve(p); spot = {p, th:Math.atan2(p.x-cx, p.z-cz)}; }
+  P.pos.copy(spot.p); P.rot = spot.th + Math.PI; yaw = 0; pitch = 0.2; dist = Math.max(dist, 4.5); snapCam = true;
   setTimeout(()=>{ openCard(m); if (isWelcome) $('cNote').textContent = `Welcome to People of Jaipur! Meet ${m.p.name.split(' ')[0]}, who built this city. Tap Connect to say hello.`; }, 700);
   return true;
 }
