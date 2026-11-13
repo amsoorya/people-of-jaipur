@@ -1640,6 +1640,31 @@ function buildFloor(f){
   const screen = new THREE.MeshStandardMaterial({color:lin('#0E1A2A'), emissive:lin('#5AA0FF'), emissiveIntensity:0.9, roughness:0.3});
   const LOOKS = [{style:'shirt',top:'#6E9AA8',bottom:'#2E3140',head:'hair',headColor:'#1E1512',skin:'#9C6A4C'},{style:'shirt',top:'#B83A6B',bottom:'#2A2A33',head:'longhair',headColor:'#2A1B17',skin:'#D9A07E'},{style:'kurta',top:'#F4EDE2',bottom:'#F4EDE2',head:'hair',headColor:'#1E1512',skin:'#B07A57',moustache:true},{style:'shirt',top:'#3A3A40',bottom:'#2A2A33',head:'hair',headColor:'#1E1512',skin:'#C98E6B'}];
   let k = 0;
+  if (OfficeKit.ready){
+    const P2 = OfficeKit.put;
+    // open-plan desks: two rows of three, each with a monitor, keyboard, mouse and a desk chair
+    for (const row of [0.4,-2.0]) for (const x of [-1.8,0.6,3.0]){
+      P2(sc,'desk',x,row,0); P2(sc,'computerScreen',x,row-0.22,Math.PI,0.75); P2(sc,'computerKeyboard',x,row+0.08,0,0.75); P2(sc,'computerMouse',x+0.38,row+0.1,0,0.75);
+      if ((k % 3) === 1) P2(sc,'laptop',x-0.45,row+0.05,0.3,0.75);
+      P2(sc,'chairDesk',x,row+0.85,Math.PI);
+      rects.push({minX:x-0.75,maxX:x+0.75,minZ:row-0.4,maxZ:row+0.4}); k++;
+    }
+    // glass meeting room with a table, chairs, a screen and a bookcase
+    P2(sc,'table',-5.4,-4.4,0); for (const [x,z,r] of [[-6.4,-4.4,Math.PI/2],[-4.4,-4.4,-Math.PI/2],[-5.4,-3.5,Math.PI],[-5.4,-5.3,0]]) P2(sc,'chairModernCushion',x,z,r);
+    P2(sc,'televisionModern',-W/2+0.3,-4.4,Math.PI/2,0.9); P2(sc,'bookcaseOpen',-3.1,-5.6,0);
+    // pantry: counter, cabinets, coffee machine, microwave, fridge and bar stools
+    for (const x of [4.6,5.5,6.4]) P2(sc,'kitchenCabinet',x,-5.5,0); P2(sc,'kitchenCabinetUpper',5.5,-5.75,0,1.6);
+    P2(sc,'kitchenCoffeeMachine',4.6,-5.5,0,0.9); P2(sc,'kitchenMicrowave',6.4,-5.5,0,0.9); P2(sc,'kitchenFridgeLarge',7.4,-5.3,0);
+    P2(sc,'kitchenBar',5.5,-4.0,0); for (const x of [4.9,5.5,6.1]) P2(sc,'stoolBar',x,-3.4,0);
+    // lounge: corner sofa, coffee table, rug and a floor lamp
+    P2(sc,'rugRound',5.6,3.1,0); P2(sc,'loungeSofaCorner',6.0,4.2,Math.PI); P2(sc,'tableCoffeeGlass',5.6,3.0,0); P2(sc,'lampSquareFloor',7.4,5.0,0); P2(sc,'speaker',4.2,5.3,Math.PI);
+    // plants and a coat rack
+    for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2],[-2.2,-5.5],[W/2-0.6,2.2]]) P2(sc,'pottedPlant',x,z,0,0,1.2);
+    P2(sc,'coatRackStanding',-0.9,D/2-0.6,0);
+    rects.push({minX:-7.9,maxX:-2.6,minZ:-6,maxZ:-2.75}); rects.push({minX:3.8,maxX:7.9,minZ:-6,maxZ:-3.6}); rects.push({minX:4.2,maxX:7.9,minZ:2.2,maxZ:5.6});
+    const gm = new THREE.MeshStandardMaterial({color:lin('#A9C3CC'), transparent:true, opacity:0.22, roughness:0.05, depthWrite:false});
+    add(sc,UBOX,gm,-5.25,1.5,-2.8,5.1,3.0,0.06); add(sc,UBOX,gm,-2.7,1.5,-4.4,0.06,3.0,2.8);
+  } else {
   for (const row of [0.4,-2.0]) for (const x of [-1.8,0.6,3.0]){
     box(sc,1.9,0.05,0.85,'#E2DDD5',x,0.74,row,'stone'); box(sc,0.05,0.74,0.75,'#2A2A2E',x-0.9,0,row,'stone'); box(sc,0.05,0.74,0.75,'#2A2A2E',x+0.9,0,row,'stone');
     box(sc,0.6,0.38,0.03,'#1A1A1A',x,0.92,row-0.27,'stone'); add(sc,UPLANE,screen,x,1.11,row-0.25,0.55,0.32); box(sc,0.42,0.02,0.15,'#2A2A2A',x,0.78,row,'stone');
@@ -1661,6 +1686,7 @@ function buildFloor(f){
   // lounge (front right) and jobs board
   box(sc,2.6,0.45,0.9,'#B85C3F',5.6,0,3.8,'stone'); box(sc,2.6,0.5,0.22,'#B85C3F',5.6,0.45,4.25,'stone'); box(sc,1.2,0.4,0.7,'#7A5638',5.6,0,2.6,'stone');
   rects.push({minX:4.2,maxX:7.0,minZ:2.2,maxZ:4.4});
+  }
   const [jc,jx] = cv(512,384); jx.fillStyle = '#F7F3EC'; jx.fillRect(0,0,512,384); jx.strokeStyle = '#2E8C5A'; jx.lineWidth = 12; jx.strokeRect(6,6,500,372);
   jx.fillStyle = '#14202E'; jx.font = '700 46px Hind, system-ui, sans-serif'; jx.textAlign = 'center'; jx.fillText('We’re hiring', 256, 70); jx.font = '500 30px Hind, system-ui, sans-serif';
   const jobs = co ? co.jobs : []; if (jobs.length) jobs.forEach((j,i)=>jx.fillText(j.title.slice(0,30), 256, 140 + i*60)); else { jx.fillStyle = '#7A4A40'; jx.fillText('No roles posted yet', 256, 170); }
@@ -1668,9 +1694,9 @@ function buildFloor(f){
   if (false){ const [wc,wx] = cv(512,320); wx.fillStyle = '#FBFBF8'; wx.fillRect(0,0,512,320); wx.strokeStyle = '#2F4F7F'; wx.lineWidth = 3;
     const layers = [[80,4],[200,6],[320,6],[440,2]]; layers.forEach(([lx2,n],li)=>{ for (let q=0;q<n;q++){ const y = 160 + (q-(n-1)/2)*42; if (li < 3){ const nx = layers[li+1]; for (let m=0;m<nx[1];m++){ const y2 = 160 + (m-(nx[1]-1)/2)*42; wx.globalAlpha = 0.35; wx.beginPath(); wx.moveTo(lx2,y); wx.lineTo(nx[0],y2); wx.stroke(); wx.globalAlpha = 1; } } wx.beginPath(); wx.arc(lx2,y,12,0,Math.PI*2); wx.fillStyle = li===3 ? '#D8342B' : '#2F4F7F'; wx.fill(); } });
     plane(sc,new THREE.MeshStandardMaterial({map:tex(wc), roughness:0.5}),-2.68,1.6,-3.6,1.8,1.1,-Math.PI/2); }
-  for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2]]){ cyl(sc,0.28,0.55,'#2A2A2E',x,0,z,12,'stone'); add(sc,BLOBS[0],mat('#4E7A2C','foliage'),x,1.05,z,0.5,0.6,0.5); }
+  if (!OfficeKit.ready) for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2]]){ cyl(sc,0.28,0.55,'#2A2A2E',x,0,z,12,'stone'); add(sc,BLOBS[0],mat('#4E7A2C','foliage'),x,1.05,z,0.5,0.6,0.5); }
   // a receptionist behind the front desk on every floor
-  { const rp = makePerson({style:'shirt',top:'#2F4F7F',bottom:'#2A2A33',head:'longhair',headColor:'#1E1512',skin:'#B07A57'}); rp.g.position.set(-4.6,0,4.5); rp.g.rotation.y = Math.PI; sc.add(rp.g);
+  { const rp = makePerson({style:'shirt',head:'longhair',model:'founder'});   // receptionist in a smart suit rp.g.position.set(-4.6,0,4.5); rp.g.rotation.y = Math.PI; sc.add(rp.g);
     fontReady.then(()=>{ const lb = liveSprite('Reception'); lb.position.set(-4.6,2.4,4.5); sc.add(lb); }); }
   // the company's real, confirmed team stands at the desks
   const team = co ? teamOf(co) : []; const deskSpots = [[-1.8,1.2],[0.6,1.2],[3.0,1.2],[-1.8,-1.2],[0.6,-1.2],[3.0,-1.2]];

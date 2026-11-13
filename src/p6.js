@@ -523,6 +523,21 @@ const PigeonRig = (()=>{
   }, undefined, fallback);
 })();
 
+/* Office furniture (Kenney Furniture Kit, CC0): each piece centred on its footprint, standing on the floor, at real size */
+const OfficeKit = (()=>{
+  const K = 1.95, pieces = {}; let ready = false;
+  if (THREE.GLTFLoader) new THREE.GLTFLoader().load('models/office.glb', g=>{
+    g.scene.children.slice().forEach(n=>{ n.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(n), c = b.getCenter(new THREE.Vector3());
+      const holder = new THREE.Group(); n.position.sub(new THREE.Vector3(c.x, b.min.y, c.z)); holder.add(n); holder.scale.setScalar(K);
+      holder.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } }); pieces[n.name] = holder; });
+    ready = true;
+  });
+  // place a copy of a piece in a room: x, z on the floor, turned by rot, optionally raised (y) and resized (s)
+  function put(sc, name, x, z, rot = 0, y = 0, s = 1){ const p = pieces[name]; if (!p) return null; const c = p.clone(); c.position.set(x, y, z); c.rotation.y = rot; if (s !== 1) c.scale.multiplyScalar(s); sc.add(c); return c; }
+  function size(name){ const p = pieces[name]; return p ? new THREE.Box3().setFromObject(p).getSize(new THREE.Vector3()) : null; }
+  return {get ready(){ return ready; }, put, size};
+})();
+
 /* Rideable scooters at the stands */
 let scooterCount = 0;
 function makeScooter(col){
