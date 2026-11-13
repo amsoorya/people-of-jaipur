@@ -2278,7 +2278,12 @@ function frame(){
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     drone.x += (rx*mx - fx*mz)*sp*dt; drone.z += (rz*mx - fz*mz)*sp*dt; drone.y += up*sp*0.6*dt;
     const dc = Math.hypot(drone.x-CX, drone.z-CZ); if (dc > 520){ drone.x = CX + (drone.x-CX)/dc*520; drone.z = CZ + (drone.z-CZ)/dc*520; }
-    drone.y = Math.max(Math.max(3, terrainH(drone.x,drone.z)+6), Math.min(240, drone.y));
+    // never sink into a building: the floor is the highest roof under you (or the ground)
+    let roof = -Infinity; for (const c of colliders){ if (drone.x > c.minX - 1 && drone.x < c.maxX + 1 && drone.z > c.minZ - 1 && drone.z < c.maxZ + 1 && c.h) roof = Math.max(roof, c.h); }
+    const ground = groundY(drone.x, drone.z), floor = Math.max(ground + 1.6, isFinite(roof) ? roof + 2.2 : -Infinity);
+    drone.y = Math.max(floor, Math.min(240, drone.y));
+    // holding C down to the ground (not a roof) lands you
+    if (up < 0 && !isFinite(roof) && drone.y <= ground + 1.8){ setFly(false); }
   } else if (mode === 'play' && riding){
     updateAutos(dt);
   } else if (mode === 'play' && liftState){

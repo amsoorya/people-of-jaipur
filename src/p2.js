@@ -149,16 +149,17 @@ function terrainH(x,z){
   const m = new THREE.Mesh(g, mat('#D0AB82','ground')); m.userData.noCast = true; staticRoot.add(m);
 }
 function flat(m,x,z,w,d,y=0.02){ const o = new THREE.Mesh(UPLANE, m); o.rotation.x = -Math.PI/2; o.position.set(x,y,z); o.scale.set(w,d,1); o.userData.noCast = true; staticRoot.add(o); return o; }
-const M_PAVE = mat('#C99F86','paving'), M_ASPH = mat('#77706A','asphalt',{roughness:0.95}), M_PAVE2 = mat('#D6BE98','paving'), M_LINE = mat('#E8E0D2','ground');
+const M_PAVE = mat('#C99F86','paving'), M_ASPH = mat('#3C3C42','asphalt',{roughness:0.92}), M_PAVE2 = mat('#D6BE98','paving'), M_LINE = mat('#E8E0D2','ground');
+const ROADS = []; function addRoad(x,z,w,d,y){ flat(M_ASPH,x,z,w,d,y); ROADS.push({x,z,w,d}); }   // kerbs and lane lines are added along these later
 flat(M_PAVE, 0, 0, 192, 192, 0.03);                    // walled city paving
-flat(M_ASPH, 0, 0, 188, 13, 0.06);                     // main E-W bazaar
-flat(M_ASPH, 30, 0, 13, 188, 0.065);                   // N-S bazaar
-flat(M_ASPH, 30, 0, 34, 34, 0.07);                     // Badi Chaupar
-flat(M_ASPH, 30, -116, 13, 44, 0.06);                  // road to Jal Mahal
-flat(M_ASPH, 30, 112, 13, 36, 0.06);                   // road to Albert Hall
-flat(M_ASPH, -116, 0, 44, 11, 0.06);                   // road to the stepwell
-flat(M_ASPH, 180, 0, 170, 17, 0.06);                   // MI Road / C-Scheme
-flat(M_ASPH, 150, 15, 17, 190, 0.065);                 // cross road
+addRoad(0, 0, 188, 13, 0.06);                     // main E-W bazaar
+addRoad(30, 0, 13, 188, 0.065);                   // N-S bazaar
+addRoad(30, 0, 34, 34, 0.07);                     // Badi Chaupar
+addRoad(30, -116, 13, 44, 0.06);                  // road to Jal Mahal
+addRoad(30, 112, 13, 36, 0.06);                   // road to Albert Hall
+addRoad(-116, 0, 44, 11, 0.06);                   // road to the stepwell
+addRoad(180, 0, 170, 17, 0.06);                   // MI Road / C-Scheme
+addRoad(150, 15, 17, 190, 0.065);                 // cross road
 flat(mat('#CDBBA4','paving'), 180, 0, 170, 26, 0.04);  // footpaths
 flat(mat('#CDBBA4','paving'), 150, 15, 26, 190, 0.045);
 for (let x=100; x<262; x+=8){ flat(M_LINE, x, 0, 3.4, 0.25, 0.09); }

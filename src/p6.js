@@ -478,6 +478,28 @@ const PigeonRig = (()=>{
   return {update};
 })();
 
+/* Roads: alternating black-and-yellow kerbs along both edges and a dashed white centre line, with gaps where roads meet */
+(function kerbs(){
+  const inRoad = (x, z, self, pad = 0.2) => ROADS.some(r => r !== self && Math.abs(x - r.x) < r.w/2 + pad && Math.abs(z - r.z) < r.d/2 + pad);
+  const K = [], L = [], SEG = 1.6;
+  for (const r of ROADS){
+    if (r.w > 30 && r.d > 30) continue;   // Badi Chaupar square: the roundabout has its own edge
+    const alongX = r.w >= r.d, len = alongX ? r.w : r.d, half = (alongX ? r.d : r.w) / 2;
+    for (let u = -len/2 + SEG/2, i = 0; u < len/2; u += SEG, i++){
+      for (const side of [-1, 1]){ const x = alongX ? r.x + u : r.x + side * (half + 0.12), z = alongX ? r.z + side * (half + 0.12) : r.z + u;
+        if (!inRoad(x, z, r, 0.4)) K.push({x, z, alongX, yellow: i % 2 === 0}); }
+      const cx = alongX ? r.x + u : r.x, cz = alongX ? r.z : r.z + u;
+      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5)) L.push({x: cx, z: cz, alongX});
+    }
+  }
+  const box = new THREE.BoxGeometry(1, 1, 1), m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+  const make = (list, color, sx, sy, sz, y, cast) => { if (!list.length) return; const im = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({color: new THREE.Color(color).convertSRGBToLinear(), roughness: 0.75}), list.length);
+    list.forEach((k, i)=>{ q.setFromAxisAngle(up, k.alongX ? 0 : Math.PI/2); m.compose(new THREE.Vector3(k.x, y, k.z), q, new THREE.Vector3(sx, sy, sz)); im.setMatrixAt(i, m); }); im.castShadow = cast; im.receiveShadow = true; scene.add(im); };
+  make(K.filter(k=>k.yellow), '#E8B528', SEG, 0.2, 0.3, 0.1, true);
+  make(K.filter(k=>!k.yellow), '#1C1C1E', SEG, 0.2, 0.3, 0.1, true);
+  make(L, '#ECE8DE', 2.4, 0.02, 0.16, 0.085, false);
+})();
+
 /* Nature MegaKit trees, one instanced mesh per tree shape so hundreds of trees cost a handful of draw calls */
 (function plantTrees(){
   const fallback = () => { const g = new THREE.Group(); scene.add(g); TREE_SPOTS.forEach(t=>{ if (t.type !== 'scrub') treeSimple(t.x, t.z, t.type, t.s, g); }); g.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } }); };
@@ -494,7 +516,8 @@ const PigeonRig = (()=>{
       shapes[n.name] = {parts, h: (bb.max.y - bb.min.y) || 1, list: []}; });
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0,1,0), sc = new THREE.Vector3();
     TREE_SPOTS.forEach(t=>{ const [names, H] = KIND[t.type] || KIND.neem, nm = names[Math.floor(t.pick * names.length)], sh = shapes[nm]; if (!sh) return;
-      const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); sh.list.push(new THREE.Matrix4().compose(new THREE.Vector3(t.x, t.y || 0, t.z), q, sc)); });
+      const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); const sink = /Bush/.test(nm) ? H * t.s * 0.18 : 0;   // bushes have no trunk: settle their lower leaves into the soil
+      sh.list.push(new THREE.Matrix4().compose(new THREE.Vector3(t.x, (t.y || 0) - sink, t.z), q, sc)); });
     for (const nm in shapes){ const sh = shapes[nm]; if (!sh.list.length) continue;
       for (const p of sh.parts){ const im = new THREE.InstancedMesh(p.geo, p.mat, sh.list.length); sh.list.forEach((mx, i)=>im.setMatrixAt(i, mx)); im.castShadow = nm !== 'Bush_Common'; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); } }
   }, undefined, fallback);

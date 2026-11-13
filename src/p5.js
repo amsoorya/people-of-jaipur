@@ -320,9 +320,9 @@ const fairySpots = [];
     if (i%26===13 && i<N-10){ const lx = HILL.x + ux*(r+W+0.9), lz = HILL.z + uz*(r+W+0.9); lamp(lx,lz,-ux,-uz,ry-0.1); }
   }
   const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); rg.setIndex(idx); rg.computeVertexNormals();
-  const road = new THREE.Mesh(rg, mat('#77706A','asphalt',{roughness:0.95, side:THREE.DoubleSide})); road.userData.noCast = true; staticRoot.add(road);
+  const road = new THREE.Mesh(rg, mat('#3C3C42','asphalt',{roughness:0.92, side:THREE.DoubleSide})); road.userData.noCast = true; staticRoot.add(road);
   // road from the north gate to the foot of the hill
-  flat(M_ASPH, -28, -112, 108, 9, 0.06);
+  addRoad(-28, -112, 108, 9, 0.06);
   // summit platform
   const S = new THREE.Group(), H = HILL.h + 0.2, end = th0 + turns*Math.PI*2;
   cyl(S,HILL.top+0.6,0.6,'#D9B98A',0,H-0.6,0,40,'stone');
@@ -340,7 +340,7 @@ const fairySpots = [];
 /* =========================================================
    Jagatpura: offices for companies (Manthhan Software and open slots)
    ========================================================= */
-flat(M_ASPH, 200, 117, 104, 11, 0.06); flat(M_ASPH, 150, 116, 17, 14, 0.07);
+addRoad(200, 117, 104, 11, 0.06); addRoad(150, 116, 17, 14, 0.07);
 flat(mat('#CDBBA4','paving'), 200, 124, 104, 4, 0.045);
 function techTower(x,z,w,d,nF,tower){
   const g = new THREE.Group(), G = 5.4, F = 3.6, h = G + nF*F, fz = d/2;

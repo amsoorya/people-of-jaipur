@@ -1073,16 +1073,17 @@ function terrainH(x,z){
   const m = new THREE.Mesh(g, mat('#D0AB82','ground')); m.userData.noCast = true; staticRoot.add(m);
 }
 function flat(m,x,z,w,d,y=0.02){ const o = new THREE.Mesh(UPLANE, m); o.rotation.x = -Math.PI/2; o.position.set(x,y,z); o.scale.set(w,d,1); o.userData.noCast = true; staticRoot.add(o); return o; }
-const M_PAVE = mat('#C99F86','paving'), M_ASPH = mat('#77706A','asphalt',{roughness:0.95}), M_PAVE2 = mat('#D6BE98','paving'), M_LINE = mat('#E8E0D2','ground');
+const M_PAVE = mat('#C99F86','paving'), M_ASPH = mat('#3C3C42','asphalt',{roughness:0.92}), M_PAVE2 = mat('#D6BE98','paving'), M_LINE = mat('#E8E0D2','ground');
+const ROADS = []; function addRoad(x,z,w,d,y){ flat(M_ASPH,x,z,w,d,y); ROADS.push({x,z,w,d}); }   // kerbs and lane lines are added along these later
 flat(M_PAVE, 0, 0, 192, 192, 0.03);                    // walled city paving
-flat(M_ASPH, 0, 0, 188, 13, 0.06);                     // main E-W bazaar
-flat(M_ASPH, 30, 0, 13, 188, 0.065);                   // N-S bazaar
-flat(M_ASPH, 30, 0, 34, 34, 0.07);                     // Badi Chaupar
-flat(M_ASPH, 30, -116, 13, 44, 0.06);                  // road to Jal Mahal
-flat(M_ASPH, 30, 112, 13, 36, 0.06);                   // road to Albert Hall
-flat(M_ASPH, -116, 0, 44, 11, 0.06);                   // road to the stepwell
-flat(M_ASPH, 180, 0, 170, 17, 0.06);                   // MI Road / C-Scheme
-flat(M_ASPH, 150, 15, 17, 190, 0.065);                 // cross road
+addRoad(0, 0, 188, 13, 0.06);                     // main E-W bazaar
+addRoad(30, 0, 13, 188, 0.065);                   // N-S bazaar
+addRoad(30, 0, 34, 34, 0.07);                     // Badi Chaupar
+addRoad(30, -116, 13, 44, 0.06);                  // road to Jal Mahal
+addRoad(30, 112, 13, 36, 0.06);                   // road to Albert Hall
+addRoad(-116, 0, 44, 11, 0.06);                   // road to the stepwell
+addRoad(180, 0, 170, 17, 0.06);                   // MI Road / C-Scheme
+addRoad(150, 15, 17, 190, 0.065);                 // cross road
 flat(mat('#CDBBA4','paving'), 180, 0, 170, 26, 0.04);  // footpaths
 flat(mat('#CDBBA4','paving'), 150, 15, 26, 190, 0.045);
 for (let x=100; x<262; x+=8){ flat(M_LINE, x, 0, 3.4, 0.25, 0.09); }
@@ -1827,9 +1828,9 @@ const fairySpots = [];
     if (i%26===13 && i<N-10){ const lx = HILL.x + ux*(r+W+0.9), lz = HILL.z + uz*(r+W+0.9); lamp(lx,lz,-ux,-uz,ry-0.1); }
   }
   const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); rg.setIndex(idx); rg.computeVertexNormals();
-  const road = new THREE.Mesh(rg, mat('#77706A','asphalt',{roughness:0.95, side:THREE.DoubleSide})); road.userData.noCast = true; staticRoot.add(road);
+  const road = new THREE.Mesh(rg, mat('#3C3C42','asphalt',{roughness:0.92, side:THREE.DoubleSide})); road.userData.noCast = true; staticRoot.add(road);
   // road from the north gate to the foot of the hill
-  flat(M_ASPH, -28, -112, 108, 9, 0.06);
+  addRoad(-28, -112, 108, 9, 0.06);
   // summit platform
   const S = new THREE.Group(), H = HILL.h + 0.2, end = th0 + turns*Math.PI*2;
   cyl(S,HILL.top+0.6,0.6,'#D9B98A',0,H-0.6,0,40,'stone');
@@ -1847,7 +1848,7 @@ const fairySpots = [];
 /* =========================================================
    Jagatpura: offices for companies (Manthhan Software and open slots)
    ========================================================= */
-flat(M_ASPH, 200, 117, 104, 11, 0.06); flat(M_ASPH, 150, 116, 17, 14, 0.07);
+addRoad(200, 117, 104, 11, 0.06); addRoad(150, 116, 17, 14, 0.07);
 flat(mat('#CDBBA4','paving'), 200, 124, 104, 4, 0.045);
 function techTower(x,z,w,d,nF,tower){
   const g = new THREE.Group(), G = 5.4, F = 3.6, h = G + nF*F, fz = d/2;
@@ -2363,6 +2364,28 @@ const PigeonRig = (()=>{
   return {update};
 })();
 
+/* Roads: alternating black-and-yellow kerbs along both edges and a dashed white centre line, with gaps where roads meet */
+(function kerbs(){
+  const inRoad = (x, z, self, pad = 0.2) => ROADS.some(r => r !== self && Math.abs(x - r.x) < r.w/2 + pad && Math.abs(z - r.z) < r.d/2 + pad);
+  const K = [], L = [], SEG = 1.6;
+  for (const r of ROADS){
+    if (r.w > 30 && r.d > 30) continue;   // Badi Chaupar square: the roundabout has its own edge
+    const alongX = r.w >= r.d, len = alongX ? r.w : r.d, half = (alongX ? r.d : r.w) / 2;
+    for (let u = -len/2 + SEG/2, i = 0; u < len/2; u += SEG, i++){
+      for (const side of [-1, 1]){ const x = alongX ? r.x + u : r.x + side * (half + 0.12), z = alongX ? r.z + side * (half + 0.12) : r.z + u;
+        if (!inRoad(x, z, r, 0.4)) K.push({x, z, alongX, yellow: i % 2 === 0}); }
+      const cx = alongX ? r.x + u : r.x, cz = alongX ? r.z : r.z + u;
+      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5)) L.push({x: cx, z: cz, alongX});
+    }
+  }
+  const box = new THREE.BoxGeometry(1, 1, 1), m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+  const make = (list, color, sx, sy, sz, y, cast) => { if (!list.length) return; const im = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({color: new THREE.Color(color).convertSRGBToLinear(), roughness: 0.75}), list.length);
+    list.forEach((k, i)=>{ q.setFromAxisAngle(up, k.alongX ? 0 : Math.PI/2); m.compose(new THREE.Vector3(k.x, y, k.z), q, new THREE.Vector3(sx, sy, sz)); im.setMatrixAt(i, m); }); im.castShadow = cast; im.receiveShadow = true; scene.add(im); };
+  make(K.filter(k=>k.yellow), '#E8B528', SEG, 0.2, 0.3, 0.1, true);
+  make(K.filter(k=>!k.yellow), '#1C1C1E', SEG, 0.2, 0.3, 0.1, true);
+  make(L, '#ECE8DE', 2.4, 0.02, 0.16, 0.085, false);
+})();
+
 /* Nature MegaKit trees, one instanced mesh per tree shape so hundreds of trees cost a handful of draw calls */
 (function plantTrees(){
   const fallback = () => { const g = new THREE.Group(); scene.add(g); TREE_SPOTS.forEach(t=>{ if (t.type !== 'scrub') treeSimple(t.x, t.z, t.type, t.s, g); }); g.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } }); };
@@ -2379,7 +2402,8 @@ const PigeonRig = (()=>{
       shapes[n.name] = {parts, h: (bb.max.y - bb.min.y) || 1, list: []}; });
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0,1,0), sc = new THREE.Vector3();
     TREE_SPOTS.forEach(t=>{ const [names, H] = KIND[t.type] || KIND.neem, nm = names[Math.floor(t.pick * names.length)], sh = shapes[nm]; if (!sh) return;
-      const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); sh.list.push(new THREE.Matrix4().compose(new THREE.Vector3(t.x, t.y || 0, t.z), q, sc)); });
+      const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); const sink = /Bush/.test(nm) ? H * t.s * 0.18 : 0;   // bushes have no trunk: settle their lower leaves into the soil
+      sh.list.push(new THREE.Matrix4().compose(new THREE.Vector3(t.x, (t.y || 0) - sink, t.z), q, sc)); });
     for (const nm in shapes){ const sh = shapes[nm]; if (!sh.list.length) continue;
       for (const p of sh.parts){ const im = new THREE.InstancedMesh(p.geo, p.mat, sh.list.length); sh.list.forEach((mx, i)=>im.setMatrixAt(i, mx)); im.castShadow = nm !== 'Bush_Common'; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); } }
   }, undefined, fallback);
@@ -4847,7 +4871,12 @@ function frame(){
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     drone.x += (rx*mx - fx*mz)*sp*dt; drone.z += (rz*mx - fz*mz)*sp*dt; drone.y += up*sp*0.6*dt;
     const dc = Math.hypot(drone.x-CX, drone.z-CZ); if (dc > 520){ drone.x = CX + (drone.x-CX)/dc*520; drone.z = CZ + (drone.z-CZ)/dc*520; }
-    drone.y = Math.max(Math.max(3, terrainH(drone.x,drone.z)+6), Math.min(240, drone.y));
+    // never sink into a building: the floor is the highest roof under you (or the ground)
+    let roof = -Infinity; for (const c of colliders){ if (drone.x > c.minX - 1 && drone.x < c.maxX + 1 && drone.z > c.minZ - 1 && drone.z < c.maxZ + 1 && c.h) roof = Math.max(roof, c.h); }
+    const ground = groundY(drone.x, drone.z), floor = Math.max(ground + 1.6, isFinite(roof) ? roof + 2.2 : -Infinity);
+    drone.y = Math.max(floor, Math.min(240, drone.y));
+    // holding C down to the ground (not a roof) lands you
+    if (up < 0 && !isFinite(roof) && drone.y <= ground + 1.8){ setFly(false); }
   } else if (mode === 'play' && riding){
     updateAutos(dt);
   } else if (mode === 'play' && liftState){
