@@ -2452,9 +2452,15 @@ const AnimalRig = (()=>{
   }
   function play(r, n){ if (!r.acts[n]){ const only = Object.keys(r.acts); if (only.length === 1){ const a0 = r.acts[only[0]]; if (!a0.isRunning()) a0.play(); a0.timeScale = n === 'Walk' || n === 'Gallop' ? 1 : 0; r.cur = n; } return; }
     if (r.cur === n) return; r.acts[n].reset().fadeIn(0.3).play(); if (r.cur && r.acts[r.cur]) r.acts[r.cur].fadeOut(0.3); r.cur = n; }
-  function update(dt){ for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = (a.sit || 0) > 0.5;
-    play(r, moving ? (Math.abs(a.v) > 2.2 && r.acts.Gallop ? 'Gallop' : 'Walk') : sit ? 'Eating' : ((a.bt|0) % 3 === 0 ? 'Eating' : 'Idle'));
-    r.inst.position.y = -a.body.position.y * 0 ; r.mixer.update(dt * (moving ? Math.min(1.6, 0.6 + Math.abs(a.v)*0.5) : 1)); } }
+  function update(dt){ for (const a of live){ const r = a.rig;
+    // speed from how far the animal actually moved this frame, so legs always match the ground
+    const p = a.g.position, last = r.last || (r.last = p.clone()), sp = dt > 0 ? Math.min(15, p.distanceTo(last) / dt) : 0; last.copy(p);
+    r.speed = (r.speed || 0) + (sp - (r.speed || 0)) * Math.min(1, dt * 6);
+    const sit = (a.sit || 0) > 0.5, run = r.speed > 2.6 && r.acts.Gallop, walk = r.speed > 0.15;
+    const want = run ? 'Gallop' : walk ? 'Walk' : sit || ((a.bt|0) % 3 === 0) ? 'Eating' : 'Idle';
+    play(r, want);
+    if (r.acts[want]) r.acts[want].timeScale = want === 'Walk' ? THREE.MathUtils.clamp(r.speed / 1.1, 0.5, 1.8) : want === 'Gallop' ? THREE.MathUtils.clamp(r.speed / 5, 0.7, 1.6) : 1;
+    r.mixer.update(dt); } }
   return {attach, update};
 })();
 // every other cow is the detailed resting cow ("Cow" by Asheraf, CC BY 4.0); it stays put since it has no walking animation
@@ -2484,7 +2490,9 @@ const CamelRig = (()=>{
     } catch(e){ console.warn('camel rig', e); } });
   }
   function update(dt, t){
-    for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = 0;   // no kneeling: this skeleton folds the wrong way, so resting camels stand
+    for (const a of live){ const r = a.rig, gp = a.g.position, lp = r.last || (r.last = gp.clone()), sp = dt > 0 ? Math.min(15, gp.distanceTo(lp) / dt) : 0; lp.copy(gp);
+      r.speed = (r.speed || 0) + (sp - (r.speed || 0)) * Math.min(1, dt * 6); if (r.speed > 0.15) r.w = (r.w || 0) + dt * r.speed * 2.2; a.walk = r.w || 0;
+      const moving = r.speed > 0.15 || Math.abs(a.v || 0) > 0.05, sit = 0;   // no kneeling: this skeleton folds the wrong way, so resting camels stand
       r.ctl.forEach((b,i)=>b.quaternion.copy(r.rest[i])); r.mixer.update(dt);
       r.amt += ((moving ? 1 : 0) - r.amt) * Math.min(1, dt * 4); const w = a.walk || 0, A = r.amt;
       for (const L of r.legs){ const ph = w + (L.s > 0 ? 0 : Math.PI), sw = Math.sin(ph);
