@@ -194,10 +194,9 @@ const Rig = (()=>{
       inst.traverse(o=>{
         if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
         const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
+        // keep each outfit's own designed colours; only skin tone follows the person's choice
         if (SKIN.test(nm)) tint(o.material, L.skin);
-        else if (HAIR.test(nm)){ tint(o.material, L.hair || '#1E1512'); if (turban) o.visible = false; }
-        else if (nm === m.top) tint(o.material, L.top);
-        else if (nm === m.bottom) tint(o.material, L.bottom);
+        else if (HAIR.test(nm) && turban) o.visible = false;
       });
       ch.g.add(inst); ch.mesh.visible = false;
       const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
@@ -205,11 +204,11 @@ const Rig = (()=>{
         // size the turban in world units, whatever the bone's own scale is
         ch.g.updateMatrixWorld(true); const ws = new THREE.Vector3(); bones.Head.getWorldScale(ws); const gs = new THREE.Vector3(); ch.g.getWorldScale(gs); const k = gs.x / ws.x;
         const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(L.headColor || '#E8B33A').convertSRGBToLinear(), roughness:0.85});
-        const t = new THREE.Mesh(turban ? new THREE.SphereGeometry(0.115, 20, 14) : new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI*2, 0, Math.PI*0.6), mat);
-        if (turban) t.scale.set(k*0.95, k*0.62, k*1.02); else t.scale.set(k, k*1.05, k*1.05);
+        const t = new THREE.Mesh(turban ? new THREE.SphereGeometry(0.135, 24, 16) : new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI*2, 0, Math.PI*0.6), mat);
+        if (turban) t.scale.set(k*0.98, k*0.78, k*1.04); else t.scale.set(k, k*1.05, k*1.05);
         // sit it on the crown: measure where the top of the head is in the bone's space
         const top = new THREE.Box3(); inst.traverse(o=>{ if (o.isMesh && SKIN.test(o.material.name || '')) top.expandByObject(o); }); const hp = new THREE.Vector3(); bones.Head.getWorldPosition(hp);
-        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? 0.01 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
+        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? -0.02 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
       }
       const mixer = new THREE.AnimationMixer(inst), acts = {};
       for (const c of cl) acts[c.name] = mixer.clipAction(c);
@@ -325,7 +324,7 @@ const Swap = (()=>{
       const k = o.height ? o.height / s2.y : o.length / s2.z; inst.scale.multiplyScalar(k); inst.updateMatrixWorld(true);
       b = new THREE.Box3().setFromObject(inst); const c = b.getCenter(new THREE.Vector3());
       inst.position.x -= c.x; inst.position.z -= c.z + (o.dz || 0); inst.position.y -= b.min.y;
-      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); if (o.blackBody && m.material.map) blackLower(m); } } });
+      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); if (o.blackBody && m.material.map) blackLower(m); if (/^glass$|windscreen|windshield/i.test(m.material.name || '')){ m.material.transparent = true; m.material.opacity = 0.22; m.material.depthWrite = false; m.castShadow = false; } } } });   // see-through windscreens
       (o.hide || []).forEach(h=>h.visible = false); (o.parent || g).add(pivot); if (o.done) o.done(pivot);
     });
   }
@@ -384,7 +383,7 @@ function makeAuto(){
   const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
   const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.6), M_SCREEN); ws.position.set(0, 1.52, 1.0); ws.rotation.x = -0.14; g.add(ws);
   // most autos are the Indian auto ("Auto Rickshaw" by rSquare, CC BY 4.0); every fourth is a tuk-tuk for variety
-  const tuk = (autoCount++ % 4) === 3;
+  const tuk = (autoCount++ % 4) === 3; g.userData.tuk = tuk;
   Swap.apply(g, tuk ? 'models/vehicles/tuktuk.glb' : 'models/vehicles/auto.glb', {length: tuk ? 2.9 : 2.7, yaw: AUTO_YAW, hide: [m, ws], blackBody: !tuk});
   scene.add(g); return g;
 }
@@ -480,7 +479,6 @@ function makeCamel(){
     cpart(S24, C3, m4(0, -1.41, 0.03, 0.12, 0.05, 0.15)),
   ]);
   const legs = [[-0.27, 0.7], [0.27, 0.7], [-0.27, -0.72], [0.27, -0.72]].map(([x, z])=>{ const l = new THREE.Mesh(legGeo, PM); l.position.set(x, 1.45, z); l.castShadow = true; g.add(l); return l; });
-  Swap.apply(g, 'models/animals/Camel.glb', {height: 3.0, yaw: CAMEL_YAW, hide: [bm, ...legs], done: pv=>{ g.userData.model = pv; }});   // "camel" by omarme37, CC BY 4.0
   scene.add(g); return {g, legs, body:bm};
 }
 const camels = camelSpots.map(([x,z,r])=>{ const c = makeCamel(); return {type:'camel', g:c.g, legs:c.legs, body:c.body, pos:V3(x,0,z), home:V3(x,0,z), heading:r, v:0, state:'parked', walk:0, beh:'idle', bt:3+Math.random()*6, sit:0, legH:1.45, sitDrop:1.05, range:4, circle:null}; });
@@ -526,6 +524,41 @@ cows.forEach((c, i)=>{
   else AnimalRig.attach(c, i % 4 === 2 ? 'Bull' : 'Cow', i % 4 === 2 ? 1.55 : 1.45, null);
 });
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });
+/* Rigged camel ("Bactrian Camel (Low Poly)" by Nyilonelycompany, CC BY-NC-SA 4.0). The model only has an idle
+   animation, so the walk is made here: camels pace, moving both legs on one side together. */
+const CamelRig = (()=>{
+  const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils), live = []; let srcP = null;
+  const src = () => srcP || (srcP = new Promise(res=>new THREE.GLTFLoader().load('models/animals/CamelRig.glb', g=>res(g), undefined, ()=>res(null))));
+  function attach(a){
+    if (!ok) return;
+    src().then(g=>{ if (!g) return; try {
+      const inst = THREE.SkeletonUtils.clone(g.scene), bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+      const find = re => Object.values(bones).find(o=>re.test(o.name));
+      inst.updateMatrixWorld(true); const v = new THREE.Vector3(); let lo = Infinity, hi = -Infinity; Object.values(bones).forEach(o=>{ o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); });
+      const rp = find(/^Root/).getWorldPosition(new THREE.Vector3()), hp = find(/^Head/).getWorldPosition(new THREE.Vector3());
+      const pivot = new THREE.Group(); inst.scale.setScalar(2.9 / (hi - lo)); inst.rotation.y = -Math.atan2(hp.x - rp.x, hp.z - rp.z); pivot.add(inst); a.g.add(pivot);
+      a.body.visible = false; a.legs.forEach(l=>l.visible = false);
+      // legs: [upper, lower, side (+1 left, -1 right), front?]
+      const legs = [['Shoulder_L','Elbow_L',1,1],['Shoulder_R','Elbow_R',-1,1],['Hip_L','Knee_L',1,0],['Hip_R','Knee_R',-1,0]].map(([u,l,s,f])=>({u:find(new RegExp('^'+u)), l:find(new RegExp('^'+l)), s, f})).filter(x=>x.u && x.l);
+      const neck = [/^Neck_M/, /^Neck2_M/, /^Head_M/].map(find).filter(Boolean);
+      const ctl = [...legs.flatMap(x=>[x.u, x.l]), ...neck]; const rest = ctl.map(b=>b.quaternion.clone());
+      const mixer = new THREE.AnimationMixer(inst); if (g.animations[0]){ const act = mixer.clipAction(g.animations[0]); act.play(); act.time = Math.random() * g.animations[0].duration; }
+      a.rig = {inst, pivot, mixer, legs, neck, ctl, rest, amt:0}; live.push(a);
+    } catch(e){ console.warn('camel rig', e); } });
+  }
+  function update(dt, t){
+    for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = a.sit || 0;
+      r.ctl.forEach((b,i)=>b.quaternion.copy(r.rest[i])); r.mixer.update(dt);
+      r.amt += ((moving ? 1 : 0) - r.amt) * Math.min(1, dt * 4); const w = a.walk || 0, A = r.amt;
+      for (const L of r.legs){ const ph = w + (L.s > 0 ? 0 : Math.PI), sw = Math.sin(ph);
+        L.u.rotation.z += L.s * (0.42 * sw * A - sit * (L.f ? 1.35 : 1.1));
+        L.l.rotation.z += L.s * (L.f ? 1 : -1) * (0.5 * Math.max(0, Math.cos(ph)) * A + sit * (L.f ? 2.1 : 1.9)); }
+      r.neck.forEach((b,i)=>{ b.rotation.z += (Math.sin(w * 2) * 0.05 * A) + (1 - A) * Math.sin(t * 0.4 + a.home.x + i) * 0.04; });
+      r.pivot.position.y = -sit * 1.05 + Math.abs(Math.sin(w)) * 0.05 * A; r.pivot.rotation.z = Math.sin(w) * 0.025 * A; }
+  }
+  return {attach, update};
+})();
+camels.forEach(c=>CamelRig.attach(c));
 /* The jeep that drives up to Sunset Point */
 function makeJeep(){
   const g = new THREE.Group(), O = '#56653F', D = '#2A2A2A';

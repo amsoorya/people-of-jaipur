@@ -868,7 +868,14 @@ function updateAction(){
   if (k !== actionKey){ actionKey = k; prompt.innerHTML = ''; if (action){ if (!isCoarse){ const kb = document.createElement('kbd'); kb.textContent = 'E'; prompt.append(kb); } prompt.append(document.createTextNode(action.label)); } }
   prompt.hidden = !action;
 }
-function doAction(){ if (action) action.fn(); }
+/* Visitors who haven't signed in can walk, look around, enter buildings and browse; anything that
+   involves other people or riding asks them to sign in first. */
+const GUEST_OK = /^(door|lobby|out|call|counter|jobs|rec|board|getout|standup)/;
+function needsSignIn(){ return !!(window.JP_AUTH && window.JP_AUTH.signIn) && !(db && myId); }
+function askSignIn(what){ showHint(`Sign in to ${what || 'interact'}. You can keep walking and looking around without signing in.`); setTimeout(()=>showHint(''), 3500); try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); }
+function doAction(){ if (!action) return; if (needsSignIn() && !GUEST_OK.test(action.key)){ askSignIn(/^(npc|meet|wave)/.test(action.key) ? 'meet people' : /^(hail|in|sc|camel|jeep)/.test(action.key) ? 'ride' : /tbl/.test(action.key) ? 'join the chat' : 'do that'); return; } action.fn(); }
+$('ghostSign').addEventListener('click', ()=>askSignIn('meet people, ride and chat'));
+setInterval(()=>{ $('ghostBar').hidden = !(mode === 'play' && needsSignIn()); }, 1000);
 
 
 /* =========================================================
@@ -2177,7 +2184,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
-  Rig.update(dt); AnimalRig.update(dt);
+  Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t);
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
     pv.position.y = mv ? Math.abs(Math.sin(w)) * 0.08 : 0; pv.rotation.z = mv ? Math.sin(w) * 0.04 : Math.sin(t * 0.5 + ph) * 0.008;
@@ -2295,7 +2302,8 @@ function frame(){
     if (snapCam){ camera.position.copy(want); snapCam = false; } else camera.position.lerp(want, Math.min(1, dt*6));
     camera.lookAt(L.x + 0.1, 1.2, L.zWall + L.out*1.5);
   } else if (riding && insideView){
-    const a = riding, EYE = {auto:[0,1.6,0.22], scooter:[0,1.64,-0.12], jeep:[0.4,1.72,0.1], camel:[0,3.36,0.02]}[a.type] || [0,1.6,0];
+    // driver's eye in each model: below the roof edge, behind the windscreen
+    const a = riding, EYE = a.type === 'auto' ? (a.g.userData.tuk ? [0, 1.42, -0.25] : [0, 1.36, 0.05]) : ({scooter:[0,1.64,-0.12], jeep:[0.4,1.72,0.1], camel:[0,3.36,0.02]}[a.type] || [0,1.6,0]);
     riding.g.updateMatrixWorld(true);
     const eye = riding.g.localToWorld(tmpV.set(EYE[0],EYE[1],EYE[2]));
     if (snapCam){ camera.position.copy(eye); snapCam = false; } else camera.position.lerp(eye, Math.min(1, dt*20));

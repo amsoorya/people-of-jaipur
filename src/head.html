@@ -222,6 +222,9 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 .chip{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;line-height:1.4}
 .chip.work{background:#1F8A4C;color:#fff}.chip.coffee{background:#F5E3C8;color:#5A3A1A}.chip.status{background:var(--surface-2);color:var(--ink)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips:empty{display:none}
+#ghostBar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 66px);left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:12px;background:rgba(28,22,20,.88);color:#FFF4EA;padding:8px 8px 8px 16px;border-radius:14px;font-size:14px;box-shadow:var(--shadow);max-width:calc(100vw - 24px)}
+#ghostBar b{letter-spacing:.06em;white-space:nowrap}#ghostBar span{opacity:.85}#ghostBar button{border:0;border-radius:10px;padding:7px 14px;background:#EE9C14;color:#2A1A10;font-weight:700;white-space:nowrap}
+@media (max-width:720px){#ghostBar span{display:none}#ghostBar{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -278,6 +281,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
+<div id="ghostBar" hidden><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet. Sign in to meet people, ride and chat.</span><button id="ghostSign">Sign in</button></div>
 <div id="topbar" hidden>
 <div class="hud" id="hud">
   <div class="brand">People of Jaipur</div>

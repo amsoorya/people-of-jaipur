@@ -150,7 +150,9 @@
   async function push(force){
     const now = Date.now();
     if (!force && now - lastPush < 250){ if (!queued){ queued = true; setTimeout(() => { queued = false; push(true); }, 260); } return; }
-    lastPush = now; await ready; try { await ch.track({by: session ? session.user.id : null, p: myState}); } catch(e){}
+    lastPush = now; await ready;
+    if (!session){ try { await ch.untrack(); } catch(e){} return; }   // visitors who haven't signed in stay invisible
+    try { await ch.track({by: session.user.id, p: myState}); } catch(e){}
   }
   const room = Object.freeze({
     presence: async (patch) => { for (const k in patch){ if (patch[k] === null) delete myState[k]; else myState[k] = patch[k]; } push(false); },
