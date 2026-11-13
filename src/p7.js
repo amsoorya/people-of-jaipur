@@ -40,7 +40,7 @@ let yaw = 0, pitch = 0.22, dist = 6.2, mode = 'loading', cardOpen = false, nearN
 addEventListener('keydown', e=>{
   if (mode === 'intro'){ if (e.key==='Enter') start(); return; }
   if (mode !== 'play') return;
-  if (e.key==='Escape'){ for (const id of ['guideWrap','notifWrap','commWrap','meetWrap','clubWrap']) if (!$(id).hidden){ $(id).hidden = true; cardOpen = false; return; } if (!menuWrap.hidden) toggleMenu(false); else if (!$('outfitWrap').hidden){ $('outfitWrap').hidden = true; cardOpen = false; } else if (!$('coWrap').hidden) closeCo(); else if (!$('jobsWrap').hidden) closeJobs(); else if (!$('chatWrap').hidden) closeChat(); else if (!$('bizWrap').hidden) closeBiz(); else if (prod) closeProducts(); else if (!$('joinWrap').hidden) closeJoin(); else if (cardOpen) closeCard(); else togglePanel(false); return; }
+  if (e.key==='Escape'){ for (const id of ['guideWrap','notifWrap','commWrap','meetWrap','clubWrap','recWrap']) if (!$(id).hidden){ $(id).hidden = true; cardOpen = false; return; } if (!menuWrap.hidden) toggleMenu(false); else if (!$('outfitWrap').hidden){ $('outfitWrap').hidden = true; cardOpen = false; } else if (!$('coWrap').hidden) closeCo(); else if (!$('jobsWrap').hidden) closeJobs(); else if (!$('chatWrap').hidden) closeChat(); else if (!$('bizWrap').hidden) closeBiz(); else if (prod) closeProducts(); else if (!$('joinWrap').hidden) closeJoin(); else if (cardOpen) closeCard(); else togglePanel(false); return; }
   if (!$('meetWrap').hidden || !$('clubWrap').hidden || !$('joinWrap').hidden || !$('chatWrap').hidden || !$('bizWrap').hidden || !$('coWrap').hidden || !$('outfitWrap').hidden) return;
   if (e.key==='e' || e.key==='E'){ if (prod) closeProducts(); else if (cardOpen) closeCard(); else doAction(); return; }
   if (mapOpen) return;
@@ -70,7 +70,24 @@ function moveStick(e){ const r = stick.getBoundingClientRect(), R = r.width/2; l
 if (isCoarse) document.body.classList.add('touch');
 const intro = $('intro'), hud = $('hud'), topright = $('topright'), panel = $('panel'), prompt = $('prompt'), cardWrap = $('cardWrap');
 if (isCoarse) $('hint').textContent = 'Use the joystick to walk and drag to look around';
-$('startBtn').addEventListener('click', ()=>{ let pr = null; try { pr = localStorage.getItem('jp-pending-role'); localStorage.removeItem('jp-pending-role'); } catch(e){} if (pr && db && myId){ start(); runRole(pr); } else showRoles(); });
+$('startBtn').addEventListener('click', ()=>{ let pr = null; try { pr = localStorage.getItem('jp-pending-role'); localStorage.removeItem('jp-pending-role'); } catch(e){}
+  if (pr === 'signin' && db && myId){ start(); welcomeBack(); return; }
+  if (pr && db && myId){ start(); runRole(pr); return; }
+  if (db && myId){ start(); welcomeBack(); return; }   // already signed in: no need to ask how they're joining again
+  showRoles(); });
+const signInReturning = () => { if (!(window.JP_AUTH && window.JP_AUTH.signIn)) return; try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); };
+$('introSign').addEventListener('click', signInReturning);
+$('roleSignIn').addEventListener('click', signInReturning);
+(async ()=>{ for (let i=0;i<40 && !(window.JP_AUTH && window.JP_AUTH.signedIn);i++) await new Promise(r=>setTimeout(r,100)); if (!window.JP_AUTH) return; await new Promise(r=>setTimeout(r,600));
+  const inn = window.JP_AUTH.signedIn(); $('introSign').hidden = inn; $('roleSignIn').hidden = inn; if (inn) $('startBtn').textContent = 'Enter the city';
+})();
+/* Signed-in members go to their own spot; if they haven't added themselves yet, offer it. */
+async function welcomeBack(){
+  for (let i=0;i<30 && !profilesLoaded;i++) await new Promise(r=>setTimeout(r,200));
+  if (myDoc){ const x = clampN(myDoc.x,-290,290,null), z = clampN(myDoc.z,-290,290,null); if (x!==null){ P.pos.set(x, 0, z + 1.6); resolve(P.pos); snapCam = true; }
+    showHint(`Welcome back${myName ? ', ' + myName.split(' ')[0] : ''}! You’re at your spot.`); setTimeout(()=>showHint(''), 3500); }
+  else showRoles();
+}
 function start(){
   if (mode !== 'intro') return;
   mode = 'play'; intro.classList.add('leaving'); setTimeout(()=>intro.hidden = true, 750);
@@ -86,7 +103,9 @@ function renderList(){
   $('tabJobs').setAttribute('aria-selected', String(tab==='jobs')); $('tabOffices').setAttribute('aria-selected', String(tab==='offices'));
   $('tabPeople').setAttribute('aria-selected', String(tab==='people')); $('tabPlaces').setAttribute('aria-selected', String(tab==='places')); $('tabShops').setAttribute('aria-selected', String(tab==='shops'));
   const peopleRows = ()=>{ const rows = []; live.peers.forEach(e=>{ const nm = peerName(e); const mm = e.by && memberMap.get(e.by); rows.push({t:nm, s:`Online now${e.place ? ', at ' + e.place : ''}`, c:'#34C27A', i:initials(nm==='Visitor'?'V':nm), go:()=>{ if (mm){ togglePanel(false); openCard(mm); return; } if (riding) exitAuto(); if (inShop) exitShop(); setFly(false); P.pos.set(e.cur.x+1.5,0,e.cur.z+1.5); resolve(P.pos); snapCam = true; }}); });
-    const on = onlineIds(); memberMap.forEach(m=>{ if (on.has(m.id)) return; const co = m.p.company ? companyOf(m.p.company) : null; const st2 = Social.status(m.id); rows.push({t:m.p.name, s:[st2==='connected' ? 'Connected' : st2==='incoming' ? 'Wants to connect' : '', m.p.role, co && co.name].filter(Boolean).join(', ') || 'Member', c:lookColor(m.p.look), i:initials(m.p.name), go:()=>{ togglePanel(false); openCard(m); }}); });
+    const on = onlineIds(); memberMap.forEach(m=>{ if (on.has(m.id)) return; const co = m.p.company ? companyOf(m.p.company) : null; const st2 = Social.status(m.id); rows.push({creator: m.id === CREATOR_ID, t:m.p.name, s:[m.id === CREATOR_ID ? 'Creator of People of Jaipur' : '', st2==='connected' ? 'Connected' : st2==='incoming' ? 'Wants to connect' : '', m.p.role, co && co.name].filter(Boolean).join(', ') || 'Member', c:lookColor(m.p.look), i:initials(m.p.name), go:()=>{ togglePanel(false); openCard(m); }}); });
+    const ci = rows.findIndex(r=>r.creator); if (ci > 0) rows.unshift(rows.splice(ci,1)[0]);
+    if (myDoc) rows.unshift({t:`${myName || 'You'} (you)`, s:`Your spot${myDoc.place ? ', ' + myDoc.place : ''}. Tap to edit.`, c:'#EE9C14', i:initials(myName || 'You'), go:()=>{ togglePanel(false); openJoin(); }});
     return rows.length ? rows : [{t:'Nobody has joined yet', s: (db && myId) ? 'Be the first: Menu, then Add yourself to the city.' : 'Signed-in people show up here.', c:'#B85C48', i:'+', go:()=>{ if (db && myId) openJoin(); }}]; };
   const items = tab==='people' ? peopleRows()
                     : tab==='offices' ? officeDoors.slice().sort((a,b)=>{ const oa = floorName(a)!=='Available' ? 0 : 1, ob = floorName(b)!=='Available' ? 0 : 1; if (oa!==ob) return oa-ob; return a.tower===b.tower ? b.n-a.n : (a.tower<b.tower?-1:1); }).map(f=>{ const nm = floorName(f); return {t: nm==='Available' ? `Tower ${f.tower}, floor ${f.n}` : nm, s: nm==='Available' ? 'Free for an IT company' : `Tower ${f.tower}, floor ${f.n}`, c: nm==='Available' ? '#9AA59A' : '#2F4F7F', i: String(f.n), logo: (companyAt(f.slot)||{}).logo, go:()=>goToFloor(f)}; })
@@ -134,6 +153,7 @@ function openCard(n){
   $('waveBtn').hidden = true; refreshCardSocial(n);
   $('cNote').textContent = n.member ? (Social.status(n.id)==='connected' ? 'You’re connected.' : 'Connect to see their LinkedIn and other links, and to message them.') : '';
   $('hiBtn').hidden = !n.p.link;
+  if (n.id && n.id === CREATOR_ID){ $('cRole').textContent = `Creator of People of Jaipur${n.p.role ? ' · ' + n.p.role : ''}`; if (Social.status(n.id) !== 'connected') $('cNote').textContent = 'Say hello to the person who built this city. Tap Connect to message them.'; }
   cardWrap.hidden = false; prompt.hidden = true; $('hiBtn').focus();
 }
 function closeCard(){ cardOpen = false; cardWrap.hidden = true; canvas.focus(); }
@@ -543,6 +563,11 @@ const KEEPERS = [
   {top:'#E05A2B',bottom:'#F4EDE2',head:'hair',headColor:'#1E1512',skin:'#9C6A4C'},
 ];
 const GREET = [['Aaiye, aaiye! Kya dikhaun?','Come in! What can I show you?'],['Nayi chudiyan aayi hain!','New bangles just arrived!'],['Garam jalebi le lijiye!','Have some hot jalebi!'],['Shuddh chandi, shuddh sona.','Pure silver, pure gold.'],['Haath ki bani juttiyan!','Hand-stitched juttis!'],['Taaza masale, seedhe mandi se.','Fresh spices, straight from the market.']];
+/* A shopkeeper behind the counter who turns to face you and greets you. */
+function addKeeper(sc, look, greet, z){
+  const ch = makePerson(look); ch.g.position.set(0.9, 0, z); sc.add(ch.g); sc.userData.keeper = ch;
+  fontReady.then(()=>{ const b = bubble(greet[0], greet[1]); b.position.set(0.9, 2.55, z); sc.add(b); });
+}
 function bubble(line1, line2){
   const [c,x] = cv(10,10); x.font = '600 40px Hind, system-ui, sans-serif';
   const w1 = x.measureText(line1).width; x.font = '400 32px Hind, system-ui, sans-serif'; const w2 = x.measureText(line2).width;
@@ -584,6 +609,7 @@ function buildInterior(kind, stocked){
   if (kind===2 || kind===3){ box(sc,W-1.6,0.9,0.8,'#6B4530',0,0,cz,'stone'); add(sc,UBOX,M_GLASS_SHOP,0,1.15,cz,W-1.6,0.5,0.8); box(sc,W-1.6,0.04,0.8,'#E8DCC8',0,0.9,cz,'stone'); }
   else box(sc,W-1.6,1.0,0.8,'#6B4530',0,0,cz,'stone');
   sc.userData.keeper = null; sc.userData.counterZ = cz;
+  if (stocked) addKeeper(sc, KEEPERS[kind % KEEPERS.length], GREET[kind] || GREET[0], cz - 0.9);
   const cols = ['#E8B33A','#D8342B','#2E8C87','#B83A6B','#3B4B8C','#F2C230','#5E8F3A','#E05A2B','#F4EDE2','#7E3FA0'];
   const C = () => cols[Math.floor(Math.random()*cols.length)];
   if (!stocked){ /* empty shelves until the owner lists products */ }
@@ -625,10 +651,10 @@ function buildInterior(kind, stocked){
   return sc;
 }
 function enterShop(door){
-  const key = door.kind === 6 ? 'cafe:'+door.name+(door.biz?':'+door.biz.name:'') : door.kind + (door.biz ? ':open' : ':empty');
+  const key = door.kind === 6 ? 'cafe:'+door.name+(door.biz?':'+door.biz.name:'') : door.kind + (door.biz ? ':open' : door.landmark ? ':sample' : ':empty');
   const okey = door.kind === 7 ? 'office:'+door.slot+':'+(door.co ? door.co.name + door.co.jobs.map(j=>j.title).join() : '') : key;
   if (door.kind === 7){ enterFloor(door); return; }
-  if (!interiorCache[okey]) interiorCache[okey] = door.kind === 8 ? buildLobby(door) : door.kind === 6 ? buildCafe(door) : buildInterior(door.kind, !!door.biz);
+  if (!interiorCache[okey]) interiorCache[okey] = door.kind === 8 ? buildLobby(door) : door.kind === 6 ? buildCafe(door) : buildInterior(door.kind, !!door.biz || !!door.landmark);
   const sc0 = interiorCache[okey];
   const sc = sc0;
   sc.environment = scene.environment;
@@ -781,10 +807,11 @@ function computeAction(){
     { const nl = nearestLift(); if (nl) return {key:'call'+nl.x, label:'Call the lift', fn:()=>callLift(nl)}; }
     if (ud.lobby){ return P.pos.z > R2.D/2 - 2.2 ? {key:'out', label:'Step outside', fn:exitShop} : null; }
     if (ud.floor){
-      if (Math.hypot(ud.jobsSpot.x-P.pos.x, ud.jobsSpot.z-P.pos.z) < 2.2 || Math.hypot(ud.reception.x-P.pos.x, ud.reception.z-P.pos.z) < 1.6) return {key:'jobs', label:'See open roles', fn:openJobs}; return null; }
+      if (Math.hypot(ud.reception.x-P.pos.x, ud.reception.z-P.pos.z) < 1.8) return {key:'rec', label:'Talk to the receptionist', fn:openReception};
+      if (Math.hypot(ud.jobsSpot.x-P.pos.x, ud.jobsSpot.z-P.pos.z) < 2.2) return {key:'jobs', label:'See open roles', fn:openJobs}; return null; }
     for (const tb of (ud.tables||[])){ if (Math.hypot(tb.x-P.pos.x, tb.z-P.pos.z) < 2.0 && tb.seats.some(s=>!s.npc)){ return {key:'tbl'+tb.x+tb.z, label:'Sit down and join the chat', fn:()=>sitAt(tb, 'cafe:'+inShop.door.name, {title:inShop.door.name, sub:'Chat with people at this café', color:'#7A5638'}, inShop.scene)}; } }
     if (ud.office && ud.jobsSpot && Math.hypot(ud.jobsSpot.x-P.pos.x, ud.jobsSpot.z-P.pos.z) < 2.2) return {key:'jobs', label:'See open roles', fn:openJobs};
-    if (P.pos.z < ud.counterZ + 1.7){ const b0 = inShop.door.biz; if (b0 && b0.products.length) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && db && myId) return {key:'claim', label:'Is this yours? Register it', fn:openBiz}; }
+    if (P.pos.z < ud.counterZ + 1.7){ const b0 = inShop.door.biz; if (b0 && b0.products.length) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && (inShop.door.landmark || inShop.door.kind === 6)) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && db && myId) return {key:'claim', label:'Is this yours? Register it', fn:openBiz}; }
     return P.pos.z > R2.D/2 - 2.2 ? {key:'out', label:'Step outside', fn:exitShop} : null;
   }
   for (const tb of outdoorTables){ if (!riding && Math.hypot(tb.x-P.pos.x, tb.z-P.pos.z) < 1.8 && tb.seats.some(s=>!s.npc)){ return {key:'otbl'+tb.x, label:'Sit down and join the chat', fn:()=>sitAt(tb, 'cafe:'+tb.place, {title:tb.place, sub:'Chat with people at this café', color:'#7A5638'}, scene)}; } }
@@ -822,7 +849,8 @@ function doAction(){ if (action) action.fn(); }
    People who add themselves (saved for everyone)
    ========================================================= */
 const OUTFITS = [['#2E8C87','#EE9C14'],['#B83A6B','#F2C230'],['#3B4B8C','#D8342B'],['#F4EDE2','#E05A2B'],['#7E3FA0','#F2C230'],['#E9A23B','#C23B3B'],['#2A2A33','#E8B33A'],['#5E8F3A','#F4EDE2']];
-const memberMap = new Map(); let db = null, myId = null, myDoc = null, outfitPick = 0;
+const memberMap = new Map(); let db = null, myId = null, myDoc = null, outfitPick = 0, profilesLoaded = false;
+const CREATOR_ID = (window.JP_CONFIG && window.JP_CONFIG.creatorId) || '';
 const isLinkedIn = u => { try { const x = new URL(u); return x.protocol==='https:' && /(^|\.)linkedin\.com$/.test(x.hostname) && /^\/in\/[^/]+\/?$/.test(x.pathname); } catch(e){ return false; } };
 const clampN = (v,a,b,d) => (typeof v==='number' && isFinite(v)) ? Math.max(a,Math.min(b,v)) : d;
 const str = (v,n) => typeof v === 'string' ? v.slice(0,n) : '';
@@ -839,7 +867,7 @@ async function syncMembers(snap){
     if (m && m.sig !== sig){ removeMember(doc.id); m = null; }
     if (!m){
       const look = memberLook(d), ch = makePerson(look); ch.g.position.set(x,0,z); ch.g.rotation.y = clampN(d.r,-10,10,0); scene.add(ch.g);
-      const marker = new THREE.Mesh(diamondGeo, new THREE.MeshBasicMaterial({color:'#34C27A', toneMapped:false})); marker.position.set(x,2.75,z); scene.add(marker);
+      const marker = new THREE.Mesh(diamondGeo, new THREE.MeshBasicMaterial({color: doc.id === CREATOR_ID ? '#F5B13A' : '#34C27A', toneMapped:false})); marker.position.set(x,2.75,z); scene.add(marker);
       m = {id:doc.id, sig, ch, marker, label:null, member:true, baseRot:clampN(d.r,-10,10,0), rot:clampN(d.r,-10,10,0), ph:Math.random()*6, p:{name:'Someone', role:'', area:'', building:'', pos:[x,z], face:clampN(d.r,-10,10,0), link:'', look}};
       memberMap.set(doc.id, m); npcs.push(m); circles.push(m.circle = {x, z, r:0.45});
     }
@@ -851,18 +879,20 @@ async function syncMembers(snap){
   for (const id of [...memberMap.keys()]) if (!seen.has(id)) removeMember(id);
   if (!seen.has(myId)) myDoc = null;
   $('joinBtn').textContent = myDoc ? 'Edit your profile and spot' : 'Add yourself to the city';
+  $('creatorBtn').hidden = !(CREATOR_ID && memberMap.has(CREATOR_ID));
   if (typeof refreshOffices === 'function') refreshOffices();
   const names = await memberNames([...memberMap.keys()]);
-  memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== nm){ if (m.label) scene.remove(m.label); m.label = liveSprite(nm.split(' ')[0]); m.labelText = nm; m.label.position.set(m.p.pos[0],2.35,m.p.pos[1]); scene.add(m.label); } });
+  memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== nm){ if (m.label) scene.remove(m.label); m.label = liveSprite(m.id === CREATOR_ID ? `${nm.split(' ')[0]} · Creator` : nm.split(' ')[0]); m.labelText = nm; m.label.position.set(m.p.pos[0],2.35,m.p.pos[1]); scene.add(m.label); } });
 }
 function removeMember(id){ const m = memberMap.get(id); if (!m) return; scene.remove(m.ch.g); scene.remove(m.marker); if (m.label) scene.remove(m.label); const i = npcs.indexOf(m); if (i>=0) npcs.splice(i,1); const j = circles.indexOf(m.circle); if (j>=0) circles.splice(j,1); memberMap.delete(id); }
 (async ()=>{
   if (!window.claude || typeof window.claude.use !== 'function') return;
   try {
     const [d, u] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
-    if (!d || !u) return; db = d; live.user = live.user || u; myId = await u.id(); if (!myId) return;
+    if (!d || !u) return; db = d; live.user = live.user || u; myId = await u.id();
+    db.collection('profiles').onSnapshot(snap=>{ syncMembers(snap); profilesLoaded = true; }, ()=>{});   // everyone sees members, signed in or not
+    if (!myId) return;
     $('joinBtn').hidden = false;
-    db.collection('profiles').onSnapshot(snap=>{ syncMembers(snap); }, ()=>{});
   } catch(e){}
 })();
 const sw = $('jSw');
@@ -883,6 +913,19 @@ async function openJoin(){
   coByslot.forEach(c=>{ const o = document.createElement('option'); o.value = c.owner; o.textContent = c.name; jc.appendChild(o); }); jc.value = myDoc ? str(myDoc.company,80) : '';
   $('jRemove').hidden = !myDoc; $('jNote').textContent = ''; $('joinWrap').hidden = false; $('jRole').focus();
 }
+/* Meet the creator: walk new members over to the creator's spot and open their card. */
+function meetCreator(isWelcome){
+  const m = CREATOR_ID && memberMap.get(CREATOR_ID); if (!m || myId === CREATOR_ID) return false;
+  if (isWelcome){ try { if (localStorage.getItem('jp-met-creator')) return false; localStorage.setItem('jp-met-creator', '1'); } catch(e){} }
+  if (mode !== 'play') start();
+  if (!$('prodWrap').hidden && prod) closeProducts();
+  for (const id of ['coWrap','bizWrap','joinWrap','jobsWrap','recWrap']) $(id).hidden = true;
+  if (riding) exitAuto(); if (inShop) exitShop(); if (flying) setFly(false);
+  const a = m.rot || 0; P.pos.set(m.p.pos[0] + Math.sin(a)*1.8, 0, m.p.pos[1] + Math.cos(a)*1.8); resolve(P.pos); P.rot = a; snapCam = true;
+  setTimeout(()=>{ openCard(m); if (isWelcome) $('cNote').textContent = `Welcome to People of Jaipur! Meet ${m.p.name.split(' ')[0]}, who built this city. Tap Connect to say hello.`; }, 700);
+  return true;
+}
+$('creatorBtn').addEventListener('click', ()=>{ toggleMenu(false); meetCreator(false); });
 function closeJoin(){ $('joinWrap').hidden = true; cardOpen = false; canvas.focus(); }
 $('joinBtn').addEventListener('click', openJoin);
 $('jCancel').addEventListener('click', closeJoin);
@@ -901,7 +944,8 @@ $('joinForm').addEventListener('submit', async e=>{
   if (Social.private){ try { await Social.setSocials(socials); } catch(e){} }
   if (dispName && window.JP_AUTH && window.JP_AUTH.setName) window.JP_AUTH.setName(dispName);
   const body = {role, building, displayName:dispName, socials: Social.private ? {} : socials, lk:Object.assign({},myLook), company:$('jCo').value || '', outfit:outfitPick, dress: myLook.style==='lehenga', skin:myLook.skin|0, x:spot.x, z:spot.z, r:+((P.rot+Math.PI)%(Math.PI*2)).toFixed(2), place:lastArea, updatedAt:Date.now()};
-  try { await db.collection('profiles').doc(myId).set(body); $('jNote').textContent = 'Saved. When you’re offline, people find you at this spot.'; setTimeout(closeJoin, 900); }
+  const firstJoin = !myDoc;
+  try { await db.collection('profiles').doc(myId).set(body); $('jNote').textContent = 'Saved. When you’re offline, people find you at this spot.'; setTimeout(closeJoin, 900); if (firstJoin) setTimeout(()=>meetCreator(true), 1400); }
   catch(err){ $('jNote').textContent = (err && (err.code==='permission_denied' || err.code==='not_granted')) ? 'You need edit access to this page to add yourself. Ask the person who shared it.' : 'That didn’t save. Check your connection and try again.'; }
   $('jSave').disabled = false;
 });
@@ -1102,6 +1146,14 @@ let prod = null;   // {door, items, i, model, biz}
 function openProducts(){
   if (!inShop) return;
   const d = inShop.door, biz = d.biz, kind = biz ? biz.kind : d.kind;
+  const sample = !biz && (d.landmark || d.kind === 6);
+  if (sample){
+    const items = (PRODUCTS[d.kind] || PRODUCTS[0]).map(p=>Object.assign({}, p, {d: p.d + ' (Sample item)'}));
+    prod = {door:d, items, i:0, model:null, biz:null, kind:d.kind, sample:true};
+    const czz = inShop.scene.userData.counterZ; P.pos.set(-0.5,0,czz+1.6); P.rot = Math.PI; yaw = 0.15; pitch = 0.12; dist = 2.4; snapCam = true;
+    cardOpen = true; for (const k in keys) keys[k] = false;
+    $('prodWrap').hidden = false; showProduct(); return;
+  }
   if (!biz || !biz.products.length){
     cardOpen = false; $('area').textContent = d.name;
     $('fact').textContent = biz ? `${biz.name} hasn’t listed any products yet.` : (d.landmark || d.kind===6) ? `${d.name} is a real Jaipur place. If it’s yours, register it to list what you sell.` : 'This shop is free.';
@@ -1121,7 +1173,7 @@ function showProduct(){
   $('prodName').textContent = it.n; $('prodPrice').textContent = it.p;
   $('prodDesc').textContent = it.d || (prod.biz ? prod.biz.desc : '');
   $('prodCount').textContent = `${prod.i+1} of ${prod.items.length}`;
-  $('prodAsk').textContent = 'Message the shop'; $('prodAsk').hidden = !prod.biz;
+  $('prodAsk').textContent = prod.sample ? 'Is this your shop? Register it' : 'Message the shop'; $('prodAsk').hidden = !prod.biz && !(prod.sample && db && myId);
   $('prodBuy').hidden = !(prod.biz && prod.biz.url); $('prodDir').hidden = !(prod.biz && prod.biz.address);
   $('prodNote').textContent = 'Listed by the shop.';
   $('prodClaim').hidden = !(db && myId && !prod.biz);
@@ -1135,6 +1187,7 @@ $('prodBuy').addEventListener('click', ()=>{ if (prod && prod.biz && safeUrl(pro
 $('prodDir').addEventListener('click', ()=>{ if (prod && prod.biz && prod.biz.address) window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(prod.biz.address),'_blank','noopener'); });
 $('prodAsk').addEventListener('click', ()=>{
   const it = prod.items[prod.i], d = prod.door, biz = prod.biz, kind = prod.kind;
+  if (prod.sample){ closeProducts(); if (db && myId) openBiz(); return; }
   if (!biz) return;
   closeProducts(true); openRoom('shop:'+shopDoors.indexOf(d), {title:biz.name, sub:'Messages to the shop. The owner replies when they’re online.', color:'#2E8C5A'});
 });
@@ -1164,10 +1217,11 @@ function buildCafe(door){
   box(sc,0.6,0.45,0.4,'#C9C9C9',-1.6,1.06,cz,'stone'); cyl(sc,0.16,0.35,'#B85C3F',1.2,1.06,cz,14,'stone'); for (let i=0;i<5;i++) add(sc,new THREE.CylinderGeometry(0.06,0.045,0.11,12),pmat('#A85A3A'),0.2+i*0.15,1.11,cz+0.15);
   const [mc,mx] = cv(512,320); mx.fillStyle = '#1E2420'; mx.fillRect(0,0,512,320); mx.strokeStyle = '#C9A27A'; mx.lineWidth = 10; mx.strokeRect(5,5,502,310);
   mx.fillStyle = '#F4EDE2'; mx.font = "700 40px Hind, system-ui, sans-serif"; mx.textAlign = 'center'; mx.fillText(door.name.length > 22 ? 'Menu' : door.name, 256, 58);
-  mx.font = "500 28px Hind, system-ui, sans-serif"; const menu = door.biz && door.biz.products.length ? door.biz.products : []; if (menu.length) menu.forEach((p,i)=>{ mx.textAlign = 'left'; mx.fillText(p.n.slice(0,24), 34, 116+i*48); mx.textAlign = 'right'; mx.fillText(p.p, 478, 116+i*48); }); else { mx.fillText('Pull up a chair and say hello', 256, 150); mx.fillText('to whoever is here.', 256, 192); }
+  mx.font = "500 28px Hind, system-ui, sans-serif"; const menu = door.biz && door.biz.products.length ? door.biz.products : PRODUCTS[6]; if (menu.length) menu.forEach((p,i)=>{ mx.textAlign = 'left'; mx.fillText(p.n.slice(0,24), 34, 116+i*48); mx.textAlign = 'right'; mx.fillText(p.p, 478, 116+i*48); }); else { mx.fillText('Pull up a chair and say hello', 256, 150); mx.fillText('to whoever is here.', 256, 192); }
   plane(sc,new THREE.MeshStandardMaterial({map:tex(mc), roughness:0.9}),0,2.75,-D/2+0.12,2.6,1.6);
   box(sc,0.9,0.02,0.6,'#6B4530',0.4,1.18,cz-0.85,'stone');
   sc.userData.keeper = null; sc.userData.counterZ = cz;
+  addKeeper(sc, KEEPERS[3 % KEEPERS.length], ['Chai piyoge?','Fancy a cup of chai?'], cz - 0.9);
   // tables, chairs, people
   const circlesIn = [], sitters = [];
   const startIx = hashStr(door.name) % CAFE_PEOPLE.length;
@@ -1232,7 +1286,7 @@ function syncShops(snap){
 }
 (async ()=>{
   if (!window.claude || typeof window.claude.use !== 'function') return;
-  try { const d = await window.claude.use('db'); if (!d) return; let tries = 0; while (!myId && tries++ < 40) await new Promise(r=>setTimeout(r,250)); if (!myId) return;
+  try { const d = await window.claude.use('db'); if (!d) return; let tries = 0; while (!myId && tries++ < 12) await new Promise(r=>setTimeout(r,250));
     d.collection('shops').onSnapshot(syncShops, ()=>{}); } catch(e){}
 })();
 function openBiz(){
@@ -1257,6 +1311,7 @@ $('bizForm').addEventListener('submit', async e=>{
   const door = shopDoors.indexOf(inShop.door), taken = bizByDoor.get(door);
   if (taken && taken.owner !== myId){ $('bNote').textContent = 'Another business already registered this shop. Try one next door.'; return; }
   $('bSave').disabled = true; $('bNote').textContent = 'Saving…';
+  if (!myBiz) setTimeout(()=>meetCreator(true), 2600);
   try { await db.collection('shops').doc(myId).set({door, name, kind:+$('bKind').value, desc, url, address, products, createdAt: (myBiz && myBiz.createdAt) || Date.now(), updatedAt:Date.now()});
     $('bNote').textContent = 'Your shop is live in the city.'; setTimeout(()=>{ closeBiz(); exitShop(); }, 800); }
   catch(err){ $('bNote').textContent = (err && (err.code==='permission_denied'||err.code==='not_granted')) ? 'You need edit access to this page to register a shop. Ask the person who shared it.' : 'That didn’t save. Check your connection and try again.'; }
@@ -1332,7 +1387,7 @@ function officeSignTex(title, sub, vacant){
 }
 const MANTHHAN_LOGO = 'data:image/png;base64,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';
 // Manthhan is in Tower A by default. When its owner registers the floor, their own details take over.
-const MANTHHAN_SEED = {owner:'', seed:true, team:[], slot:MANTHHAN_SLOT, name:'Manthhan', logo:MANTHHAN_LOGO, about:'Engineering AI that runs in production, for government, enterprise and retail.', url:'https://manthhan.com/', address:'Jagatpura, Jaipur', jobs:[], createdAt:0};
+const MANTHHAN_SEED = {owner:'', seed:true, team:[], slot:MANTHHAN_SLOT, name:'Manthhan', logo:MANTHHAN_LOGO, about:'Engineering AI that runs in production, for government, enterprise and retail.', url:'https://manthhan.com/', email:'contact@manthhan.com', phone:'+919582016238', address:'Jagatpura, Jaipur', jobs:[], createdAt:0};
 function companyAt(slot){ const co = coByslot.get(slot); if (co){ if (slot === MANTHHAN_SLOT && !co.logo && /manthhan/i.test(co.name)) return Object.assign({}, co, {logo:MANTHHAN_LOGO}); return co; } return slot === MANTHHAN_SLOT ? MANTHHAN_SEED : null; }
 function floorName(d){ const co = companyAt(d.slot); return co ? co.name : 'Available'; }
 function setOfficeSign(d){
@@ -1355,6 +1410,8 @@ fontReady.then(()=>lobbyDoors.forEach(l=>{
   const lb = liveSprite(`Tower ${l.tower} entrance`); lb.position.set(l.x, 4.0, l.z+0.4); lb.scale.multiplyScalar(1.5); scene.add(lb);
   entranceMarkers.push(dm);
 }));
+const okMail = e => /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(String(e||'').trim());
+const okPhone = p => /^\+?[0-9][0-9 ()-]{6,18}$/.test(String(p||'').trim()) && String(p).replace(/\D/g,'').length >= 7;
 function syncCompanies(snap){
   const claims = new Map(); myCo = null;
   for (const doc of snap.docs){
@@ -1362,7 +1419,7 @@ function syncCompanies(snap){
     const name = str(d.name,48).trim(); if (!name) continue;
     const jobs = Array.isArray(d.jobs) ? d.jobs.slice(0,3).map(j=>({title:str(j && j.title,60).trim(), type:str(j && j.type,20), apply: safeUrl(str(j && j.apply,200)) ? str(j.apply,200) : ''})).filter(j=>j.title) : [];
     const team = Array.isArray(d.team) ? d.team.filter(x=>typeof x==='string').slice(0,60) : [];
-    const c = {owner:doc.id, team, slot, name, logo: isLogoRef(d.logo) ? d.logo : '', about:str(d.about,220), url: safeUrl(str(d.url,200)) ? str(d.url,200) : '', address:str(d.address,160), jobs, createdAt:clampN(d.createdAt,0,1e15,0)};
+    const c = {owner:doc.id, team, slot, name, logo: isLogoRef(d.logo) ? d.logo : '', about:str(d.about,220), url: safeUrl(str(d.url,200)) ? str(d.url,200) : '', email: okMail(str(d.email,120)) ? str(d.email,120).trim() : '', phone: okPhone(str(d.phone,20)) ? str(d.phone,20).trim() : '', address:str(d.address,160), jobs, createdAt:clampN(d.createdAt,0,1e15,0)};
     if (doc.id === myId) myCo = c;
     const prev = claims.get(slot); if (!prev || c.createdAt < prev.createdAt) claims.set(slot, c);
   }
@@ -1372,7 +1429,7 @@ function syncCompanies(snap){
 }
 (async ()=>{
   if (!window.claude || typeof window.claude.use !== 'function') return;
-  try { const d = await window.claude.use('db'); if (!d) return; let tries = 0; while (!myId && tries++ < 40) await new Promise(r=>setTimeout(r,250)); if (!myId) return;
+  try { const d = await window.claude.use('db'); if (!d) return; let tries = 0; while (!myId && tries++ < 12) await new Promise(r=>setTimeout(r,250));
     d.collection('companies').onSnapshot(syncCompanies, ()=>{}); } catch(e){}
 })();
 const cityView = (()=>{ const [c,x] = cv(1024,256); const g = x.createLinearGradient(0,0,0,256); g.addColorStop(0,'#9EC3E6'); g.addColorStop(0.6,'#F2D2B4'); g.addColorStop(1,'#E8B898'); x.fillStyle = g; x.fillRect(0,0,1024,256);
@@ -1484,12 +1541,36 @@ function buildFloor(f){
     const layers = [[80,4],[200,6],[320,6],[440,2]]; layers.forEach(([lx2,n],li)=>{ for (let q=0;q<n;q++){ const y = 160 + (q-(n-1)/2)*42; if (li < 3){ const nx = layers[li+1]; for (let m=0;m<nx[1];m++){ const y2 = 160 + (m-(nx[1]-1)/2)*42; wx.globalAlpha = 0.35; wx.beginPath(); wx.moveTo(lx2,y); wx.lineTo(nx[0],y2); wx.stroke(); wx.globalAlpha = 1; } } wx.beginPath(); wx.arc(lx2,y,12,0,Math.PI*2); wx.fillStyle = li===3 ? '#D8342B' : '#2F4F7F'; wx.fill(); } });
     plane(sc,new THREE.MeshStandardMaterial({map:tex(wc), roughness:0.5}),-2.68,1.6,-3.6,1.8,1.1,-Math.PI/2); }
   for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2]]){ cyl(sc,0.28,0.55,'#2A2A2E',x,0,z,12,'stone'); add(sc,BLOBS[0],mat('#4E7A2C','foliage'),x,1.05,z,0.5,0.6,0.5); }
+  // a receptionist behind the front desk on every floor
+  { const rp = makePerson({style:'shirt',top:'#2F4F7F',bottom:'#2A2A33',head:'longhair',headColor:'#1E1512',skin:'#B07A57'}); rp.g.position.set(-4.6,0,4.5); rp.g.rotation.y = Math.PI; sc.add(rp.g);
+    fontReady.then(()=>{ const lb = liveSprite('Reception'); lb.position.set(-4.6,2.4,4.5); sc.add(lb); }); }
   // the company's real, confirmed team stands at the desks
   const team = co ? teamOf(co) : []; const deskSpots = [[-1.8,1.2],[0.6,1.2],[3.0,1.2],[-1.8,-1.2],[0.6,-1.2],[3.0,-1.2]];
   team.slice(0,6).forEach((m,i)=>{ const ch = makePerson(m.p.look); ch.g.position.set(deskSpots[i][0],0,deskSpots[i][1]); ch.g.rotation.y = Math.PI*0.9; sc.add(ch.g); fontReady.then(()=>{ const lb = liveSprite(m.p.name.split(' ')[0]); lb.position.set(deskSpots[i][0],2.3,deskSpots[i][1]); sc.add(lb); }); });
   sc.userData = Object.assign(sc.userData, {keeper:null, counterZ:-99, dims:{W,D,H}, floor:true, office:true, rects, circles:circlesIn, sitters:[], jobsSpot:{x:W/2-1.3, z:1.0}, reception:{x:-4.6, z:3.0}});
   return sc;
 }
+function openReception(){
+  const d = inShop.door, co = d.co; cardOpen = true;
+  $('recTitle').textContent = co ? co.name : `Floor ${d.n}`;
+  $('recSay').textContent = co ? `Namaste, welcome to ${co.name}! ${co.about || ''}`.trim() : 'Namaste! This floor is available. If your company would like an office in the Tech Park, you can register it here.';
+  const info = $('recInfo'); info.innerHTML = '';
+  if (co && co.logo){ const im = document.createElement('img'); im.src = logoUrl(co.logo); im.alt = `${co.name} logo`; im.className = 'jlogo'; info.appendChild(im); }
+  const row = (label, text, href) => { const r = document.createElement('div'); r.className = 'recrow'; const sp = document.createElement('span'); sp.textContent = label; r.appendChild(sp);
+    if (href){ const a = document.createElement('a'); a.textContent = text; a.href = href; if (/^https:/.test(href)){ a.target = '_blank'; a.rel = 'noopener'; } r.appendChild(a); } else { const b = document.createElement('b'); b.textContent = text; r.appendChild(b); } info.appendChild(r); };
+  if (co){
+    if (co.url) row('Website', co.url.replace(/^https?:\/\//,'').replace(/\/$/,''), co.url);
+    if (co.email) row('Email', co.email, 'mailto:' + co.email);
+    if (co.phone) row('Phone', co.phone, 'tel:' + co.phone.replace(/[^\d+]/g,''));
+    row('Office', `${co.address || 'Jagatpura, Jaipur'} · Tower ${d.tower}, floor ${d.n}`);
+    row('Open roles', co.jobs.length ? `${co.jobs.length} open` : 'None right now');
+  }
+  $('recJobs').textContent = co ? 'See open roles' : 'Register your company';
+  $('recWrap').hidden = false;
+}
+function closeReception(keep){ $('recWrap').hidden = true; if (!keep) cardOpen = false; }
+$('recClose').addEventListener('click', ()=>closeReception());
+$('recJobs').addEventListener('click', ()=>{ closeReception(true); openJobs(); });
 function openJobs(){
   const d = inShop.door, co = d.co; cardOpen = true;
   $('jobsCo').textContent = co ? co.name : d.name; const list = $('jobsList'); list.innerHTML = '';
@@ -1510,7 +1591,7 @@ $('coClaim').addEventListener('click', ()=>{ closeJobs(true); openCo(); });
 function openCo(){
   const d = inShop.door, mine = myCo && myCo.slot === d.slot ? myCo : null;
   const seed = !mine && d.slot === MANTHHAN_SLOT ? MANTHHAN_SEED : null;
-  $('cName2').value = mine ? mine.name : seed ? 'Manthhan' : ''; $('cAbout').value = mine ? mine.about : seed ? seed.about : ''; $('cUrl').value = mine ? mine.url : seed ? seed.url : ''; $('cAddr').value = mine ? mine.address : 'Jagatpura, Jaipur';
+  $('cName2').value = mine ? mine.name : seed ? 'Manthhan' : ''; $('cAbout').value = mine ? mine.about : seed ? seed.about : ''; $('cUrl').value = mine ? mine.url : seed ? seed.url : ''; $('cMail').value = mine ? (mine.email || '') : seed ? seed.email : (window.JP_AUTH && window.JP_AUTH.email ? window.JP_AUTH.email() : ''); $('cPhone').value = mine ? (mine.phone || '') : seed ? seed.phone : ''; $('cAddr').value = mine ? mine.address : 'Jagatpura, Jaipur';
   for (let i=0;i<3;i++){ const j = mine && mine.jobs[i]; $('cJ'+i).value = j ? j.title : ''; $('cT'+i).value = j ? (j.type||'Full-time') : 'Full-time'; $('cA'+i).value = j ? j.apply : ''; }
   $('coNote').textContent = myCo && !mine ? `You already registered ${myCo.name}. Saving here moves it to this office.` : '';
   const claims = [...memberMap.values()].filter(m=>m.p.company === myId), tw = $('coTeam'); tw.innerHTML = '';
@@ -1537,8 +1618,12 @@ $('coWrap').addEventListener('click', e=>{ if (e.target === $('coWrap')) closeCo
 $('coForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const name = $('cName2').value.trim(), about = $('cAbout').value.trim(), url = $('cUrl').value.trim(), address = $('cAddr').value.trim();
+  if (!coEmailOk()){ $('coNote').textContent = coEmailMsg(); return; }
   if (!name || !about){ $('coNote').textContent = 'Add your company name and what you do.'; return; }
-  if (url && !safeUrl(url)){ $('coNote').textContent = 'Use a full website link that starts with https://'; return; }
+  const email = $('cMail').value.trim(), phone = $('cPhone').value.trim();
+  if (!url || !safeUrl(url)){ $('coNote').textContent = 'Add your website as a full link that starts with https://'; return; }
+  if (!okMail(email)){ $('coNote').textContent = 'Add a contact email visitors can write to.'; return; }
+  if (!okPhone(phone)){ $('coNote').textContent = 'Add a phone number, like +91 98765 43210.'; return; }
   const jobs = [];
   for (let i=0;i<3;i++){ const title = $('cJ'+i).value.trim(), apply = $('cA'+i).value.trim(); if (!title) continue; if (apply && !safeUrl(apply)){ $('coNote').textContent = `The apply link for “${title}” needs to start with https://`; return; } jobs.push({title, type:$('cT'+i).value, apply}); }
   const slot = inShop.door.slot, taken = coByslot.get(slot);
@@ -1551,7 +1636,8 @@ $('coForm').addEventListener('submit', async e=>{
     if (!assets){ $('coNote').textContent = 'Logo upload isn’t available for your account here. Your company will save without it.'; }
     else { try { $('coNote').textContent = 'Uploading your logo…'; const r = await assets.upload(pendingLogo, {type:'image/png'}); logo = r.id; } catch(err){ $('coNote').textContent = 'The logo didn’t upload. Saving the rest.'; } }
   }
-  try { await db.collection('companies').doc(myId).set({slot, name, about, url, address, jobs, team, logo, createdAt:(myCo && myCo.createdAt) || Date.now(), updatedAt:Date.now()});
+  try { await db.collection('companies').doc(myId).set({slot, name, about, url, email, phone, address, jobs, team, logo, createdAt:(myCo && myCo.createdAt) || Date.now(), updatedAt:Date.now()});
+    if (!myCo) setTimeout(()=>meetCreator(true), 2600);
     $('coNote').textContent = 'Your floor is live.'; setTimeout(()=>{ closeCo(); const f = inShop && inShop.door; if (f && f.kind===7){ setTimeout(()=>{ const ff = officeDoors[f.slot]; enterFloor(ff); }, 400); } }, 800); }
   catch(err){ $('coNote').textContent = (err && (err.code==='permission_denied'||err.code==='not_granted')) ? 'You need edit access to this page to register a company. Ask the person who shared it.' : 'That didn’t save. Check your connection and try again.'; }
   $('coSave').disabled = false;
@@ -1561,7 +1647,7 @@ $('coRemove').addEventListener('click', async ()=>{ try { await db.collection('c
 /* =========================================================
    Clean UI: hide controls while a panel is open
    ========================================================= */
-const DIALOGS = ['notifWrap','commWrap','meetWrap','clubWrap','guideWrap','roleWrap','liftWrap','cardWrap','chatWrap','prodWrap','bizWrap','joinWrap','coWrap','jobsWrap','outfitWrap','mapWrap'];
+const DIALOGS = ['notifWrap','commWrap','meetWrap','clubWrap','guideWrap','roleWrap','liftWrap','cardWrap','chatWrap','prodWrap','bizWrap','joinWrap','coWrap','jobsWrap','recWrap','outfitWrap','mapWrap'];
 function syncDialogs(){ const open = DIALOGS.some(id=>!$(id).hidden); document.body.classList.toggle('dlg', open); }
 const dlgObs = new MutationObserver(syncDialogs); DIALOGS.forEach(id=>dlgObs.observe($(id), {attributes:true, attributeFilter:['hidden']}));
 if (isCoarse) runBtn.hidden = true;
@@ -1589,14 +1675,18 @@ function closeLift(keepRide){ if ($('liftWrap').hidden) return; $('liftWrap').hi
 $('liftClose').addEventListener('click', ()=>{ if (liftState && liftState.phase === 'choosing') stepOut(); else closeLift(); });
 
 let pendingRole = null;
+/* Companies register with a work email; personal addresses (Gmail etc.) can't. The database checks this too. */
+const coEmailOk = () => !(window.JP_AUTH && window.JP_AUTH.isWorkEmail) || window.JP_AUTH.isWorkEmail();
+const coEmailMsg = () => `Companies register with a work email, like you@yourcompany.com. You’re signed in as ${window.JP_AUTH.email()}. Sign out from the Menu and sign in with your company email to register.`;
 function showRoles(){ $('roleNote').textContent = ''; $('roleWrap').hidden = false; cardOpen = true; }
 $('roleBtn').addEventListener('click', ()=>{ toggleMenu(false); showRoles(); });
 $('roleWrap').addEventListener('click', async e=>{
   const btn = e.target.closest('.choice'); if (!btn) return; const role = btn.dataset.role;
   if (role !== 'explore' && !(db && myId)){
-    if (window.JP_AUTH && window.JP_AUTH.signIn){ try { localStorage.setItem('jp-pending-role', role); } catch(err){} $('roleNote').textContent = 'Taking you to sign in with LinkedIn…'; window.JP_AUTH.signIn(); return; }
+    if (window.JP_AUTH && window.JP_AUTH.signIn){ try { localStorage.setItem('jp-pending-role', role); } catch(err){} $('roleNote').textContent = role === 'company' ? 'Sign in with your work email to register your company…' : 'Taking you to sign in…'; window.JP_AUTH.signIn(); return; }
     $('roleNote').textContent = 'Registering needs you to be signed in with edit access to this page. You can still explore.'; return;
   }
+  if (role === 'company' && !coEmailOk()){ $('roleNote').textContent = coEmailMsg(); return; }
   $('roleWrap').hidden = true; cardOpen = false;
   if (mode !== 'play') start();
   runRole(role);
@@ -2083,7 +2173,7 @@ function frame(){
   updateLift(dt);
   { const list = inShop ? (inShop.scene.userData.sitters||[]) : outdoorSitters; for (const st of list){ const d = Math.hypot(st.x-P.pos.x, st.z-P.pos.z); const tgt = d < 3.5 ? Math.atan2(P.pos.x-st.x, P.pos.z-st.z) : st.base + Math.sin(t*0.5+st.ph)*0.15; st.ch.g.rotation.y = angLerp(st.ch.g.rotation.y, tgt, Math.min(1,dt*3)); st.ch.b.rEl.rotation.x = -0.9 - Math.max(0,Math.sin(t*0.8+st.ph))*0.7; st.ch.b.head.rotation.x = Math.sin(t*0.6+st.ph)*0.06; } }
   if (inShop && inShop.scene.userData.fan) inShop.scene.userData.fan.rotation.y += dt*5;
-  if (inShop && !inShop.scene.userData.fan){ const kp = inShop.scene.userData.keeper; if (kp) kp.g.rotation.y = angLerp(kp.g.rotation.y, Math.atan2(P.pos.x-kp.g.position.x, P.pos.z-kp.g.position.z), Math.min(1,dt*3)); }
+  if (inShop){ const kp = inShop.scene.userData.keeper; if (kp) kp.g.rotation.y = angLerp(kp.g.rotation.y, Math.atan2(P.pos.x-kp.g.position.x, P.pos.z-kp.g.position.z), Math.min(1,dt*3)); }
   if (prod && prod.model) prod.model.rotation.y += dt*0.8;
   entranceMarkers.forEach(m=>{ m.rotation.y += dt*1.5; m.position.y = 4.6 + Math.sin(t*2)*0.12; });
   if (inShop) inShop.scene.children.forEach(o=>{ if (o.isSprite) o.visible = !document.body.classList.contains('dlg'); });

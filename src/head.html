@@ -215,16 +215,20 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 .seg.wide{flex-wrap:wrap}
 .mitem{text-align:left;border:0;background:none;border-radius:12px;padding:11px 10px;font-size:16px;font-weight:500;color:var(--ink)}
 .mitem:hover{background:var(--surface-2)}
+.introsign{margin-top:14px;color:#FFF4EA;font-size:16px;text-decoration:underline;background:none;border:0}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
 #outfitWrap .card{width:min(360px,100%)}
-#jobsWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(400px,calc(100vw - 28px))}
+#jobsWrap,#recWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(400px,calc(100vw - 28px))}
 .jt{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:23px;margin:2px 0 8px}
 .job{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
 .job b{display:block;font-size:16px}
 .job span{font-size:14px;color:var(--ink-soft)}
 .job .btn{flex:none;padding:8px 14px;font-size:15px}
+.recrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:15px}
+.recrow span{color:var(--ink-soft);flex:none}
+.recrow a{color:var(--ink);font-weight:600;text-align:right;overflow-wrap:anywhere}
 .applyln{width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px 11px;margin:0 0 12px;user-select:text;-webkit-user-select:text}
 .prow select{flex:1;min-width:0;font:inherit;font-size:15px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px}
 #roleWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:14;overflow:auto}
@@ -264,6 +268,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <h1 class="city">Jaipur</h1>
   <p class="lede">Fly over the Pink City at dusk. Land anywhere, and meet the people who design and build it, live.</p>
   <button class="start" id="startBtn">Enter the city</button>
+  <button class="linkbtn introsign" id="introSign" hidden>Already a member? Sign in</button>
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
@@ -300,6 +305,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <button class="mitem" id="roleBtn">Register as an individual, business or company</button>
     <button class="mitem" id="joinBtn" hidden>Add yourself to the city</button>
     <button class="mitem" id="timeBtn" hidden>Dusk</button>
+    <button class="mitem" id="creatorBtn" hidden>Meet the creator</button>
     <button class="mitem" id="guideBtn">What you can do here</button>
     <p class="mhelp" id="mhelp">W to walk, A and D to turn, Shift to run, drag to look. Walk up to people, shops, autos, scooters and camels, then press E.</p>
   </div>
@@ -384,6 +390,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       <button class="choice" data-role="business"><b>As a business</b><span>Take a shop or stall in the bazaar, with your products, store link and address.</span></button>
       <button class="choice" data-role="company"><b>As an IT company</b><span>Take a floor in the Jagatpura Tech Park and post open roles.</span></button>
       <p class="note" id="roleNote"></p>
+      <button class="linkbtn" id="roleSignIn" hidden>Already a member? Sign in</button>
     </div>
   </div>
 </div>
@@ -404,6 +411,15 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <button class="linkbtn" id="coClaim" hidden>Is this your company? Register it</button>
   </section>
 </div>
+<div id="recWrap" hidden>
+  <section class="prod" aria-labelledby="recTitle">
+    <div class="prod-shop">Reception</div>
+    <h2 class="jt" id="recTitle"></h2>
+    <p class="prod-desc" id="recSay"></p>
+    <div id="recInfo"></div>
+    <div class="prod-actions"><button class="btn primary" id="recJobs">See open roles</button><button class="btn" id="recClose">Done</button></div>
+  </section>
+</div>
 <div id="coWrap" hidden>
   <form class="card join" id="coForm" role="dialog" aria-modal="true" aria-labelledby="coTitle" novalidate>
     <div class="card-top"><div><h2 id="coTitle">Register your company</h2><div class="role">Your company takes this office, and your openings show on the jobs board.</div></div></div>
@@ -411,7 +427,9 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       <label class="fld"><span>Company name</span><input id="cName2" maxlength="48" required></label>
       <div class="fld"><span>Logo (optional)</span><div class="logopick"><img id="cLogoPrev" alt="Logo preview" hidden><input type="file" id="cLogo" accept="image/png,image/jpeg,image/webp"></div><small>A square PNG on a clear background looks best. We shrink it for you.</small></div>
       <label class="fld"><span>What you do</span><textarea id="cAbout" maxlength="220" rows="2" required></textarea></label>
-      <label class="fld"><span>Website</span><input id="cUrl" maxlength="200" placeholder="https://" inputmode="url"></label>
+      <label class="fld"><span>Website</span><input id="cUrl" maxlength="200" placeholder="https://" inputmode="url" required></label>
+      <label class="fld"><span>Contact email</span><input id="cMail" type="email" maxlength="120" placeholder="contact@yourcompany.com" required></label>
+      <label class="fld"><span>Phone</span><input id="cPhone" type="tel" maxlength="20" placeholder="+91 98765 43210" inputmode="tel" required><small>Your receptionist shares these with visitors.</small></label>
       <label class="fld"><span>Office address</span><input id="cAddr" maxlength="160" placeholder="Jagatpura, Jaipur"></label>
       <div class="fld"><span>Open roles (up to three)</span>
         <div class="prow"><input id="cJ0" maxlength="60" placeholder="Role title"><select id="cT0"><option>Full-time</option><option>Internship</option><option>Part-time</option><option>Contract</option></select></div><input class="applyln" id="cA0" maxlength="200" placeholder="Apply link (https://)">

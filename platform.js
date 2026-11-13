@@ -23,9 +23,21 @@
     } catch(e){}
   }
 
+  /* Companies must sign in with a work address; individuals and shops can use any email.
+     The database enforces the same rule (see schema.sql, is_work_email). */
+  const FREE_MAIL = new Set(['gmail.com','googlemail.com','yahoo.com','yahoo.co.in','yahoo.in','ymail.com','rocketmail.com','outlook.com','outlook.in','hotmail.com','hotmail.co.in','live.com','live.in','msn.com','icloud.com','me.com','mac.com','aol.com','proton.me','protonmail.com','pm.me','zoho.com','zohomail.com','zohomail.in','rediffmail.com','yandex.com','yandex.ru','mail.com','gmx.com','gmx.net','tutanota.com','tuta.io','hey.com','fastmail.com']);
+  const isWorkEmail = e => { const d = String(e || '').trim().toLowerCase().split('@')[1] || ''; return !!d && d.includes('.') && !FREE_MAIL.has(d); };
+  const pendingRole = () => { try { return localStorage.getItem('jp-pending-role'); } catch(e){ return null; } };
+
   /* Sign in: a 6-digit code sent to your email. LinkedIn sign-in is optional (config.js). */
   function authModal(){
-    if (document.getElementById('jpAuth')) { document.getElementById('jpAuth').hidden = false; return; }
+    const forCo = pendingRole() === 'company';
+    const setCopy = () => {
+      document.getElementById('jpIntro').textContent = forCo ? 'Registering a company needs your work email, like you@yourcompany.com. Gmail, Outlook and other personal addresses can’t register a company.' : 'We’ll email you a 6-digit code. No password needed.';
+      document.getElementById('jpEmail').placeholder = forCo ? 'you@yourcompany.com' : 'you@example.com';
+      document.getElementById('jpMsg').textContent = '';
+    };
+    if (document.getElementById('jpAuth')) { setCopy(); document.getElementById('jpAuth').hidden = false; return; }
     const css = document.createElement('style');
     css.textContent = `#jpAuth{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(40,16,10,.45);padding:16px}
 #jpAuth .box{width:min(400px,100%);background:#FFF4EA;color:#3B1E19;border-radius:22px;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.35);font-family:Hind,system-ui,sans-serif}
@@ -39,7 +51,7 @@
     document.head.appendChild(css);
     const w = document.createElement('div'); w.id = 'jpAuth';
     w.innerHTML = `<div class="box" role="dialog" aria-modal="true" aria-labelledby="jpAuthT">
-      <div id="jpStep1"><h2 id="jpAuthT">Sign in to People of Jaipur</h2><p>We’ll email you a 6-digit code. No password needed.</p>
+      <div id="jpStep1"><h2 id="jpAuthT">Sign in to People of Jaipur</h2><p id="jpIntro"></p>
         <input id="jpEmail" type="email" autocomplete="email" placeholder="you@example.com"><button class="pri" id="jpSend">Email me a code</button>
         ${cfg.linkedin ? '<button class="li" id="jpLi">Continue with LinkedIn instead</button>' : ''}<button class="sec" id="jpCancel">Not now</button></div>
       <div id="jpStep2" hidden><h2>Check your email</h2><p id="jpSent"></p>
@@ -48,10 +60,12 @@
     document.body.appendChild(w);
     const $$ = id => document.getElementById(id), msg = t => { $$('jpMsg').textContent = t || ''; };
     let email = '';
+    setCopy();
     $$('jpCancel').onclick = () => { w.hidden = true; };
     if ($$('jpLi')) $$('jpLi').onclick = () => sb.auth.signInWithOAuth({provider:'linkedin_oidc', options:{redirectTo: location.origin + location.pathname}});
     $$('jpSend').onclick = async () => {
       email = $$('jpEmail').value.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ msg('Enter a valid email address.'); return; }
+      if (pendingRole() === 'company' && !isWorkEmail(email)){ msg('Use your company email (like you@yourcompany.com). Personal addresses such as Gmail can’t register a company.'); return; }
       $$('jpSend').disabled = true; msg('');
       const {error} = await sb.auth.signInWithOtp({email, options:{shouldCreateUser:true}});
       $$('jpSend').disabled = false;
@@ -72,6 +86,8 @@
     signIn: () => authModal(),
     signOut: async () => { await sb.auth.signOut(); location.reload(); },
     signedIn: () => !!session,
+    email: () => (session && session.user.email) || '',
+    isWorkEmail: (e) => isWorkEmail(e === undefined ? (session && session.user.email) : e),
     setName: async (name) => { await ready; if (!session || !name) return; try { await sb.from('people').upsert({id:session.user.id, name:String(name).slice(0,48), updated_at:new Date().toISOString()}); } catch(e){} },
   });
 

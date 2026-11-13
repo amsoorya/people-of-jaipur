@@ -91,3 +91,21 @@ create policy "Message your connections"    on public.messages for insert with c
 
 alter publication supabase_realtime add table public.connections;
 alter publication supabase_realtime add table public.messages;
+
+-- Companies must be registered from a work email (you@yourcompany.com), not a personal one like Gmail.
+-- Individuals and shops can use any email. The site checks this too; this makes it a hard rule.
+create or replace function public.is_work_email() returns boolean language sql stable as $$
+  select coalesce(split_part(lower(auth.jwt() ->> 'email'), '@', 2), '') not in (
+    '', 'gmail.com','googlemail.com','yahoo.com','yahoo.co.in','yahoo.in','ymail.com','rocketmail.com',
+    'outlook.com','outlook.in','hotmail.com','hotmail.co.in','live.com','live.in','msn.com',
+    'icloud.com','me.com','mac.com','aol.com','proton.me','protonmail.com','pm.me',
+    'zoho.com','zohomail.com','zohomail.in','rediffmail.com','yandex.com','yandex.ru',
+    'mail.com','gmx.com','gmx.net','tutanota.com','tuta.io','hey.com','fastmail.com');
+$$;
+drop policy if exists "People add their own rows" on public.docs;
+drop policy if exists "People edit their own rows" on public.docs;
+create policy "People add their own rows" on public.docs for insert
+  with check (auth.uid() = owner and (collection <> 'companies' or public.is_work_email()));
+create policy "People edit their own rows" on public.docs for update
+  using (auth.uid() = owner)
+  with check (auth.uid() = owner and (collection <> 'companies' or public.is_work_email()));

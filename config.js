@@ -4,5 +4,6 @@
 window.JP_CONFIG = {
   supabaseUrl: 'https://kxskuxpaaejdcjponnfk.supabase.co',      // e.g. 'https://abcdefghijkl.supabase.co'
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4c2t1eHBhYWVqZGNqcG9ubmZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1NTc3NzEsImV4cCI6MjExMDEzMzc3MX0.JaE9In0Vx4gu9nAMwg96tCdMuyw7zJun45m7ErQAdek',  // the long "anon public" key
-  linkedin: false,      // set to true once LinkedIn sign-in is set up in Supabase (optional)
+  linkedin: false,
+  creatorId: '15857601-1af0-4ec6-a21b-e8f4d694a900', // the creator: new members are brought to meet them      // set to true once LinkedIn sign-in is set up in Supabase (optional)
 };
