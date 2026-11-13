@@ -457,7 +457,8 @@ const PigeonRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
-    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
+    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen
+    g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
       const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);

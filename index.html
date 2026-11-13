@@ -2343,7 +2343,8 @@ const PigeonRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
-    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
+    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen
+    g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
       const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);
@@ -4226,8 +4227,16 @@ function buildLobby(door){
   dx.font = '500 26px Hind, system-ui, sans-serif'; fl.forEach((f,i)=>{ dx.fillStyle = '#F4EDE2'; dx.fillText(`${f.n}`, 24, 88+i*40); dx.fillStyle = floorName(f)==='Available' ? '#9AA59A' : '#F4EDE2'; dx.fillText(floorName(f).slice(0,30), 80, 88+i*40); });
   plane(sc,new THREE.MeshStandardMaterial({map:tex(dc), roughness:0.7}),W/2-0.13,2.4,-1.5,2.2,2.2*dc.height/512,-Math.PI/2);
   box(sc,3.4,1.05,0.8,'#2A2A2E',-3.6,0,0.5,'stone'); box(sc,3.5,0.05,0.9,'#C9C2B5',-3.6,1.05,0.5,'stone');
-  for (const z of [1.5,3.4]) { box(sc,2.2,0.45,0.85,'#5A6B7A',4,0,z,'stone'); box(sc,2.2,0.5,0.2,'#5A6B7A',4.95,0.45,z,'stone'); }
-  for (const [x,z] of [[-W/2+0.6,D/2-0.8],[W/2-0.6,D/2-0.8],[-W/2+0.6,-D/2+0.8],[W/2-0.6,-D/2+0.8]]){ cyl(sc,0.3,0.55,'#2A2A2E',x,0,z,12,'stone'); add(sc,BLOBS[0],mat('#4E7A2C','foliage'),x,1.1,z,0.5,0.65,0.5); }
+  if (OfficeKit.ready){   // waiting area: two sofas facing a coffee table on a rug, plants in every corner, a reception plant
+    const P2 = OfficeKit.put; P2(sc,'rugRectangle',4,2.45,Math.PI/2,0,1.2); P2(sc,'loungeSofa',4.95,2.45,-Math.PI/2); P2(sc,'loungeDesignChair',3.0,1.4,Math.PI*0.75); P2(sc,'loungeDesignChair',3.0,3.5,Math.PI*0.25); P2(sc,'tableCoffee',4,2.45,Math.PI/2);
+    for (const [x,z] of [[-W/2+0.6,D/2-0.8],[W/2-0.6,D/2-0.8],[-W/2+0.6,-D/2+0.8],[W/2-0.6,-D/2+0.8]]) P2(sc,'pottedPlant',x,z,0,0,1.3);
+    P2(sc,'plantSmall1',-4.6,0.5,0,1.1); P2(sc,'lampRoundTable',-2.4,0.5,0,1.1);
+  } else {
+    for (const z of [1.5,3.4]) { box(sc,2.2,0.45,0.85,'#5A6B7A',4,0,z,'stone'); box(sc,2.2,0.5,0.2,'#5A6B7A',4.95,0.45,z,'stone'); }
+    for (const [x,z] of [[-W/2+0.6,D/2-0.8],[W/2-0.6,D/2-0.8],[-W/2+0.6,-D/2+0.8],[W/2-0.6,-D/2+0.8]]){ cyl(sc,0.3,0.55,'#2A2A2E',x,0,z,12,'stone'); add(sc,BLOBS[0],mat('#4E7A2C','foliage'),x,1.1,z,0.5,0.65,0.5); }
+  }
+  // lobby receptionist behind the front desk
+  { const rp = makePerson({style:'shirt',head:'longhair',model:'formal_f'}); rp.g.position.set(-3.6,0,-0.4); sc.add(rp.g); }
   sc.userData = Object.assign(sc.userData, {keeper:null, counterZ:-99, dims:{W,D,H}, lobby:true, rects:[{minX:-5.4,maxX:-1.8,minZ:0,maxZ:1}], circles:[{x:4,z:1.5,r:1.1},{x:4,z:3.4,r:1.1}]});
   return sc;
 }
