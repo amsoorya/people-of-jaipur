@@ -638,6 +638,12 @@ function buildInterior(kind, stocked){
   else box(sc,W-1.6,1.0,0.8,'#6B4530',0,0,cz,'stone');
   sc.userData.keeper = null; sc.userData.counterZ = cz;
   if (stocked) addKeeper(sc, KEEPERS[kind % KEEPERS.length], GREET[kind] || GREET[0], cz - 0.9);
+  if (stocked && OfficeKit.ready){   // shop fittings: stools for customers at the counter, a rug, a plant by the door, a lamp on the counter
+    const P2 = OfficeKit.put, cTop = (kind===2||kind===3) ? 1.4 : 1.0;
+    if (kind !== 0) for (const x of [-1.2, 0, 1.2]) P2(sc, 'stoolBar', x, cz + 1.0, 0, 0, 0.95);   // textile shops seat customers on the gaddi instead
+    P2(sc, 'rugRectangle', 0, 1.6, Math.PI/2, 0.01, 1.5); P2(sc, 'pottedPlant', W/2 - 0.55, D/2 - 1.2, 0, 0, 1.3); P2(sc, 'pottedPlant', -W/2 + 0.55, D/2 - 1.2, 1, 0, 1.3);
+    P2(sc, 'lampRoundTable', -(W/2 - 1.2), cz, 0, cTop, 0.9);
+  }
   const cols = ['#E8B33A','#D8342B','#2E8C87','#B83A6B','#3B4B8C','#F2C230','#5E8F3A','#E05A2B','#F4EDE2','#7E3FA0'];
   const C = () => cols[Math.floor(Math.random()*cols.length)];
   if (!stocked){ /* empty shelves until the owner lists products */ }
