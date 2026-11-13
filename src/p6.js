@@ -457,10 +457,11 @@ const PigeonRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
-    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen
+    const k = 0.85 / len, clips = {};   // a touch larger than life so they read on screen
+    const footY = -b.min.y * k;   // lift so their feet touch the ground
     g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
-      const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
+      const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.position.y = footY; inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);
       const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const n in clips) acts[n] = mixer.clipAction(clips[n]);
       const names = Object.keys(acts), idle = ['idle1','idle2','idle3'].filter(n=>acts[n])[i % 3] || names[0]; if (!idle) return;
@@ -472,9 +473,10 @@ const PigeonRig = (()=>{
   function play(bd, n){ if (bd.cur === n || !bd.acts[n]) return; bd.acts[n].reset().fadeIn(0.15).play(); bd.acts[bd.cur].fadeOut(0.15); bd.cur = n; }
   function update(dt, t){
     if (!ready) return;
-    for (const bd of birds){ const p = bd.p; bd.holder.position.set(p.x, p.y, p.z); bd.holder.rotation.y = p.ry;
+    for (const bd of birds){ const p = bd.p; const far = Math.abs(p.x - camera.position.x) + Math.abs(p.z - camera.position.z) > 90; bd.holder.visible = !far; if (far) continue;   // only birds near you are drawn and animated
+      bd.holder.position.set(p.x, p.y, p.z); bd.holder.rotation.y = p.ry;
       if (p.fly > 0) play(bd, p.y > 0.4 ? 'pigeon_fly_loop' : 'goToFly'); else { const want = (Math.sin(t * 0.3 + p.ph) > 0.6) ? ['idle1','idle2','idle3'][(Math.floor(t * 0.3 + p.ph)) % 3] : bd.idle; play(bd, want); }
-      bd.mixer.update(dt); }
+      bd.mixer.update(dt * (p.fly > 0 ? 0.8 : 0.7)); }
   }
   return {update};
 })();
@@ -516,6 +518,10 @@ const PigeonRig = (()=>{
       parts.forEach(p=>p.geo.translate(-c.x, -bb.min.y, -c.z));
       shapes[n.name] = {parts, h: (bb.max.y - bb.min.y) || 1, list: []}; });
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0,1,0), sc = new THREE.Vector3();
+    // keep the pavement walkable: no tree or bush on top of a lamp post, scooter stand or cart
+    const busy = [...LAMP_SPOTS.map(([x,z])=>[x,z,1.6]), ...scooterSpots.map(([x,z])=>[x,z,2.0]), ...CART_SPOTS.map(c=>[c.x,c.z,2.4])];
+    const clear = t => !busy.some(([x,z,r]) => Math.hypot(t.x - x, t.z - z) < r * (t.type === 'scrub' ? 0 : 1));
+    for (let i = TREE_SPOTS.length - 1; i >= 0; i--){ const t = TREE_SPOTS[i]; if (!clear(t)){ const c = circles.find(c => c.x === t.x && c.z === t.z); if (c) c.r = 0; TREE_SPOTS.splice(i, 1); } }
     TREE_SPOTS.forEach(t=>{ const [names, H] = KIND[t.type] || KIND.neem, nm = names[Math.floor(t.pick * names.length)], sh = shapes[nm]; if (!sh) return;
       const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); const sink = /Bush/.test(nm) ? H * t.s * 0.18 : 0;   // bushes have no trunk: settle their lower leaves into the soil
       sh.list.push(new THREE.Matrix4().compose(new THREE.Vector3(t.x, (t.y || 0) - sink, t.z), q, sc)); });
@@ -547,10 +553,15 @@ const FoodKit = makeKit('models/food.glb', 0.5);   // Kenney Food Kit, CC0
   const go = () => {
     if (!FoodKit.ready){ if (++tries < 80) return setTimeout(go, 250);   // fall back to simple produce if the models never arrive
       CART_SPOTS.forEach(c=>{ for (let i=0;i<14;i++){ const m = new THREE.Mesh(SPH, M(pick(c.fruit),'stone')); m.scale.set(0.17,0.15,0.17); m.position.set(c.x + rr(-1,1), 1.0, c.z + rr(-0.4,0.4)); scene.add(m); } }); return; }
-    CART_SPOTS.forEach(c=>{ const g = new THREE.Group(); g.position.set(c.x, 0, c.z); g.rotation.y = c.rot; scene.add(g); const list = c.kind === 'fruit' ? FRUIT : VEG;
+    CART_SPOTS.forEach((c, ci)=>{ const g = new THREE.Group(); g.position.set(c.x, 0, c.z); g.rotation.y = c.rot; scene.add(g); const list = c.kind === 'fruit' ? FRUIT : VEG;
+      // the thelawala, standing at the handles and calling out to passers-by
+      const v = makePerson({model: ci % 2 ? 'worker_m' : 'pm'}); v.g.position.set(-2.0, 0, 0.1); v.g.rotation.y = Math.PI/2; g.add(v.g); c.vendor = v;
+      fontReady.then(()=>{ const say = c.kind === 'fruit' ? ['Taaza phal le lo!','Fresh fruit, come see!'] : ['Taaza sabzi!','Fresh vegetables!']; const bb = bubble(say[0], say[1]); bb.position.set(-2.0, 2.45, 0.1); bb.scale.multiplyScalar(0.8); g.add(bb); });
       // rows of produce across the cart bed, each row one kind, second layer on top
-      for (let row = 0; row < 5; row++){ const name = list[(row + Math.abs(Math.round(c.x))) % list.length];
-        for (let layer = 0; layer < 2; layer++) for (let j = 0; j < 4; j++){ FoodKit.put(g, name, -1.05 + row * 0.52 + (layer ? 0.12 : 0), -0.45 + j * 0.3 + (layer ? 0.15 : 0), Math.random() * 6, 0.86 + layer * 0.14, 1.6); } } });
+      // five heaps, one kind each, piled into a mound (wide at the bottom, narrowing to a peak)
+      for (let row = 0; row < 5; row++){ const name = list[(row + Math.abs(Math.round(c.x))) % list.length], cx = -1.0 + row * 0.5;
+        for (let layer = 0; layer < 3; layer++){ const n = [7, 4, 1][layer], r = [0.42, 0.24, 0][layer];
+          for (let j = 0; j < n; j++){ const a = j / n * Math.PI * 2 + layer; FoodKit.put(g, name, cx + Math.cos(a) * r * 0.45, Math.sin(a) * r, Math.random() * 6, 0.88 + layer * 0.13, 1.5); } } } });
   };
   go();
 })();

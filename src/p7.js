@@ -7,7 +7,7 @@ fontReady.then(()=>{
     const t = signTexture(s.spec);
     const m = new THREE.Mesh(UPLANE, new THREE.MeshStandardMaterial({map:t, emissiveMap:t, emissive:lin('#ffffff'), emissiveIntensity:0.18, roughness:0.7, polygonOffset:true, polygonOffsetFactor:-3}));
     s.matrix.decompose(m.position, m.quaternion, m.scale); m.scale.set(s.spec.w, s.spec.h, 1);
-    m.receiveShadow = true; signGroup.add(m); glowMats.push([m.material,0.32]); m.material.emissiveIntensity = 0.32*TIMES[timeMode].glow;
+    m.receiveShadow = true; signGroup.add(m); glowMats.push([m.material,0.32]); m.material.emissiveIntensity = 0.32*curLook.glow;
   });
   fontsDone = true; refreshPeerLabels();
   npcs.forEach(n=>{ const s = nameSprite(n.p.name.split(' ')[0]); s.position.set(n.p.pos[0],2.35,n.p.pos[1]); scene.add(s); n.label = s; });
@@ -242,15 +242,15 @@ const jalGlow = (()=>{ const [c,x] = cv(128,256); const g = x.createLinearGradie
   const m = new THREE.Mesh(new THREE.PlaneGeometry(26,30), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c), transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false}));
   m.rotation.x = -Math.PI/2; m.position.set(LAKE.x, -0.55, LAKE.z + 13 + 15); scene.add(m); return m; })();
 const nightLamp = new THREE.PointLight(lin('#FFB86A'), 0, 34, 1.4); scene.add(nightLamp);
-const TIME_ORDER = ['day','dusk','night'], TIME_LABEL = {day:'Day', dusk:'Dusk', night:'Night'};
+const TIME_ORDER = ['live','day','dusk','night'], TIME_LABEL = {live:'Live', day:'Day', dusk:'Dusk', night:'Night'};
 function onTimeChange(mode){
   nightLamp.intensity = mode==='night' ? 1.3 : mode==='dusk' ? 0.35 : 0;
   halos.visible = mode !== 'day'; nightGroup.visible = mode === 'night'; jalGlow.visible = mode === 'night';
   halos.children.forEach(h=>h.scale.setScalar(mode==='night' ? 4.4 : 3.2));
-  const b = document.getElementById('timeBtn'); if (b){ b.textContent = TIME_LABEL[mode]; b.setAttribute('aria-label', `Time of day: ${TIME_LABEL[mode]}. Change it`); }
+  const b = document.getElementById('timeBtn'); if (b){ b.textContent = TIME_LABEL[timeMode] || TIME_LABEL[mode]; b.setAttribute('aria-label', `Time of day: ${TIME_LABEL[mode]}. Change it`); }
 }
-applyTime('dusk');
-$('timeBtn').addEventListener('click', ()=>applyTime(TIME_ORDER[(TIME_ORDER.indexOf(timeMode)+1)%3]));
+applyTime((()=>{ try { return localStorage.getItem('jp-time') || 'live'; } catch(e){ return 'live'; } })());   // everyone sees Jaipur's real sky unless they choose otherwise
+$('timeBtn').addEventListener('click', ()=>{ const m = TIME_ORDER[(TIME_ORDER.indexOf(timeMode)+1)%4]; applyTime(m); try { localStorage.setItem('jp-time', m); } catch(e){} });
 
 /* =========================================================
    Cinematic flight path (intro) and free flight
@@ -311,7 +311,8 @@ function liveSprite(text){
   x.fillStyle = '#34C27A'; x.beginPath(); x.arc(38,H/2,10,0,Math.PI*2); x.fill();
   x.fillStyle = '#FFFFFF'; x.textBaseline = 'middle'; x.textAlign = 'left'; x.fillText(text, 60, H/2+3);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.minFilter = THREE.LinearFilter;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:t, transparent:true, depthWrite:false, toneMapped:false})); s.scale.set(W/H*0.5,0.5,1); return s;
+  const lm = new THREE.SpriteMaterial({map:t, transparent:true, depthWrite:false, toneMapped:false}); lm.color.setScalar(0.85);
+  const s = new THREE.Sprite(lm); s.scale.set(W/H*0.5,0.5,1); return s;
 }
 const hashStr = s => { let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619); } return h>>>0; };
 const LIVE_TURBANS = ['#D8342B','#2E8C87','#B83A6B','#3B4B8C','#5E8F3A','#E05A2B'];
@@ -428,7 +429,8 @@ function seatOnGround(g, x, z, heading, halfL, halfW, lift){
 const roadLift = (x,z) => 0;
 function placeJeep(){ const uu = Math.min(0.9999,Math.max(0.0001,jeep.u)), p = jeepCurve.getPointAt(uu), tg = jeepCurve.getTangentAt(uu);
   jeep.heading = Math.atan2(tg.x, tg.z) + (jeep.dir < 0 ? Math.PI : 0);
-  jeep.pos.set(p.x, 0, p.z); jeep.pos.y = seatOnGround(jeep.g, p.x, p.z, jeep.heading, 1.15, 0.8, roadLift(p.x,p.z)); }
+  jeep.pos.set(p.x, 0, p.z); jeep.pos.y = seatOnGround(jeep.g, p.x, p.z, jeep.heading, 1.85, 0.9, roadLift(p.x,p.z));
+  if (!jeep.circle){ jeep.circle = {x:p.x, z:p.z, r:1.9}; circles.push(jeep.circle); } jeep.circle.x = p.x; jeep.circle.z = p.z; jeep.circle.r = riding === jeep ? 0 : 1.9; }
 jeep.dir = 1; placeJeep(); jeep.dir = 0;
 function rideJeep(){
   riding = jeep; jeep.state = 'moving'; jeep.dir = jeep.u < 0.5 ? 1 : -1;
@@ -606,7 +608,8 @@ function bubble(line1, line2){
   x.font = '600 40px Hind, system-ui, sans-serif'; x.fillText(line1, W/2, 44);
   x.fillStyle = '#7A4A40'; x.font = '400 32px Hind, system-ui, sans-serif'; x.fillText(line2, W/2, 92);
   const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding; tx.minFilter = THREE.LinearFilter;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true, depthWrite:false, toneMapped:false})); s.scale.set(W/(H+24)*0.75, 0.75, 1); return s;
+  const bm = new THREE.SpriteMaterial({map:tx, transparent:true, depthWrite:false, toneMapped:false}); bm.color.setScalar(0.82);   // just under the bloom threshold
+  const s = new THREE.Sprite(bm); s.scale.set(W/(H+24)*0.75, 0.75, 1); return s;
 }
 const ROOM = {W:7.2, D:10, H:4.4};
 function shelfWall(sc, z, rx, w, levels, fill){
@@ -640,7 +643,7 @@ function buildInterior(kind, stocked){
   if (stocked) addKeeper(sc, KEEPERS[kind % KEEPERS.length], GREET[kind] || GREET[0], cz - 0.9);
   if (stocked && OfficeKit.ready){   // shop fittings: stools for customers at the counter, a rug, a plant by the door, a lamp on the counter
     const P2 = OfficeKit.put, cTop = (kind===2||kind===3) ? 1.4 : 1.0;
-    if (kind !== 0) for (const x of [-1.2, 0, 1.2]) P2(sc, 'stoolBar', x, cz + 1.0, 0, 0, 0.95);   // textile shops seat customers on the gaddi instead
+    if (kind !== 0) for (const x of [-1.2, 0, 1.2]){ P2(sc, 'stoolBar', x, cz + 1.0, 0, 0, 0.95); (sc.userData.seats = sc.userData.seats || []).push({x, z: cz + 1.0, rot: Math.PI, y: 0.42}); }   // textile shops seat customers on the gaddi instead
     P2(sc, 'rugRectangle', 0, 1.6, Math.PI/2, 0.01, 1.5); P2(sc, 'pottedPlant', W/2 - 0.55, D/2 - 1.2, 0, 0, 1.3); P2(sc, 'pottedPlant', -W/2 + 0.55, D/2 - 1.2, 1, 0, 1.3);
     P2(sc, 'lampRoundTable', -(W/2 - 1.2), cz, 0, cTop, 0.9);
   }
@@ -706,7 +709,7 @@ const interiorCacheReady = k => !!interiorCache[k];
 function enterFloor(f){
   const key = 'floor:'+f.slot+':'+(f.co ? f.co.name + (f.co.logo||'') + f.co.jobs.map(j=>j.title).join() : '');
   if (!interiorCache[key]) interiorCache[key] = buildFloor(f);
-  const sc = interiorCache[key]; sc.environment = scene.environment;
+  const sc = interiorCache[key]; sc.environment = envFor('day') || scene.environment;   // office lighting doesn't follow the sky
   if (!inShop) inShop = {saved:P.pos.clone()};
   const street = lobbyDoors.find(l=>l.tower===f.tower);
   inShop = {door:f, scene:sc, saved:inShop.saved, dims:sc.userData.dims, floor:true, street};
@@ -840,6 +843,8 @@ function computeAction(){
   if (inShop){
     const ud = inShop.scene.userData, R2 = inShop.dims;
     if (liftState) return null;
+    if (sitting && sitting.free) return {key:'standup', label:'Stand up', fn:standUp};
+    for (const st of (ud.seats||[])){ if (Math.hypot(st.x-P.pos.x, st.z-P.pos.z) < 0.9) return {key:'seat', label:'Sit down', fn:()=>sitFree(st.x, st.z, st.rot, st.y, false)}; }
     { const nl = nearestLift(); if (nl) return {key:'call'+nl.x, label:'Call the lift', fn:()=>callLift(nl)}; }
     if (ud.lobby){ return P.pos.z > R2.D/2 - 2.2 ? {key:'out', label:'Step outside', fn:exitShop} : null; }
     if (ud.floor){
@@ -850,6 +855,7 @@ function computeAction(){
     if (P.pos.z < ud.counterZ + 1.7){ const b0 = inShop.door.biz; if (b0 && b0.products.length) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && (inShop.door.landmark || inShop.door.kind === 6)) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && db && myId) return {key:'claim', label:'Is this yours? Register it', fn:openBiz}; }
     return P.pos.z > R2.D/2 - 2.2 ? {key:'out', label:'Step outside', fn:exitShop} : null;
   }
+  for (let ci = 0; ci < CART_SPOTS.length; ci++){ const c = CART_SPOTS[ci]; if (!riding && Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < 2.6) return {key:'cart'+ci, label: c.kind === 'fruit' ? 'Buy fruit from the thela' : 'Buy vegetables from the thela', fn:()=>openCart(c)}; }
   for (const tb of outdoorTables){ if (!riding && Math.hypot(tb.x-P.pos.x, tb.z-P.pos.z) < 1.8 && tb.seats.some(s=>!s.npc)){ return {key:'otbl'+tb.x, label:'Sit down and join the chat', fn:()=>sitAt(tb, 'cafe:'+tb.place, {title:tb.place, sub:'Chat with people at this café', color:'#7A5638'}, scene)}; } }
   if (sitting && sitting.free) return {key:'standup', label:'Stand up', fn:standUp};
   for (const bd2 of BOARDS){ if (Math.hypot(bd2.x-P.pos.x, bd2.z-P.pos.z) < 2.6) return {key:'board', label:'Read the community board', fn:()=>openComm('meets')}; }
@@ -880,7 +886,7 @@ function updateAction(){
 }
 /* Visitors who haven't signed in can walk, look around, enter buildings and browse; anything that
    involves other people or riding asks them to sign in first. */
-const GUEST_OK = /^(door|lobby|out|call|counter|jobs|rec|board|getout|standup)/;
+const GUEST_OK = /^(door|lobby|out|call|counter|jobs|rec|board|getout|standup|seat|cart)/;
 function needsSignIn(){ return !!(window.JP_AUTH && window.JP_AUTH.signIn) && !(db && myId); }
 function askSignIn(what){ showHint(`Sign in to ${what || 'interact'}. You can keep walking and looking around without signing in.`); setTimeout(()=>showHint(''), 3500); try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); }
 function doAction(){ if (!action) return; if (needsSignIn() && !GUEST_OK.test(action.key)){ askSignIn(/^(npc|meet|wave)/.test(action.key) ? 'meet people' : /^(hail|in|sc|camel|jeep)/.test(action.key) ? 'ride' : /tbl/.test(action.key) ? 'join the chat' : 'do that'); return; } action.fn(); }
@@ -1228,8 +1234,8 @@ const BENCHES = [[3,-4,0.6],[-5,2,2.2],[4,3,-0.8]].map(([bx,bz,r])=>{ const x = 
 function kundSeat(){
   const dx = P.pos.x-KUND.x, dz = P.pos.z-KUND.z, half = KUND.s/2, d = Math.max(Math.abs(dx),Math.abs(dz)); if (d >= half) return null;
   const k = Math.min(KUND.N-1, Math.floor((half-d)/KUND.step)), inner = half-(k+1)*KUND.step + 0.22, y = -k*KUND.rise;
-  if (Math.abs(dx) >= Math.abs(dz)){ const sg = Math.sign(dx)||1; return {x:KUND.x + sg*inner, z:KUND.z + Math.max(-inner,Math.min(inner,dz)), rot: sg>0 ? -Math.PI/2 : Math.PI/2, y}; }
-  const sg = Math.sign(dz)||1; return {x:KUND.x + Math.max(-inner,Math.min(inner,dx)), z:KUND.z + sg*inner, rot: sg>0 ? Math.PI : 0, y};
+  if (Math.abs(dx) >= Math.abs(dz)){ const sg = Math.sign(dx)||1; const sx = KUND.x + sg*inner, sz2 = KUND.z + Math.max(-inner,Math.min(inner,dz)); return {x:sx, z:sz2, rot: sg>0 ? -Math.PI/2 : Math.PI/2, y: groundY(sx, sz2)}; }
+  const sg = Math.sign(dz)||1; const sx = KUND.x + Math.max(-inner,Math.min(inner,dx)), sz2 = KUND.z + sg*inner; return {x:sx, z:sz2, rot: sg>0 ? Math.PI : 0, y: groundY(sx, sz2)};
 }
 
 /* =========================================================
@@ -1293,7 +1299,9 @@ function openProducts(){
   $('prodWrap').hidden = false; showProduct();
 }
 function showProduct(){
-  const it = prod.items[prod.i], sc = inShop.scene, cz = sc.userData.counterZ;
+  const it = prod.items[prod.i];
+  if (prod.cart || !inShop){ $('prodShop').textContent = prod.door.name; $('prodName').textContent = it.n; $('prodPrice').textContent = it.p; $('prodDesc').textContent = it.d; $('prodCount').textContent = `${prod.i+1} of ${prod.items.length}`; $('prodAsk').hidden = true; return; }
+  const sc = inShop.scene, cz = sc.userData.counterZ;
   if (prod.model) sc.remove(prod.model);
   prod.model = productModel(it); prod.model.scale.setScalar(1.5); prod.model.position.set(0, (prod.kind===2||prod.kind===3) ? 1.42 : 1.02, cz + 0.05); sc.add(prod.model);
   $('prodShop').textContent = prod.biz ? prod.biz.name : prod.door.name;
@@ -1306,7 +1314,14 @@ function showProduct(){
   $('prodClaim').hidden = !(db && myId && !prod.biz);
 
 }
-function closeProducts(keepCard){ if (!prod) return; dist = 3.4; if (prod.model && inShop) inShop.scene.remove(prod.model); prod = null; $('prodWrap').hidden = true; if (!keepCard) cardOpen = false; }
+const CART_GOODS = {
+  fruit:[{n:'Bananas, a dozen',p:'₹60',d:'Ripe yellow bananas from Jalgaon.'},{n:'Apples',p:'₹160 a kg',d:'Crisp red apples from Shimla.'},{n:'Oranges',p:'₹80 a kg',d:'Nagpur oranges, sweet and juicy.'},{n:'Grapes',p:'₹100 a kg',d:'Green seedless grapes from Nashik.'},{n:'Watermelon',p:'₹30 a kg',d:'Cut fresh while you wait.'},{n:'Tender coconut',p:'₹50',d:'Sliced open with a straw.'}],
+  veg:[{n:'Tomatoes',p:'₹40 a kg',d:'Red and ripe, for today’s sabzi.'},{n:'Carrots',p:'₹50 a kg',d:'Sweet winter carrots, good for gajar halwa.'},{n:'Baingan',p:'₹45 a kg',d:'Big round ones for bharta.'},{n:'Cauliflower',p:'₹35 each',d:'Fresh gobhi from the mandi this morning.'},{n:'Onions',p:'₹35 a kg',d:'Nashik onions.'},{n:'Shimla mirch',p:'₹70 a kg',d:'Green capsicum, crunchy.'}]};
+function openCart(c){
+  prod = {door:{name: c.kind === 'fruit' ? 'Phal ki thela' : 'Sabzi ki thela'}, items: CART_GOODS[c.kind === 'fruit' ? 'fruit' : 'veg'], i:0, model:null, biz:null, kind:-1, cart:true};
+  cardOpen = true; for (const k in keys) keys[k] = false; $('prodWrap').hidden = false; showProduct();
+}
+function closeProducts(keepCard){ if (!prod) return; if (!prod.cart) dist = 3.4; if (prod.model && inShop) inShop.scene.remove(prod.model); prod = null; $('prodWrap').hidden = true; if (!keepCard) cardOpen = false; }
 $('prodPrev').addEventListener('click', ()=>{ prod.i = (prod.i + prod.items.length - 1) % prod.items.length; showProduct(); });
 $('prodNext').addEventListener('click', ()=>{ prod.i = (prod.i + 1) % prod.items.length; showProduct(); });
 $('prodClose').addEventListener('click', ()=>closeProducts());
@@ -1456,7 +1471,7 @@ function toggleMenu(show){ menuWrap.hidden = !show; $('menuBtn').setAttribute('a
 $('menuBtn').addEventListener('click', ()=>toggleMenu(menuWrap.hidden));
 menuWrap.addEventListener('click', e=>{ if (e.target === menuWrap) toggleMenu(false); });
 function syncTimeSeg(){ [...$('timeSeg').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t === timeMode))); }
-$('timeSeg').addEventListener('click', e=>{ const t2 = e.target.dataset && e.target.dataset.t; if (t2){ applyTime(t2); syncTimeSeg(); } });
+$('timeSeg').addEventListener('click', e=>{ const t2 = e.target.dataset && e.target.dataset.t; if (t2){ applyTime(t2); try { localStorage.setItem('jp-time', t2); } catch(err){} syncTimeSeg(); } });
 const runToggle = $('runToggle'), runBtn = $('runBtn');
 function setRun(v){ alwaysRun = v; runToggle.setAttribute('aria-pressed', String(v)); runToggle.textContent = `Always run: ${v ? 'on' : 'off'}`; runBtn.setAttribute('aria-pressed', String(v)); runBtn.textContent = v ? 'Running' : 'Run'; try { localStorage.setItem('jp-run', v ? '1' : '0'); } catch(e){} }
 runToggle.addEventListener('click', ()=>setRun(!alwaysRun)); runBtn.addEventListener('click', ()=>setRun(!alwaysRun));
@@ -1535,13 +1550,35 @@ function setOfficeSign(d){
   if (!show) return;
   const W = Math.min(d.w*0.55, 11);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(W, W/4*0.8), new THREE.MeshStandardMaterial({map:officeSignTex(title, sub, false), roughness:0.6, emissive:lin('#ffffff')}));
-  m.material.emissiveMap = m.material.map; glowMats.push([m.material,0.3]); m.material.emissiveIntensity = 0.3*TIMES[timeMode].glow;
+  m.material.emissiveMap = m.material.map; glowMats.push([m.material,0.3]); m.material.emissiveIntensity = 0.3*curLook.glow;
   m.position.set(d.tx + d.w*0.18, d.fy, d.tz - d.fz - 0.12); m.rotation.y = Math.PI; scene.add(m);
   let lg = null; if (co.logo){ const sz = W/4*0.8; lg = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), new THREE.MeshBasicMaterial({map:logoTexture(co.logo), transparent:true, toneMapped:false})); lg.position.set(d.tx + d.w*0.18 + W/2 + sz*0.65, d.fy, d.tz - d.fz - 0.12); lg.rotation.y = Math.PI; scene.add(lg); }
   officeSigns.set(d.slot, {key, mesh:m, logo:lg});
 }
 fontReady.then(()=>officeDoors.forEach(setOfficeSign));
 const entranceMarkers = [];
+/* Scooters are solid when parked */
+scooters.forEach(s=>{ s.circle = {x:s.pos.x, z:s.pos.z, r:0.8}; circles.push(s.circle); });
+/* Glass doors on open shops and cafés: they slide apart as you walk up, so it's clear where to go in */
+const shopGlassDoors = [];
+{ const glass = new THREE.MeshStandardMaterial({color:lin('#CFE3EA'), transparent:true, opacity:0.32, roughness:0.05, metalness:0.2, depthWrite:false});
+  const frameM = new THREE.MeshStandardMaterial({color:lin('#2A2A2E'), roughness:0.5}), brass = new THREE.MeshStandardMaterial({color:lin('#C9A24A'), roughness:0.35, metalness:0.7});
+  shopDoors.forEach(d=>{ if (d.kind === 7 || d.kind === 8 || !(d.landmark || d.kind === 6)) return;
+    // set inside the arch: 1.35 m back from the door spot is the arch face, a little further in is the opening; the glass fills the straight part below the curve
+    const w = (d.ow || 2.2) * 0.92, h = (d.oh || 3.0) * 0.6, back = 1.35 + 0.45, g = new THREE.Group();
+    g.position.set(d.x - Math.sin(d.rot) * back, 0.05, d.z - Math.cos(d.rot) * back); g.rotation.y = d.rot; scene.add(g);
+    const top = new THREE.Mesh(UBOX, frameM); top.scale.set(w + 0.12, 0.12, 0.12); top.position.set(0, h, 0); g.add(top);
+    const panels = [-1, 1].map(sd=>{ const pg = new THREE.Group(); const pane = new THREE.Mesh(UBOX, glass); pane.scale.set(w/2 - 0.02, h - 0.1, 0.04); pane.position.y = (h - 0.1)/2; pg.add(pane);
+      const fr = new THREE.Mesh(UBOX, frameM); fr.scale.set(w/2, 0.06, 0.06); fr.position.y = 0.03; pg.add(fr);
+      const handle = new THREE.Mesh(UBOX, brass); handle.scale.set(0.04, 0.5, 0.08); handle.position.set(-sd * (w/4 - 0.1), 1.05, 0); pg.add(handle);
+      pg.position.x = sd * w/4; g.add(pg); return {pg, sd, home: sd * w/4, w}; });
+    shopGlassDoors.push({d, g, panels, open: 0}); });
+}
+function updateShopDoors(dt){
+  for (const sd of shopGlassDoors){ const near = !inShop && Math.hypot(sd.d.x - P.pos.x, sd.d.z - P.pos.z) < 3.6;
+    sd.open += ((near ? 1 : 0) - sd.open) * Math.min(1, dt * 5);
+    for (const p of sd.panels) p.pg.position.x = p.home + p.sd * (p.w/2 - 0.08) * sd.open; }
+}
 fontReady.then(()=>lobbyDoors.forEach(l=>{
   const dm = new THREE.Mesh(new THREE.OctahedronGeometry(0.28), new THREE.MeshBasicMaterial({color:'#34C27A', toneMapped:false})); dm.position.set(l.x, 4.6, l.z+0.4); scene.add(dm);
   const lb = liveSprite(`Tower ${l.tower} entrance`); lb.position.set(l.x, 4.0, l.z+0.4); lb.scale.multiplyScalar(1.5); scene.add(lb);
@@ -1628,7 +1665,8 @@ function buildLobby(door){
   plane(sc,new THREE.MeshStandardMaterial({map:tex(dc), roughness:0.7}),W/2-0.13,2.4,-1.5,2.2,2.2*dc.height/512,-Math.PI/2);
   box(sc,3.4,1.05,0.8,'#2A2A2E',-3.6,0,0.5,'stone'); box(sc,3.5,0.05,0.9,'#C9C2B5',-3.6,1.05,0.5,'stone');
   if (OfficeKit.ready){   // waiting area: two sofas facing a coffee table on a rug, plants in every corner, a reception plant
-    const P2 = OfficeKit.put; P2(sc,'rugRectangle',4,2.45,Math.PI/2,0,1.2); P2(sc,'loungeSofa',4.95,2.45,-Math.PI/2); P2(sc,'loungeDesignChair',3.0,1.4,Math.PI*0.75); P2(sc,'loungeDesignChair',3.0,3.5,Math.PI*0.25); P2(sc,'tableCoffee',4,2.45,Math.PI/2);
+    const P2 = OfficeKit.put; P2(sc,'rugRectangle',4,2.45,Math.PI/2,0,1.2); P2(sc,'loungeSofa',4.95,2.45,-Math.PI/2); P2(sc,'loungeDesignChair',3.0,1.4,Math.PI*0.75); P2(sc,'loungeDesignChair',3.0,3.5,Math.PI*0.25);
+    const ls = sc.userData.seats = sc.userData.seats || []; ls.push({x:4.95, z:2.0, rot:Math.PI/2, y:0.05}, {x:4.95, z:2.9, rot:Math.PI/2, y:0.05}, {x:3.0, z:1.4, rot:Math.PI*0.75 + Math.PI, y:0.08}, {x:3.0, z:3.5, rot:Math.PI*0.25 + Math.PI, y:0.08}); P2(sc,'tableCoffee',4,2.45,Math.PI/2);
     for (const [x,z] of [[-W/2+0.6,D/2-0.8],[W/2-0.6,D/2-0.8],[-W/2+0.6,-D/2+0.8],[W/2-0.6,-D/2+0.8]]) P2(sc,'pottedPlant',x,z,0,0,1.3);
     P2(sc,'plantSmall1',-4.6,0.5,0,1.1); P2(sc,'lampRoundTable',-2.4,0.5,0,1.1);
   } else {
@@ -1663,21 +1701,21 @@ function buildFloor(f){
     for (const row of [0.4,-2.0]) for (const x of [-1.8,0.6,3.0]){
       P2(sc,'desk',x,row,0); P2(sc,'computerScreen',x,row-0.22,Math.PI,0.75); P2(sc,'computerKeyboard',x,row+0.08,0,0.75); P2(sc,'computerMouse',x+0.38,row+0.1,0,0.75);
       if ((k % 3) === 1) P2(sc,'laptop',x-0.45,row+0.05,0.3,0.75);
-      P2(sc,'chairDesk',x,row+0.85,Math.PI);
+      P2(sc,'chairDesk',x,row+0.85,Math.PI); (sc.userData.seats = sc.userData.seats || []).push({x, z: row + 0.85, rot: Math.PI, y: 0.12});
       rects.push({minX:x-0.75,maxX:x+0.75,minZ:row-0.4,maxZ:row+0.4}); k++;
     }
     // glass meeting room with a table, chairs, a screen and a bookcase
-    P2(sc,'table',-5.4,-4.4,0); for (const [x,z,r] of [[-6.4,-4.4,Math.PI/2],[-4.4,-4.4,-Math.PI/2],[-5.4,-3.5,Math.PI],[-5.4,-5.3,0]]) P2(sc,'chairModernCushion',x,z,r);
+    const seat = (x,z,rot,y) => (sc.userData.seats = sc.userData.seats || []).push({x, z, rot, y});
+    P2(sc,'table',-5.4,-4.4,0); for (const [x,z,r] of [[-6.4,-4.4,Math.PI/2],[-4.4,-4.4,-Math.PI/2],[-5.4,-3.5,Math.PI],[-5.4,-5.3,0]]){ P2(sc,'chairModernCushion',x,z,r); seat(x, z, r + Math.PI, 0.12); }
     P2(sc,'televisionModern',-W/2+0.3,-4.4,Math.PI/2,0.9); P2(sc,'bookcaseOpen',-3.1,-5.6,0);
     // pantry: counter, cabinets, coffee machine, microwave, fridge and bar stools
     for (const x of [4.6,5.5,6.4]) P2(sc,'kitchenCabinet',x,-5.5,0); P2(sc,'kitchenCabinetUpper',5.5,-5.75,0,1.6);
     P2(sc,'kitchenCoffeeMachine',4.6,-5.5,0,0.9); P2(sc,'kitchenMicrowave',6.4,-5.5,0,0.9); P2(sc,'kitchenFridgeLarge',7.4,-5.3,0);
-    P2(sc,'kitchenBar',5.5,-4.0,0); for (const x of [4.9,5.5,6.1]) P2(sc,'stoolBar',x,-3.4,0);
+    P2(sc,'kitchenBar',5.5,-4.0,0); for (const x of [4.9,5.5,6.1]){ P2(sc,'stoolBar',x,-3.4,0); seat(x, -3.4, Math.PI, 0.42); }
     // lounge: corner sofa, coffee table, rug and a floor lamp
-    P2(sc,'rugRound',5.6,3.1,0); P2(sc,'loungeSofaCorner',6.0,4.2,Math.PI); P2(sc,'tableCoffeeGlass',5.6,3.0,0); P2(sc,'lampSquareFloor',7.4,5.0,0); P2(sc,'speaker',4.2,5.3,Math.PI);
+    P2(sc,'rugRound',5.6,3.1,0); P2(sc,'loungeSofaCorner',6.0,4.2,Math.PI); seat(5.4, 4.2, Math.PI, 0.05); seat(6.4, 4.2, Math.PI, 0.05); P2(sc,'tableCoffeeGlass',5.6,3.0,0); P2(sc,'lampSquareFloor',7.4,5.0,0); P2(sc,'speaker',4.2,5.3,Math.PI);
     // plants and a coat rack
     for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2],[-2.2,-5.5],[W/2-0.6,2.2]]) P2(sc,'pottedPlant',x,z,0,0,1.2);
-    P2(sc,'coatRackStanding',-0.9,D/2-0.6,0);
     // manager's cabin (right side): glass walls with a doorway, executive desk with monitor and laptop, chair, guest chairs, bookcase, plant
     { const gw = new THREE.MeshStandardMaterial({color:lin('#B9CCD4'), transparent:true, opacity:0.24, roughness:0.05, depthWrite:false}), fr = '#3A3D44';
       add(sc,UBOX,gw,5.0,1.5,-1.5,0.05,3.0,3.4);                       // side wall facing the desks
@@ -1685,7 +1723,7 @@ function buildFloor(f){
       for (const [x,z,w,d] of [[5.0,-1.5,0.07,3.4],[6.85,0.2,2.1,0.07]]) box(sc,w,0.08,d,fr,x,2.96,z,'stone');
       for (const [x,z] of [[5.0,-3.2],[5.0,0.2],[5.8,0.2],[7.9,0.2]]) box(sc,0.07,3.0,0.07,fr,x,0,z,'stone');
       P2(sc,'deskCorner',6.9,-2.3,Math.PI); P2(sc,'computerScreen',7.2,-2.6,0,0.75); P2(sc,'laptop',6.5,-2.2,-0.4,0.75); P2(sc,'chairDesk',6.9,-2.95,0);
-      P2(sc,'chairModernCushion',6.6,-1.1,Math.PI); P2(sc,'chairModernCushion',7.3,-1.1,Math.PI); P2(sc,'bookcaseClosedWide',7.6,-0.8,-Math.PI/2); P2(sc,'plantSmall2',5.4,-2.9,0,0,1.4);
+      P2(sc,'chairModernCushion',6.6,-1.1,Math.PI); P2(sc,'chairModernCushion',7.3,-1.1,Math.PI); seat(6.6, -1.1, 0, 0.12); seat(7.3, -1.1, 0, 0.12); seat(6.9, -2.95, Math.PI, 0.12); P2(sc,'bookcaseClosedWide',7.6,-0.8,-Math.PI/2); P2(sc,'plantSmall2',5.4,-2.9,0,0,1.4);
       const [nc,nx] = cv(256,64); nx.fillStyle = '#14202E'; nx.fillRect(0,0,256,64); nx.fillStyle = '#F4EAD8'; nx.font = '700 30px Hind, system-ui, sans-serif'; nx.textAlign = 'center'; nx.fillText('Cabin', 128, 42);
       plane(sc,new THREE.MeshStandardMaterial({map:tex(nc), roughness:0.6}),6.85,2.5,0.24,0.8,0.2);
       rects.push({minX:4.95,maxX:5.05,minZ:-3.2,maxZ:0.2}); rects.push({minX:5.8,maxX:7.9,minZ:0.15,maxZ:0.25}); rects.push({minX:6.0,maxX:7.9,minZ:-3.0,maxZ:-1.7}); }
@@ -1724,8 +1762,11 @@ function buildFloor(f){
     plane(sc,new THREE.MeshStandardMaterial({map:tex(wc), roughness:0.5}),-2.68,1.6,-3.6,1.8,1.1,-Math.PI/2); }
   if (!OfficeKit.ready) for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2]]){ cyl(sc,0.28,0.55,'#2A2A2E',x,0,z,12,'stone'); add(sc,BLOBS[0],mat('#4E7A2C','foliage'),x,1.05,z,0.5,0.6,0.5); }
   // a receptionist behind the front desk on every floor
-  { const rp = makePerson({style:'shirt',head:'longhair',model:'founder'});   // receptionist in a smart suit rp.g.position.set(-4.6,0,4.5); rp.g.rotation.y = Math.PI; sc.add(rp.g);
-    fontReady.then(()=>{ const lb = liveSprite('Reception'); lb.position.set(-4.6,2.4,4.5); sc.add(lb); }); }
+  { const rp = makePerson({style:'shirt',head:'longhair',model:'founder'}); rp.g.name = 'receptionist';   // receptionist in a smart suit
+    rp.g.position.set(-4.6,0,4.5); rp.g.rotation.y = Math.PI; sc.add(rp.g);
+    // a small brass-on-dark 'Reception' plaque on the front of the desk (keeps the company name on the wall clear)
+    { const [rc,rx] = cv(512,96); rx.fillStyle = '#1E2228'; rx.fillRect(0,0,512,96); rx.fillStyle = '#E2C27A'; rx.font = '700 52px Hind, system-ui, sans-serif'; rx.textAlign = 'center'; rx.fillText('Reception', 256, 66);
+      plane(sc,new THREE.MeshStandardMaterial({map:tex(rc), roughness:0.5}),-4.6,0.72,3.21,1.4,0.26,Math.PI); } }
   // the company's real, confirmed team stands at the desks
   const team = co ? teamOf(co) : []; const deskSpots = [[-1.8,1.2],[0.6,1.2],[3.0,1.2],[-1.8,-1.2],[0.6,-1.2],[3.0,-1.2]];
   team.slice(0,6).forEach((m,i)=>{ const ch = makePerson(m.p.look); ch.g.position.set(deskSpots[i][0],0,deskSpots[i][1]); ch.g.rotation.y = Math.PI*0.9; sc.add(ch.g); fontReady.then(()=>{ const lb = liveSprite(m.p.name.split(' ')[0]); lb.position.set(deskSpots[i][0],2.3,deskSpots[i][1]); sc.add(lb); }); });
@@ -2212,7 +2253,7 @@ $('tabComm').addEventListener('click', ()=>openComm('meets'));
 /* =========================================================
    Animals: wander, stand around, lie down, get up, and make way for a horn
    ========================================================= */
-cows.concat(camels).forEach(a=>{ a.circle = {x:a.pos.x, z:a.pos.z, r: a.type==='cow' ? 1.0 : 1.3}; circles.push(a.circle); a.range = a.still ? 0.01 : a.type==='cow' ? 5 : 3; });
+cows.concat(camels).forEach(a=>{ a.circle = {x:a.pos.x, z:a.pos.z, r: a.type==='cow' ? 1.0 : 1.7}; circles.push(a.circle); a.range = a.still ? 0.01 : a.type==='cow' ? 5 : 3; });
 function scareAnimals(x, z, radius){
   for (const a of cows.concat(camels)){
     if (a.type === 'camel' && a.state === 'driven') continue;
@@ -2315,7 +2356,8 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
-  Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t);
+  Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t); updateShopDoors(dt);
+  for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : 0.8; }
   Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
@@ -2396,11 +2438,15 @@ function frame(){
     pos.x += nx*w.off; pos.z += nz*w.off;
     // personal space: stop for the player or for someone just ahead going the same way; step aside for people coming the other way
     const fx = (w.b.x-w.a.x)/w.len*dir, fz = (w.b.z-w.a.z)/w.len*dir;
-    let near = Math.hypot(pos.x-P.pos.x,pos.z-P.pos.z) < 1.6, side = 0;
+    let near = false, side = 0;
+    { const dx = P.pos.x - w.pos.x, dz = P.pos.z - w.pos.z, dd = Math.hypot(dx, dz); if (dd < 2.2 && dx*fx + dz*fz > -0.3) side += (dx*nx + dz*nz) > 0 ? -2 : 2; }   // step around the player instead of blocking them
     for (const o of walkers){ if (o === w || !o.pos.lengthSq()) continue; const dx = o.pos.x - w.pos.x, dz = o.pos.z - w.pos.z, dd = dx*dx + dz*dz; if (dd > 2.6) continue;
       const ahead = dx*fx + dz*fz; if (ahead <= 0) continue;
       if (o.dir === w.dir || o.stopped){ if (ahead < 1.1) near = true; } else side += (dx*nx + dz*nz) > 0 ? -1 : 1; }
-    w.side = (w.side || 0) + ((side ? Math.sign(side) * 0.6 : 0) - (w.side || 0)) * Math.min(1, dt * 3); pos.x += nx*w.side; pos.z += nz*w.side;
+    // and wait for autos, scooters, the jeep and animals rather than walking through them
+    for (const v of autos){ const dx = v.pos.x - w.pos.x, dz = v.pos.z - w.pos.z, dd = dx*dx + dz*dz; if (dd < 9 && dx*fx + dz*fz > -0.5) near = true; }
+    for (const c of circles){ if (c.r < 0.7) continue; const dx = c.x - w.pos.x, dz = c.z - w.pos.z, dd = Math.hypot(dx, dz); if (dd < c.r + 0.6 && dx*fx + dz*fz > 0) side += (dx*nx + dz*nz) > 0 ? -2 : 2; }
+    w.side = (w.side || 0) + ((side ? Math.sign(side) * (Math.abs(side) > 1 ? 1.6 : 0.6) : 0) - (w.side || 0)) * Math.min(1, dt * 3); pos.x += nx*w.side; pos.z += nz*w.side;
     w.stopped = near;
     if (!near){ w.t += dir*w.sp*dt/w.len; w.walk += dt*w.sp*3.4; }
     if (w.t > 1){ w.t = 1; w.dir = -1; w.off = -w.off; } if (w.t < 0){ w.t = 0; w.dir = 1; w.off = -w.off; }
@@ -2414,8 +2460,8 @@ function frame(){
   { const pm = pigeons.mesh;
     pigeons.forEach((p,i)=>{
       const d = Math.hypot(p.hx-P.pos.x, p.hz-P.pos.z);
-      if (d < 3.5 && p.fly <= 0) p.fly = 4;
-      if (p.fly > 0){ p.fly -= dt; const k = Math.sin(Math.min(1,(4-p.fly)/4)*Math.PI); p.y = k*6; p.x = p.hx + Math.cos(t+i)*k*4; p.z = p.hz + Math.sin(t+i)*k*4; p.ry += dt*3; }
+      if (p.fly <= 0 && (d < 3.5 || autos.some(a => Math.abs(a.pos.x - p.hx) < 4 && Math.abs(a.pos.z - p.hz) < 4))) p.fly = 8;   // scatter for people and autos, then settle back
+      if (p.fly > 0){ p.fly -= dt; const k = Math.sin(Math.min(1,(8-p.fly)/8)*Math.PI), ang = i + (8 - p.fly)*0.35; p.y = k*5; p.x = p.hx + Math.cos(ang)*k*6; p.z = p.hz + Math.sin(ang)*k*6; p.ry = -ang; }   // a slow, wide circle and back down
       else { p.x = p.hx; p.z = p.hz; p.y = 0; if (Math.sin(t*2+p.ph) > 0.97) p.ry += dt*4; }
       tmpM.compose(tmpV.set(p.x,p.y + Math.max(0,Math.sin(t*9+p.ph))*0.02*(p.fly>0?0:1),p.z), tmpQ.setFromEuler(tmpE.set(p.fly>0?0:Math.max(0,Math.sin(t*3+p.ph))*0.5,p.ry,0)), ONE);
       pm.setMatrixAt(i,tmpM);
@@ -2481,6 +2527,9 @@ function frame(){
   sunLight.position.set(focus.x + sunDir.x*300, sunDir.y*300, focus.z + sunDir.z*300);
   sunLight.shadow.camera.updateProjectionMatrix();
 
+  updateSkyBodies(camera);
+  // indoors: normal exposure and almost no bloom, whatever the time outside (night settings over-brighten white rooms)
+  renderer.toneMappingExposure = inShop ? 0.95 : curLook.exp; if (bloomPass) bloomPass.strength = inShop ? 0.08 : curLook.bloom;
   if (composer) composer.render(); else renderer.render(activeScene, camera);
   requestAnimationFrame(frame);
 }

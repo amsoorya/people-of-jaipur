@@ -35,7 +35,8 @@ const lowEnd = isCoarse || (navigator.hardwareConcurrency||8) <= 4;
 /* 3D model downloads: phones get the lighter .lite versions; every download is tracked so the
    loading screen can wait for the whole city before it opens. */
 const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/vehicles/scooter2.glb','models/nature/trees.glb']);
-const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : u;
+const MID = new Set(['models/vehicles/tuktuk.glb','models/animals/CamelRig.glb','models/vehicles/scooter2.glb']);   // desktop: 2048 textures, same look, far lighter
+const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : MID.has(u) ? u.replace(/\.glb$/, '.mid.glb') : u;
 const ModelLoad = {started:0, done:0, bytes:{}};
 if (THREE.GLTFLoader){
   const load0 = THREE.GLTFLoader.prototype.load;
@@ -46,8 +47,8 @@ if (THREE.GLTFLoader){
 }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance', logarithmicDepthBuffer:true});   // precise depth so layered clothes (suit over shirt) never flicker
-renderer.setPixelRatio(Math.min(devicePixelRatio, lowEnd ? 1.5 : 2));
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, lowEnd ? 1.25 : 1.5));   // full Retina doubles the work for little visible gain
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -58,7 +59,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xE6BFA2, 220, 1100);
 scene.background = new THREE.Color();
-const camera = new THREE.PerspectiveCamera(52, innerWidth/innerHeight, 0.15, 2400);
+const camera = new THREE.PerspectiveCamera(52, innerWidth/innerHeight, 0.3, 2400);   // a slightly further near plane keeps depth precise (no flicker on layered clothes)
 
 const TIMES = {
   day:  {sun:[-0.62,0.30,0.72], turb:7, ray:2.4, mie:0.006, light:'#FFC997', li:2.6, hs:'#FFE3C8', hg:'#9C6A50', hi:0.35, exp:0.95, fog:'#E6BFA2', fogN:220, fogF:1100, glow:0.55, lamp:2.2, bloom:0.12},
@@ -87,8 +88,44 @@ sunLight.shadow.bias = -0.0004; sunLight.shadow.normalBias = 0.04;
 scene.add(sunLight, sunLight.target);
 const glowMats = [], monumentMats = [];   // materials whose glow depends on the time of day
 let lampMat = null, bloomPass = null;
+/* Real sky over Jaipur: sun and moon positions from the actual time (low-precision astronomical formulas, good to a fraction of a degree) */
+const JAIPUR = {lat: 26.9124, lon: 75.7873}, D2R = Math.PI/180;
+function skyBodies(date){
+  const d = (date.getTime() - Date.UTC(2000,0,1,12)) / 864e5, e = (23.439 - 3.6e-7*d) * D2R, lat = JAIPUR.lat * D2R;
+  const lst = ((18.697374558 + 24.06570982441908*d) + JAIPUR.lon/15) * 15 * D2R;
+  const toHorizon = (ra, dec) => { const ha = lst - ra, el = Math.asin(Math.sin(lat)*Math.sin(dec) + Math.cos(lat)*Math.cos(dec)*Math.cos(ha)),
+      az = Math.atan2(-Math.sin(ha), Math.tan(dec)*Math.cos(lat) - Math.sin(lat)*Math.cos(ha));
+    return {el, az, v: new THREE.Vector3(Math.cos(el)*Math.sin(az), Math.sin(el), -Math.cos(el)*Math.cos(az))}; };   // x east, y up, -z north
+  const g = (357.529 + 0.98560028*d) * D2R, q = 280.459 + 0.98564736*d, Ls = (q + 1.915*Math.sin(g) + 0.020*Math.sin(2*g)) * D2R;
+  const sun = toHorizon(Math.atan2(Math.cos(e)*Math.sin(Ls), Math.cos(Ls)), Math.asin(Math.sin(e)*Math.sin(Ls)));
+  const Lm = (218.316 + 13.176396*d) * D2R, Mm = (134.963 + 13.064993*d) * D2R, Fm = (93.272 + 13.229350*d) * D2R;
+  const lon = Lm + 6.289*D2R*Math.sin(Mm), bet = 5.128*D2R*Math.sin(Fm);
+  const moon = toHorizon(Math.atan2(Math.sin(lon)*Math.cos(e) - Math.tan(bet)*Math.sin(e), Math.cos(lon)), Math.asin(Math.sin(bet)*Math.cos(e) + Math.cos(bet)*Math.sin(e)*Math.sin(lon)));
+  moon.phase = (1 - Math.cos(lon - Ls)) / 2;   // 0 new moon, 1 full moon
+  return {sun, moon};
+}
+// blend two time-of-day looks
+function mixT(A, B, k){ const o = {}; for (const key in B){ const a = A[key], b = B[key];
+    if (typeof b === 'number' && typeof a === 'number') o[key] = a + (b - a)*k;
+    else if (typeof b === 'string' && typeof a === 'string' && b[0] === '#') o[key] = '#' + new THREE.Color(a).lerp(new THREE.Color(b), k).getHexString();
+    else o[key] = k < 0.5 && a !== undefined ? a : b; } return o; }
+let liveTimer = null, liveBodies = null;
+function liveLook(date){
+  const {sun, moon} = liveBodies = skyBodies(date), el = sun.el / D2R;
+  // night below -8 degrees, dusk around the horizon, full day above 12 degrees
+  let T, near; if (el <= -8){ T = TIMES.night; near = 'night'; } else if (el <= 0){ T = mixT(TIMES.night, TIMES.dusk, (el + 8)/8); near = el > -4 ? 'dusk' : 'night'; }
+  else if (el <= 12){ T = mixT(TIMES.dusk, TIMES.day, el/12); near = el > 6 ? 'day' : 'dusk'; } else { T = TIMES.day; near = 'day'; }
+  T = Object.assign({}, T); T.sun = sun.v.toArray(); T.lightDir = el > -3 ? sun.v.toArray() : (moon.el > 0 ? moon.v.toArray() : TIMES.night.lightDir);
+  if (el <= -3 && moon.el > 0) T.li = 0.25 + 0.5*moon.phase;   // moonlight follows the phase
+  return {T, near};
+}
 function applyTime(mode){
-  timeMode = mode; const T = TIMES[mode];
+  if (mode === 'live'){ timeMode = 'live'; const {T, near} = liveLook(new Date()); applyLook(T, near); if (!liveTimer) liveTimer = setInterval(()=>{ if (timeMode === 'live') applyTime('live'); }, 30000); return; }
+  timeMode = mode; liveBodies = null; applyLook(TIMES[mode], mode);
+}
+let curLook = TIMES.dusk;
+function applyLook(T, mode){
+  curLook = T;
   sunDir.set(...(T.lightDir || T.sun)).normalize();
   if (sky) skyUniforms(sky.material.uniforms, T);
   scene.environment = envFor(mode) || null;
@@ -101,6 +138,20 @@ function applyTime(mode){
   monumentMats.forEach(m=>{ m.emissiveIntensity = T.mono || 0; });
   if (bloomPass) bloomPass.strength = T.bloom;
   if (typeof onTimeChange === 'function') onTimeChange(mode);
+}
+/* The moon and the stars */
+const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(28, 24, 16), new THREE.MeshBasicMaterial({color:'#F4F1E6', fog:false, toneMapped:false})); moonMesh.visible = false; scene.add(moonMesh);
+const starField = (()=>{ const n = 1400, pos = new Float32Array(n*3); for (let i = 0; i < n; i++){ const u = Math.random(), v = Math.random()*0.95 + 0.05, th = u*Math.PI*2, ph = Math.acos(v);
+    pos.set([Math.sin(ph)*Math.cos(th)*1500, Math.cos(ph)*1500, Math.sin(ph)*Math.sin(th)*1500], i*3); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({color:'#FFFFFF', size:2.2, sizeAttenuation:false, transparent:true, opacity:0, fog:false, depthWrite:false})); scene.add(p); return p; })();
+function updateSkyBodies(cam){
+  moonMesh.position.copy(cam.position); starField.position.copy(cam.position);
+  const b = liveBodies || (timeMode === 'night' ? {sun:{el:-0.5}, moon:{el:0.6, phase:1, v:new THREE.Vector3(0.4,0.6,-0.7).normalize()}} : null);
+  const sunEl = b ? b.sun.el / D2R : (timeMode === 'dusk' ? 2 : 40);
+  starField.material.opacity = Math.max(0, Math.min(0.9, (-sunEl - 4) / 10)); starField.visible = starField.material.opacity > 0.01;
+  if (b && b.moon.el > -0.02){ moonMesh.visible = true; moonMesh.position.addScaledVector(b.moon.v, 1400); const lit = 0.35 + 0.65*b.moon.phase; moonMesh.material.color.setRGB(lit, lit*0.98, lit*0.92); }
+  else moonMesh.visible = false;
 }
 
 /* =========================================================

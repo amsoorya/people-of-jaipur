@@ -113,10 +113,11 @@ function roadAt(x,z,pad){
 function groundY(x,z){
   const hh = hillH(x,z); if (hh > 0){ const rd = roadAt(x,z,1.6); return rd !== null && Math.hypot(x-HILL.x,z-HILL.z) > HILL.top + 0.5 ? rd : hh; }
   const dx = Math.abs(x-KUND.x), dz = Math.abs(z-KUND.z), half = KUND.s/2;
-  if (dx < half && dz < half){ const d = Math.max(dx,dz); const k = Math.min(KUND.N-1, Math.floor((half-d)/KUND.step)); return -k*KUND.rise; }
+  if (dx < half && dz < half){ const d = Math.max(dx,dz), sub = KUND.step/4; const k = Math.min(KUND.N*4-1, Math.floor((half-d)/sub)); return -k*KUND.rise/4; }   // each tier is four 29 cm steps
   return 0;
 }
 const camelSpots = [], jeepPath = [], officeDoors = [], lobbyDoors = [], cowSpots = [];
+const LAMP_SPOTS = [];   // filled by lamp(); used to keep trees off lamp posts
 const MANTHHAN_SLOT = 2;
 function vnoise(x,z){ const i=Math.floor(x), j=Math.floor(z), fx=x-i, fz=z-j; const h=(a,b)=>{ const s=Math.sin(a*127.1+b*311.7)*43758.5453; return s-Math.floor(s); };
   const u=fx*fx*(3-2*fx), v=fz*fz*(3-2*fz); return (h(i,j)*(1-u)+h(i+1,j)*u)*(1-v) + (h(i,j+1)*(1-u)+h(i+1,j+1)*u)*v; }
@@ -157,7 +158,7 @@ addRoad(30, 0, 13, 188, 0.065);                   // N-S bazaar
 addRoad(30, 0, 34, 34, 0.07);                     // Badi Chaupar
 addRoad(30, -116, 13, 44, 0.06);                  // road to Jal Mahal
 addRoad(30, 112, 13, 36, 0.06);                   // road to Albert Hall
-addRoad(-116, 0, 44, 11, 0.06);                   // road to the stepwell
+addRoad(-114, 0, 40, 11, 0.06);   // stops at the stepwell's stone border                   // road to the stepwell
 addRoad(180, 0, 170, 17, 0.06);                   // MI Road / C-Scheme
 addRoad(150, 15, 17, 190, 0.065);                 // cross road
 flat(mat('#CDBBA4','paving'), 180, 0, 170, 26, 0.04);  // footpaths

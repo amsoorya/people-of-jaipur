@@ -27,7 +27,7 @@
   box(staticRoot,84,0.08,0.08,'#7A5C3E',30,1.05,-136.2,'stone');
   for (let x=-8; x<=70; x+=16) lamp(x,-130.5);
 }
-function lamp(x,z,ax=1,az=0,y0=0){
+function lamp(x,z,ax=1,az=0,y0=0){ LAMP_SPOTS.push([x,z]);
   const g = new THREE.Group(), C = '#1E1E1E';
   cyl(g,0.16,0.5,C,0,0,0,10,'stone'); cyl(g,0.07,4.4,C,0,0.5,0,8,'stone'); add(g,SPH,M(C,'stone'),0,4.95,0,0.11,0.11,0.11);
   const L = 0.95, hx = ax*L, hz = az*L;
@@ -78,11 +78,11 @@ function lamp(x,z,ax=1,az=0,y0=0){
    ========================================================= */
 {
   const g = new THREE.Group(), h = KUND.s/2, step = 1.3, rise = 1.15, N = 8;
-  for (let k=0;k<N;k++){
-    const o = h - k*step, yTop = -k*rise;
+  for (let k=0;k<N*4;k++){   // four ordinary steps per tier, so walking down feels like real stairs
+    const st = step/4, rs = rise/4, o = h - k*st, yTop = -k*rs;
     for (let side=0; side<4; side++){
       const a = side*Math.PI/2;
-      const b = add(g,UBOX,M_KUND,Math.sin(a)*(o-step/2),yTop-rise/2,Math.cos(a)*(o-step/2),2*o,rise,step,a);
+      add(g,UBOX,M_KUND,Math.sin(a)*(o-st/2),yTop-rs/2,Math.cos(a)*(o-st/2),2*o,rs,st,a);
     }
   }
   add(g,UPLANE,mat('#4C6B48','stone',{roughness:0.1,metalness:0.1}),0,-N*rise+0.3,0,2*(h-N*step)+0.5,2*(h-N*step)+0.5,1,0,-Math.PI/2);
@@ -252,8 +252,16 @@ const WHEEL = new THREE.CylinderGeometry(1,1,1,14); WHEEL.rotateZ(Math.PI/2);
 const CART_SPOTS = [];
 function cart(x,z,rot,kind){
   const g = new THREE.Group();
-  box(g,2.6,0.12,1.4,'#7A5638',0,0.8,0,'stone');
-  for (const sz of [-1,1]) add(g,WHEEL,M('#2A2A2A','stone'),0,0.45,sz*0.75,0.08,0.45,0.45,Math.PI/2);
+  // a wooden thela: plank bed with raised rails, two big spoked wheels, handles and a prop leg
+  box(g,2.6,0.1,1.4,'#8A6240',0,0.82,0,'stone');
+  for (const sz of [-1,1]) box(g,2.6,0.16,0.07,'#6B4530',0,0.92,sz*0.68,'stone');
+  for (const sx of [-1,1]) box(g,0.07,0.16,1.4,'#6B4530',sx*1.27,0.92,0,'stone');
+  for (const sz of [-1,1]){ const wg = new THREE.Group(); wg.position.set(0,0.48,sz*0.8); g.add(wg);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44,0.045,8,28), M('#3A2A20','stone')); wg.add(rim);
+    for (let k=0;k<8;k++){ const sp = new THREE.Mesh(UBOX, M('#6B4530','stone')); sp.scale.set(0.035,0.86,0.035); sp.rotation.z = k*Math.PI/8; wg.add(sp); }
+    const hub = new THREE.Mesh(CYL(10), M('#2A2A2A','stone')); hub.scale.set(0.07,0.12,0.07); hub.rotation.x = Math.PI/2; wg.add(hub); }
+  for (const sz of [-0.45,0.45]) box(g,0.9,0.06,0.06,'#6B4530',-1.7,0.86,sz,'stone');
+  box(g,0.06,0.82,0.06,'#6B4530',1.15,0,0,'stone');
   const fruit = kind==='fruit' ? ['#E8B33A','#D8342B','#6E9A2E','#F2C230'] : ['#E05A2B','#5E8F3A','#C23B3B','#E8D8B8'];
   CART_SPOTS.push({x, z, rot, kind, fruit});   // the produce is real Kenney fruit and veg, piled on once the models load
   cyl(g,0.04,2.4,'#3A2A20',1.1,0.9,0.5,6,'stone'); cone(g,1.5,0.55,pick(['#E8B33A','#2E8C87','#B82B2B','#3B4B8C']),1.1,3.2,0.5,12,'stone');
