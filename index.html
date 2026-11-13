@@ -582,6 +582,8 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
@@ -1982,9 +1984,12 @@ function makePerson(L, scale=1){
   const g = new THREE.Group(); g.add(mesh); mesh.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
   g.scale.setScalar(scale * (L.height || 1));
   const b = {}; BONE_DEF.forEach(([n],i)=>b[n] = bones[i]);
-  return {g, mesh, b, dress: style==='lehenga', lL:b.lHip, lR:b.rHip, aL:b.lSh, aR:b.rSh, ph:Math.random()*6};
+  const ch = {g, mesh, b, dress: style==='lehenga', lL:b.lHip, lR:b.rHip, aL:b.lSh, aR:b.rSh, ph:Math.random()*6};
+  Rig.attach(ch, L);   // swaps in an animated 3D model when it has loaded; the simple body stays as a fallback
+  return ch;
 }
 function animatePerson(ch, walk, amt, tt){
+  if (ch.rig){ ch.rig.sit = false; ch.rig.want = amt > 1.1 ? 'Run' : amt > 0.5 ? 'Walk' : 'Idle'; }
   const b = ch.b, s = Math.sin(walk), legA = ch.dress ? 0.3 : 0.55;
   b.lHip.rotation.x = s*legA*amt; b.rHip.rotation.x = -s*legA*amt; b.lHip.rotation.z = 0; b.rHip.rotation.z = 0;
   b.lKnee.rotation.x = (0.08 + 0.7*Math.max(0, Math.sin(walk + 1.7)))*amt; b.rKnee.rotation.x = (0.08 + 0.7*Math.max(0, Math.sin(walk + 1.7 + Math.PI)))*amt;
@@ -1995,6 +2000,95 @@ function animatePerson(ch, walk, amt, tt){
   b.chest.rotation.x = Math.sin(time*1.7 + ch.ph)*0.018*(1-amt) + 0.04*amt;
   b.head.rotation.y = (1-amt)*Math.sin(time*0.35 + ch.ph)*0.25; b.head.rotation.x = -0.04*amt;
 }
+/* =========================================================
+   Animated 3D people (Quaternius, CC0). Each character gets its own copy of a model
+   with its own animation mixer; outfits are applied as colours on the model's materials.
+   ========================================================= */
+const Rig = (()=>{
+  const MALE = ['m_Casual_2','m_Casual_Hoodie','m_Suit','m_Worker','m_Beach','m_Farmer','m_Adventurer'];
+  const FEMALE = ['f_Casual','f_Formal','f_Suit','f_Worker','f_Adventurer'];
+  const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
+  const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
+  const loadClips = k => clipSets[k] || (clipSets[k] = new Promise(res=>loader.load(`models/people/_anims_${k}.glb`, g=>res(g.animations), undefined, ()=>res(null))));
+  const hashS = s => { let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  const SKIN = /^Skin/, HAIR = /^Hair/, FIXED = /^(Eye|Eyebrows|Moustache|Gold|Earrings|Metal|Tie)/;
+  function model(name){
+    if (!cache[name]) cache[name] = new Promise(res=>loader.load(`models/people/${name}.glb`, g=>{
+      const root = g.scene; root.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(root), h = (box.max.y - box.min.y) || 1, y0 = box.min.y;
+      // which material is the shirt, which is the trousers: by where its vertices sit on the body
+      const stats = {};
+      root.traverse(o=>{ if (!o.isMesh || !o.geometry.attributes.position) return; const nm = o.material.name || ''; if (SKIN.test(nm) || HAIR.test(nm) || FIXED.test(nm)) return;
+        const pos = o.geometry.attributes.position, v = new THREE.Vector3(), st = stats[nm] = stats[nm] || {top:0, bot:0};
+        for (let k=0;k<pos.count;k+=3){ v.fromBufferAttribute(pos,k).applyMatrix4(o.matrixWorld); const r = (v.y - y0)/h; if (r > 0.5 && r < 0.8) st.top++; else if (r > 0.15 && r <= 0.5) st.bot++; } });
+      const by = key => Object.entries(stats).sort((a,b)=>b[1][key]-a[1][key])[0];
+      const tp = by('top'), bt = by('bot');
+      res({root, scale: 1.72 / h, top: tp && tp[0], bottom: bt && bt[0] !== (tp && tp[0]) ? bt[0] : null});
+    }, undefined, ()=>res(null)));
+    return cache[name];
+  }
+  function attach(ch, L){
+    if (!ok || L.noRig) return;
+    const female = L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni';
+    const pool = female ? FEMALE : MALE;
+    const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
+    const KURTA = ['m_Casual_2','m_Beach','m_Casual_Hoodie','m_Farmer'], SHIRT = ['m_Suit','m_Casual_2','m_Worker','m_Casual_Hoodie','m_Adventurer'];
+    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
+    Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
+      if (!m || !cl || !ch.g) return;
+      const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(m.scale);
+      const turban = L.head === 'turban', odhni = L.head === 'odhni';
+      const tint = (mat, c) => { if (c) mat.color.set(c).convertSRGBToLinear(); };
+      inst.traverse(o=>{
+        if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+        const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
+        if (SKIN.test(nm)) tint(o.material, L.skin);
+        else if (HAIR.test(nm)){ tint(o.material, L.hair || '#1E1512'); if (turban) o.visible = false; }
+        else if (nm === m.top) tint(o.material, L.top);
+        else if (nm === m.bottom) tint(o.material, L.bottom);
+      });
+      ch.g.add(inst); ch.mesh.visible = false;
+      const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
+      if ((turban || odhni) && bones.Head){
+        // size the turban in world units, whatever the bone's own scale is
+        ch.g.updateMatrixWorld(true); const ws = new THREE.Vector3(); bones.Head.getWorldScale(ws); const gs = new THREE.Vector3(); ch.g.getWorldScale(gs); const k = gs.x / ws.x;
+        const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(L.headColor || '#E8B33A').convertSRGBToLinear(), roughness:0.85});
+        const t = new THREE.Mesh(turban ? new THREE.SphereGeometry(0.115, 20, 14) : new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI*2, 0, Math.PI*0.6), mat);
+        if (turban) t.scale.set(k*0.95, k*0.62, k*1.02); else t.scale.set(k, k*1.05, k*1.05);
+        // sit it on the crown: measure where the top of the head is in the bone's space
+        const top = new THREE.Box3(); inst.traverse(o=>{ if (o.isMesh && SKIN.test(o.material.name || '')) top.expandByObject(o); }); const hp = new THREE.Vector3(); bones.Head.getWorldPosition(hp);
+        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? 0.01 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
+      }
+      const mixer = new THREE.AnimationMixer(inst), acts = {};
+      for (const c of cl) acts[c.name] = mixer.clipAction(c);
+      const rig = ch.rig = Object.assign(ch.rig || {}, {inst, mixer, acts, bones, cur:null, pending:false});
+      rig.want = rig.want || 'Idle';
+      if (acts.Idle) { acts.Idle.time = Math.random() * acts.Idle.getClip().duration; }
+      live.push(ch);
+    });
+  }
+  const IDLE = r => r.acts.Idle_Neutral ? 'Idle_Neutral' : 'Idle';
+  function play(r, name, fade){
+    if (name === 'Idle') name = IDLE(r);
+    if (r.cur === name || !r.acts[name]) return;
+    const next = r.acts[name].reset().fadeIn(fade).play();
+    if (r.cur && r.acts[r.cur]) r.acts[r.cur].fadeOut(fade);
+    r.cur = name;
+  }
+  // seated pose: bend hips and knees, rest the hands (the packs have no sitting animation)
+  function sitPose(r){
+    const b = r.bones; if (!b['UpperLeg.L']) return;
+    for (const s of ['L','R']){ b['UpperLeg.'+s].rotation.x += -1.45; b['LowerLeg.'+s].rotation.x += 1.5; }
+    if (b.Hips) b.Hips.position.y -= 0;
+  }
+  function update(dt){
+    for (const ch of live){ const r = ch.rig; if (!r || !r.mixer) continue;
+      if (r.sit){ play(r, 'Idle', 0.25); r.mixer.update(dt); sitPose(r); continue; }
+      play(r, r.want || 'Idle', 0.25); r.mixer.update(dt); }
+  }
+  return {attach, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
+})();
 const M_SCREEN = new THREE.MeshStandardMaterial({color:new THREE.Color('#BFD6DE').convertSRGBToLinear(), transparent:true, opacity:0.18, roughness:0.05, metalness:0.1, depthWrite:false, side:THREE.DoubleSide});
 /* Player */
 const player = makePerson({top:'#F4EDE2',bottom:'#E8E0D0',head:'turban',headColor:'#EE9C14',skin:'#B07A57'});
@@ -2601,7 +2695,7 @@ function horn(){
 /* =========================================================
    Autos: hail one, get in, drive it
    ========================================================= */
-function seat(ch){ const b = ch.b; b.lHip.rotation.set(-1.5,0,0.06); b.rHip.rotation.set(-1.5,0,-0.06); b.lKnee.rotation.x = b.rKnee.rotation.x = 1.45; b.lSh.rotation.set(-0.9,0,-0.2); b.rSh.rotation.set(-0.9,0,0.2); b.lEl.rotation.x = b.rEl.rotation.x = -0.6; b.hips.position.y = 0.95; b.chest.rotation.set(0,0,0); }
+function seat(ch){ Rig.setSit(ch, true); const b = ch.b; b.lHip.rotation.set(-1.5,0,0.06); b.rHip.rotation.set(-1.5,0,-0.06); b.lKnee.rotation.x = b.rKnee.rotation.x = 1.45; b.lSh.rotation.set(-0.9,0,-0.2); b.rSh.rotation.set(-0.9,0,0.2); b.lEl.rotation.x = b.rEl.rotation.x = -0.6; b.hips.position.y = 0.95; b.chest.rotation.set(0,0,0); }
 function stand(ch){ const b = ch.b; [b.lHip,b.rHip,b.lKnee,b.rKnee,b.lSh,b.rSh,b.lEl,b.rEl,b.chest,b.head,b.hips].forEach(x=>x.rotation.set(0,0,0)); b.hips.position.y = 0.95; }
 const DRIVER_LOOK = {top:'#C9B48A',bottom:'#C9B48A',head:'hair',headColor:'#1E1512',skin:'#9C6A4C'};
 autos.forEach(a=>{
@@ -4374,6 +4468,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
+  Rig.update(dt);
   // player
   let movingNow = false;
   if (mode === 'play' && flying){

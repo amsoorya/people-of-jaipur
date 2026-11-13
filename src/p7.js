@@ -404,7 +404,7 @@ function horn(){
 /* =========================================================
    Autos: hail one, get in, drive it
    ========================================================= */
-function seat(ch){ const b = ch.b; b.lHip.rotation.set(-1.5,0,0.06); b.rHip.rotation.set(-1.5,0,-0.06); b.lKnee.rotation.x = b.rKnee.rotation.x = 1.45; b.lSh.rotation.set(-0.9,0,-0.2); b.rSh.rotation.set(-0.9,0,0.2); b.lEl.rotation.x = b.rEl.rotation.x = -0.6; b.hips.position.y = 0.95; b.chest.rotation.set(0,0,0); }
+function seat(ch){ Rig.setSit(ch, true); const b = ch.b; b.lHip.rotation.set(-1.5,0,0.06); b.rHip.rotation.set(-1.5,0,-0.06); b.lKnee.rotation.x = b.rKnee.rotation.x = 1.45; b.lSh.rotation.set(-0.9,0,-0.2); b.rSh.rotation.set(-0.9,0,0.2); b.lEl.rotation.x = b.rEl.rotation.x = -0.6; b.hips.position.y = 0.95; b.chest.rotation.set(0,0,0); }
 function stand(ch){ const b = ch.b; [b.lHip,b.rHip,b.lKnee,b.rKnee,b.lSh,b.rSh,b.lEl,b.rEl,b.chest,b.head,b.hips].forEach(x=>x.rotation.set(0,0,0)); b.hips.position.y = 0.95; }
 const DRIVER_LOOK = {top:'#C9B48A',bottom:'#C9B48A',head:'hair',headColor:'#1E1512',skin:'#9C6A4C'};
 autos.forEach(a=>{
@@ -2177,6 +2177,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
+  Rig.update(dt);
   // player
   let movingNow = false;
   if (mode === 'play' && flying){
