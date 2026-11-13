@@ -75,19 +75,19 @@ Your social links and private messages are protected by the database itself (Sup
 
 - **3D city:** plain JavaScript and WebGL, shipped as one static `index.html` with no build tools to install
 - **Backend:** [Supabase](https://supabase.com) for auth (email OTP + optional LinkedIn OIDC), Postgres with row-level security, realtime presence and chat, and storage for company logos
-- **Hosting:** [Netlify](https://netlify.com), auto-deployed on every push to `main`
+- **Hosting:** [GitHub Pages](https://pages.github.com), published on every push to `main`
 
 ## What's in this repository
 
 | Path | What it is |
 |---|---|
-| `index.html` | The built site that Netlify publishes. Don't edit it by hand: it's rebuilt from `src/`. |
+| `index.html` | The built site that GitHub Pages serves. Don't edit it by hand: it's rebuilt from `src/`. |
 | `src/` | The source: page layout and styles (`head.html`) and the city code (`p1.js` to `p7.js`). |
 | `build.py` | Rebuilds `index.html` from `src/`. |
 | `platform.js` | Connects the city to Supabase (sign-in, saving, chat, live visitors, connections). |
 | `config.js` | Your Supabase project details. |
 | `schema.sql` | The database setup for Supabase. |
-| `netlify.toml` | Tells Netlify to publish this folder as it is. |
+| `CNAME`, `.nojekyll` | Tell GitHub Pages to serve this folder as it is at peopleofjaipur.com. |
 
 ## Running it locally
 
@@ -109,7 +109,7 @@ Open http://localhost:8000. Without Supabase details in `config.js`, you can sti
    git commit -m "Describe the change"
    git push
    ```
-4. Netlify publishes the update to peopleofjaipur.com within a minute or two.
+4. GitHub Pages publishes the update to peopleofjaipur.com within a minute or two.
 
 `config.js` only ever holds the public Supabase *anon* key, which is safe to publish. **Never commit the `service_role` key.**
 
@@ -179,28 +179,21 @@ The social side lives in **Supabase**, which is free to start: sign-in, profiles
 4. In Supabase, open **Authentication**, then **Providers**, then **LinkedIn (OIDC)**. Turn it on and paste the Client ID and Secret.
 5. In `config.js`, set `linkedin: true`.
 
-### Step 4. Put the site online with Netlify (easiest with a GoDaddy domain)
-You keep your domain and its DNS at GoDaddy. You only change two records, and Netlify handles HTTPS for you.
+### Step 4. Put the site online with GitHub Pages
+The site is plain static files, so GitHub Pages serves this repository as it is. It's free and adds no badge.
 
-1. Create a free account at netlify.com.
-2. Open **Add new site**, then **Import an existing project**, then **GitHub**, and pick `amsoorya/people-of-jaipur`. Leave the build command empty and the publish directory as `.`. (You can also choose **Deploy manually** and drag in this folder.) Netlify gives you an address like `something.netlify.app`.
-3. Open **Site configuration**, then **Change site name**, and set it to `peopleofjaipur`. Your address becomes `peopleofjaipur.netlify.app`.
-4. Open **Domain management**, then **Add a domain**. Type `peopleofjaipur.com` and confirm. Netlify adds `www.peopleofjaipur.com` too.
+1. On GitHub, open the repository's **Settings**, then **Pages**.
+2. Under **Build and deployment**, set **Source** to **Deploy from a branch**, pick `main` and `/ (root)`, and save.
+3. Under **Custom domain**, enter `peopleofjaipur.com` and save. (The `CNAME` file in this repo keeps it set.)
 
-### Step 5. Point peopleofjaipur.com at Netlify from GoDaddy
+### Step 5. Point peopleofjaipur.com at GitHub from GoDaddy
 1. Sign in to GoDaddy and open your **Domain Portfolio**. Click `peopleofjaipur.com`, then the **DNS** tab.
-2. Find the **A** record with Name **@**. Click **Edit** and set its value to `75.2.60.5`, then save.
+2. Make the `@` **A** records exactly these four (edit the existing one, add the rest):
+   `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
+3. Set the **CNAME** record with Name **www** to `amsoorya.github.io`.
+4. Back in GitHub **Settings → Pages**, wait for the DNS check to pass, then tick **Enforce HTTPS**. The certificate is usually ready within an hour.
 
-   If there's a second A record with Name @, or an AAAA record with Name @, delete it.
-3. Find the **CNAME** record with Name **www**. Click **Edit** and set its value to `peopleofjaipur.netlify.app`, then save.
-4. If GoDaddy asks for a verification code, enter the one it emails you. This is GoDaddy's own Domain Protection check.
-5. Back in Netlify, under **Domain management**, wait for both domains to show as ready. Netlify then issues the HTTPS certificate on its own. This is usually under an hour, and can take up to a day.
-
-Always use the values Netlify shows in its own Domain management screen. If they differ from the ones above, Netlify's are correct.
-
-**Updating the site later:** push to GitHub and Netlify publishes it. If you deployed by dragging the folder instead, open **Deploys** and drag the folder in again.
-
-**Alternative:** you can host on Cloudflare Pages instead. That means moving the domain's nameservers from GoDaddy to Cloudflare. It's free too, but it's one more change to make.
+**Updating the site later:** push to `main` and GitHub Pages publishes it within a minute or two.
 
 If you set up the database with an older copy of `schema.sql`, run only the parts you don't have yet:
 - the **Connections**, **Social links** and **Direct messages** tables
