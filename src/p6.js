@@ -156,8 +156,8 @@ function animatePerson(ch, walk, amt, tt){
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
 const Rig = (()=>{
-  const MALE = ['m_Casual_2','m_Suit','m_Worker','m_Adventurer'];   // full-length trousers and shirts only
-  const FEMALE = ['f_Casual','f_Formal','f_Suit','f_Worker','f_Adventurer'];
+  const MALE = ['m_Casual_2','m_Worker','m_Adventurer'];   // full-length, single-layer outfits (the suit's shirt flickers through its jacket)
+  const FEMALE = ['f_Casual','f_Formal','f_Worker','f_Adventurer'];
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
   const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
   const loadClips = k => clipSets[k] || (clipSets[k] = new Promise(res=>loader.load(`models/people/_anims_${k}.glb`, g=>res(g.animations), undefined, ()=>res(null))));
@@ -183,7 +183,7 @@ const Rig = (()=>{
     const female = L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni';
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
-    const KURTA = ['m_Casual_2','m_Suit'], SHIRT = ['m_Suit','m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Suit'];   // turbans never go on top of a hat
+    const KURTA = ['m_Casual_2','m_Adventurer'], SHIRT = ['m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Adventurer'];   // turbans never go on top of a hat
     const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
@@ -204,11 +204,15 @@ const Rig = (()=>{
         // size the turban in world units, whatever the bone's own scale is
         ch.g.updateMatrixWorld(true); const ws = new THREE.Vector3(); bones.Head.getWorldScale(ws); const gs = new THREE.Vector3(); ch.g.getWorldScale(gs); const k = gs.x / ws.x;
         const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(L.headColor || '#E8B33A').convertSRGBToLinear(), roughness:0.85});
-        const t = new THREE.Mesh(turban ? new THREE.SphereGeometry(0.135, 24, 16) : new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI*2, 0, Math.PI*0.6), mat);
-        if (turban) t.scale.set(k*1.0, k*0.86, k*1.06); else t.scale.set(k, k*1.05, k*1.05);
+        let t;
+        if (turban){ t = new THREE.Group();   // wrapped cloth: stacked, slightly tilted bands with a rounded top
+          const dome = new THREE.Mesh(new THREE.SphereGeometry(0.118, 24, 14, 0, Math.PI*2, 0, Math.PI*0.5), mat); dome.position.y = 0.03; t.add(dome);
+          [[0.0, 0.122, 0.12], [0.035, 0.118, -0.16], [0.068, 0.106, 0.2]].forEach(([y, r, tilt])=>{ const band = new THREE.Mesh(new THREE.TorusGeometry(r, 0.034, 10, 28), mat); band.rotation.x = Math.PI/2 + tilt; band.position.y = y; t.add(band); });
+          t.traverse(o=>{ if (o.isMesh) o.castShadow = true; }); t.scale.setScalar(k * 0.86); }
+        else { t = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI*2, 0, Math.PI*0.6), mat); t.scale.set(k, k*1.05, k*1.05); }
         // sit it on the crown: measure where the top of the head is in the bone's space
         const top = new THREE.Box3(); inst.traverse(o=>{ if (o.isMesh && SKIN.test(o.material.name || '')) top.expandByObject(o); }); const hp = new THREE.Vector3(); bones.Head.getWorldPosition(hp);
-        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? 0.035 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
+        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? 0.075 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
       }
       const mixer = new THREE.AnimationMixer(inst), acts = {};
       for (const c of cl) acts[c.name] = mixer.clipAction(c);
@@ -236,7 +240,13 @@ const Rig = (()=>{
     for (const ch of live){ const r = ch.rig; if (!r || !r.mixer) continue;
       r.inst.position.y = r.sit ? -0.14 : 0;   // seated people sit a little lower on the seat
       if (r.sit){ play(r, 'Idle', 0.25); r.mixer.update(dt); sitPose(r); continue; }
-      play(r, r.want || 'Idle', 0.25); r.mixer.update(dt); }
+      // match the walk/run cycle to how fast the character really moves, so feet don't skate
+      const wp = ch.g.getWorldPosition(r.wp || (r.wp = new THREE.Vector3())), last = r.last || (r.last = wp.clone());
+      const sp = dt > 0 ? Math.min(12, wp.distanceTo(last) / dt) : 0; last.copy(wp); r.speed = (r.speed || 0) + (sp - (r.speed || 0)) * Math.min(1, dt * 8);
+      let want = r.want || 'Idle'; if (want === 'Walk' && r.speed > 3.6) want = 'Run'; if ((want === 'Walk' || want === 'Run') && r.speed < 0.25 && !ch.isPlayer) want = 'Idle';
+      play(r, want, 0.2);
+      const ts = want === 'Walk' ? THREE.MathUtils.clamp(r.speed / 1.45, 0.6, 1.5) : want === 'Run' ? THREE.MathUtils.clamp(r.speed / 4.6, 0.7, 1.4) : 1;
+      if (r.acts[want]) r.acts[want].timeScale = ts; r.mixer.update(dt); }
   }
   return {attach, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
 })();
@@ -434,12 +444,13 @@ const PigeonRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
-    const k = 0.32 / len, clips = {}; g.animations.forEach(c=>clips[c.name] = c);
+    const k = 0.46 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
       const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);
       const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const n in clips) acts[n] = mixer.clipAction(clips[n]);
-      const idle = ['idle1','idle2','idle3'][i % 3]; acts[idle].play(); acts[idle].time = Math.random() * clips[idle].duration;
+      const names = Object.keys(acts), idle = ['idle1','idle2','idle3'].filter(n=>acts[n])[i % 3] || names[0]; if (!idle) return;
+      acts[idle].play(); acts[idle].time = Math.random() * acts[idle].getClip().duration;
       birds.push({p, holder, mixer, acts, cur: idle, idle});
     });
     pigeons.mesh.visible = false; ready = true;
@@ -581,7 +592,7 @@ const CamelRig = (()=>{
     } catch(e){ console.warn('camel rig', e); } });
   }
   function update(dt, t){
-    for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = a.sit || 0;
+    for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = 0;   // no kneeling: this skeleton folds the wrong way, so resting camels stand
       r.ctl.forEach((b,i)=>b.quaternion.copy(r.rest[i])); r.mixer.update(dt);
       r.amt += ((moving ? 1 : 0) - r.amt) * Math.min(1, dt * 4); const w = a.walk || 0, A = r.amt;
       for (const L of r.legs){ const ph = w + (L.s > 0 ? 0 : Math.PI), sw = Math.sin(ph);

@@ -201,10 +201,10 @@ let composer = null;
 if (!lowEnd && THREE.EffectComposer && THREE.SSAOPass && THREE.GammaCorrectionShader){
   try {
     composer = new THREE.EffectComposer(renderer);
-    const ssao = new THREE.SSAOPass(scene, camera, innerWidth, innerHeight);
-    ssao.kernelRadius = 1.2; ssao.minDistance = 0.0004; ssao.maxDistance = 0.012;
+    // plain render (ambient occlusion left dark smudges around people and objects); kept as composer.ssao so scene swaps still work
+    const ssao = THREE.RenderPass ? new THREE.RenderPass(scene, camera) : new THREE.SSAOPass(scene, camera, innerWidth, innerHeight);
     composer.addPass(ssao);
-    if (THREE.UnrealBloomPass){ bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth/2, innerHeight/2), 0.5, 0.55, 0.82); composer.addPass(bloomPass); }
+    if (THREE.UnrealBloomPass){ bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth/2, innerHeight/2), 0.22, 0.4, 0.9); composer.addPass(bloomPass); }
     composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
     composer.ssao = ssao;
   } catch(err){ console.warn(err); composer = null; }
