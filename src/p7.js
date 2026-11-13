@@ -1672,6 +1672,17 @@ function buildFloor(f){
     // plants and a coat rack
     for (const [x,z] of [[-W/2+0.6,D/2-0.8],[2.6,D/2-0.8],[W/2-0.6,-1.2],[-2.2,-5.5],[W/2-0.6,2.2]]) P2(sc,'pottedPlant',x,z,0,0,1.2);
     P2(sc,'coatRackStanding',-0.9,D/2-0.6,0);
+    // manager's cabin (right side): glass walls with a doorway, executive desk with monitor and laptop, chair, guest chairs, bookcase, plant
+    { const gw = new THREE.MeshStandardMaterial({color:lin('#B9CCD4'), transparent:true, opacity:0.24, roughness:0.05, depthWrite:false}), fr = '#3A3D44';
+      add(sc,UBOX,gw,5.0,1.5,-1.5,0.05,3.0,3.4);                       // side wall facing the desks
+      add(sc,UBOX,gw,6.85,1.5,0.2,2.1,3.0,0.05);                        // front wall, leaving a doorway at x 5.0-5.8
+      for (const [x,z,w,d] of [[5.0,-1.5,0.07,3.4],[6.85,0.2,2.1,0.07]]) box(sc,w,0.08,d,fr,x,2.96,z,'stone');
+      for (const [x,z] of [[5.0,-3.2],[5.0,0.2],[5.8,0.2],[7.9,0.2]]) box(sc,0.07,3.0,0.07,fr,x,0,z,'stone');
+      P2(sc,'deskCorner',6.9,-2.3,Math.PI); P2(sc,'computerScreen',7.2,-2.6,0,0.75); P2(sc,'laptop',6.5,-2.2,-0.4,0.75); P2(sc,'chairDesk',6.9,-2.95,0);
+      P2(sc,'chairModernCushion',6.6,-1.1,Math.PI); P2(sc,'chairModernCushion',7.3,-1.1,Math.PI); P2(sc,'bookcaseClosedWide',7.6,-0.8,-Math.PI/2); P2(sc,'plantSmall2',5.4,-2.9,0,0,1.4);
+      const [nc,nx] = cv(256,64); nx.fillStyle = '#14202E'; nx.fillRect(0,0,256,64); nx.fillStyle = '#F4EAD8'; nx.font = '700 30px Hind, system-ui, sans-serif'; nx.textAlign = 'center'; nx.fillText('Cabin', 128, 42);
+      plane(sc,new THREE.MeshStandardMaterial({map:tex(nc), roughness:0.6}),6.85,2.5,0.24,0.8,0.2);
+      rects.push({minX:4.95,maxX:5.05,minZ:-3.2,maxZ:0.2}); rects.push({minX:5.8,maxX:7.9,minZ:0.15,maxZ:0.25}); rects.push({minX:6.0,maxX:7.9,minZ:-3.0,maxZ:-1.7}); }
     rects.push({minX:-7.9,maxX:-2.6,minZ:-6,maxZ:-2.75}); rects.push({minX:3.8,maxX:7.9,minZ:-6,maxZ:-3.6}); rects.push({minX:4.2,maxX:7.9,minZ:2.2,maxZ:5.6});
     const gm = new THREE.MeshStandardMaterial({color:lin('#A9C3CC'), transparent:true, opacity:0.22, roughness:0.05, depthWrite:false});
     add(sc,UBOX,gm,-5.25,1.5,-2.8,5.1,3.0,0.06); add(sc,UBOX,gm,-2.7,1.5,-4.4,0.06,3.0,2.8);
