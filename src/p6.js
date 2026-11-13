@@ -205,10 +205,10 @@ const Rig = (()=>{
         ch.g.updateMatrixWorld(true); const ws = new THREE.Vector3(); bones.Head.getWorldScale(ws); const gs = new THREE.Vector3(); ch.g.getWorldScale(gs); const k = gs.x / ws.x;
         const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(L.headColor || '#E8B33A').convertSRGBToLinear(), roughness:0.85});
         const t = new THREE.Mesh(turban ? new THREE.SphereGeometry(0.135, 24, 16) : new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI*2, 0, Math.PI*0.6), mat);
-        if (turban) t.scale.set(k*0.98, k*0.78, k*1.04); else t.scale.set(k, k*1.05, k*1.05);
+        if (turban) t.scale.set(k*1.0, k*0.86, k*1.06); else t.scale.set(k, k*1.05, k*1.05);
         // sit it on the crown: measure where the top of the head is in the bone's space
         const top = new THREE.Box3(); inst.traverse(o=>{ if (o.isMesh && SKIN.test(o.material.name || '')) top.expandByObject(o); }); const hp = new THREE.Vector3(); bones.Head.getWorldPosition(hp);
-        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? -0.02 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
+        const crown = isFinite(top.max.y) ? (top.max.y - hp.y) / gs.y : 0.22; t.position.set(0, k*Math.max(0.12, crown - (turban ? 0.035 : 0.05)), k*0.015); t.castShadow = true; bones.Head.add(t);
       }
       const mixer = new THREE.AnimationMixer(inst), acts = {};
       for (const c of cl) acts[c.name] = mixer.clipAction(c);
@@ -429,8 +429,33 @@ const pigeons = [];
   for (let i=0;i<80;i++){ const c = i<45 ? [30,0,12] : [30,130,10]; const a = rand()*6.28, r = rr(c[2]*0.75,c[2]); pigeons.push({hx:c[0]+Math.cos(a)*r, hz:c[1]+Math.sin(a)*r, x:0,y:0,z:0, ry:rand()*6, fly:0, ph:rand()*6}); }
   pigeons.mesh = pm;
 }
+/* Animated pigeons ("Pigeon" by hino, CC BY 4.0): peck and idle on the ground, take off and flap when someone comes near */
+const PigeonRig = (()=>{
+  const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
+  if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
+    const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
+    const k = 0.32 / len, clips = {}; g.animations.forEach(c=>clips[c.name] = c);
+    pigeons.forEach((p, i)=>{
+      const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
+      const holder = new THREE.Group(); holder.add(inst); scene.add(holder);
+      const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const n in clips) acts[n] = mixer.clipAction(clips[n]);
+      const idle = ['idle1','idle2','idle3'][i % 3]; acts[idle].play(); acts[idle].time = Math.random() * clips[idle].duration;
+      birds.push({p, holder, mixer, acts, cur: idle, idle});
+    });
+    pigeons.mesh.visible = false; ready = true;
+  });
+  function play(bd, n){ if (bd.cur === n || !bd.acts[n]) return; bd.acts[n].reset().fadeIn(0.15).play(); bd.acts[bd.cur].fadeOut(0.15); bd.cur = n; }
+  function update(dt, t){
+    if (!ready) return;
+    for (const bd of birds){ const p = bd.p; bd.holder.position.set(p.x, p.y, p.z); bd.holder.rotation.y = p.ry;
+      if (p.fly > 0) play(bd, p.y > 0.4 ? 'pigeon_fly_loop' : 'goToFly'); else { const want = (Math.sin(t * 0.3 + p.ph) > 0.6) ? ['idle1','idle2','idle3'][(Math.floor(t * 0.3 + p.ph)) % 3] : bd.idle; play(bd, want); }
+      bd.mixer.update(dt); }
+  }
+  return {update};
+})();
 
 /* Rideable scooters at the stands */
+let scooterCount = 0;
 function makeScooter(col){
   const g = new THREE.Group();
   const W1 = new THREE.CylinderGeometry(0.27,0.27,0.1,16);
@@ -441,7 +466,11 @@ function makeScooter(col){
     cpart(S16,col,m4(0,0.4,0.62,0.17,0.12,0.25)), cpart(C12,'#2A2A2A',m4(0,1.18,0.66,0.025,0.72,0.025,0,0,Math.PI/2)),
     cpart(S16,'#FFF4C8',m4(0,1.03,0.72,0.07,0.07,0.04)), cpart(UBOX,'#C0C0C0',m4(0,1.12,0.6,0.16,0.06,0.06)),
   ];
-  const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m); scene.add(g); return g;
+  const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  // "Scooter Motorcycle" by NORBERTO-3D and, every third one, "Cyberpunk Scooter" by Berk Gedik (both CC BY 4.0)
+  const cyber = (scooterCount++ % 3) === 2;
+  Swap.apply(g, cyber ? 'models/vehicles/scooter2.glb' : 'models/vehicles/scooter.glb', {length: cyber ? 1.95 : 1.85, hide: [m]});
+  scene.add(g); return g;
 }
 const SCOOTER_COLS = ['#1F3B6E','#B82B2B','#2A2A2A','#E8E2D6','#2E8C87','#E05A2B','#5E8F3A'];
 const scooters = scooterSpots.map(([x,z,r],i)=>{ const g = makeScooter(SCOOTER_COLS[i%SCOOTER_COLS.length]); return {type:'scooter', g, pos:V3(x,0,z), heading:r, v:0, state:'parked', lean:0}; });
@@ -507,22 +536,27 @@ const AnimalRig = (()=>{
     load(name).then(m=>{ if (!m) return;
       const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(height / m.h);
       inst.traverse(o=>{ if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.material = o.material.clone(); o.material.roughness = 0.85; if (tint && /^Main$/.test(o.material.name)) o.material.color.set(tint).convertSRGBToLinear(); });
+      // some files hold several animals side by side (each with its own skeleton): show one, centred
+      const skel = []; inst.traverse(o=>{ if (o.isSkinnedMesh && !skel.includes(o.skeleton.bones[0])) skel.push(o.skeleton.bones[0]); });
+      if (skel.length > 1){ const keep = skel[(a.home ? Math.abs(Math.round(a.home.x * 7 + a.home.z * 3)) : 0) % skel.length];
+        inst.traverse(o=>{ if (o.isSkinnedMesh && o.skeleton.bones[0] !== keep) o.visible = false; });
+        inst.updateMatrixWorld(true); const c = new THREE.Vector3(), v = new THREE.Vector3(); let n = 0; inst.traverse(o=>{ if (o.isSkinnedMesh && o.visible) o.skeleton.bones.forEach(bn=>{ bn.getWorldPosition(v); c.add(v); n++; }); });
+        if (n){ c.divideScalar(n); inst.position.x -= c.x; inst.position.z -= c.z; } }   // inst isn't parented yet, so these are already its parent's coordinates
       a.g.add(inst); a.body.visible = false; a.legs.forEach(l=>l.visible = false); if (a.head) a.head.visible = false;
       const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const c of m.clips) acts[c.name] = mixer.clipAction(c);
       a.rig = {inst, mixer, acts, cur:null, h:height}; live.push(a);
     });
   }
-  function play(r, n){ if (r.cur === n || !r.acts[n]) return; r.acts[n].reset().fadeIn(0.3).play(); if (r.cur) r.acts[r.cur].fadeOut(0.3); r.cur = n; }
+  function play(r, n){ if (!r.acts[n]){ const only = Object.keys(r.acts); if (only.length === 1){ const a0 = r.acts[only[0]]; if (!a0.isRunning()) a0.play(); a0.timeScale = n === 'Walk' || n === 'Gallop' ? 1 : 0; r.cur = n; } return; }
+    if (r.cur === n) return; r.acts[n].reset().fadeIn(0.3).play(); if (r.cur && r.acts[r.cur]) r.acts[r.cur].fadeOut(0.3); r.cur = n; }
   function update(dt){ for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = (a.sit || 0) > 0.5;
     play(r, moving ? (Math.abs(a.v) > 2.2 && r.acts.Gallop ? 'Gallop' : 'Walk') : sit ? 'Eating' : ((a.bt|0) % 3 === 0 ? 'Eating' : 'Idle'));
     r.inst.position.y = -a.body.position.y * 0 ; r.mixer.update(dt * (moving ? Math.min(1.6, 0.6 + Math.abs(a.v)*0.5) : 1)); } }
   return {attach, update};
 })();
 // every other cow is the detailed resting cow ("Cow" by Asheraf, CC BY 4.0); it stays put since it has no walking animation
-cows.forEach((c, i)=>{
-  if (i % 2 === 1){ c.range = 0.01; c.still = true; Swap.apply(c.g, 'models/animals/CowStatic.glb', {length: 2.3, yaw: COW_YAW, hide: [c.body, ...c.legs, c.head].filter(Boolean), done: pv=>{ c.g.userData.model = pv; }}); }
-  else AnimalRig.attach(c, i % 4 === 2 ? 'Bull' : 'Cow', i % 4 === 2 ? 1.55 : 1.45, null);
-});
+// every cow is animated: Brahman zebus ("Brahman Cow" by kunyong_Chen, CC BY 4.0) and Quaternius cows and bulls
+cows.forEach((c, i)=>AnimalRig.attach(c, i % 2 === 1 ? 'Brahman' : i % 4 === 2 ? 'Bull' : 'Cow', i % 2 === 1 ? 1.6 : i % 4 === 2 ? 1.55 : 1.45, null));
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });
 /* Rigged camel ("Bactrian Camel (Low Poly)" by Nyilonelycompany, CC BY-NC-SA 4.0). The model only has an idle
    animation, so the walk is made here: camels pace, moving both legs on one side together. */
@@ -589,6 +623,7 @@ function makeJeep(){
   const wheels = [[-0.8,1.15],[0.8,1.15],[-0.8,-1.15],[0.8,-1.15]].map(([x,z])=>{ const w = new THREE.Mesh(tyre, PM); w.position.set(x,0.4,z); w.castShadow = true; g.add(w); return w; });
   const driver = makePerson({style:'shirt',top:'#6E7A5A',bottom:'#3A3A30',head:'hair',headColor:'#1E1512',skin:'#9C6A4C',moustache:true});
   driver.g.position.set(-0.4,0.08,0.02); g.add(driver.g);
+  Swap.apply(g, 'models/vehicles/jeep.glb', {length: 3.9, hide: [g.children.find(c=>c.isMesh && c.geometry && c.geometry.attributes.color), ...wheels].filter(Boolean)});   // "Jeep 1" by Kapi777, CC BY-NC 4.0
   scene.add(g); return {g, driver, wheels};
 }
 const jeepCurve = new THREE.CatmullRomCurve3(jeepPath.filter((p,i)=>i%3===0 || i===jeepPath.length-1).map(p=>V3(p[0],0,p[2])));

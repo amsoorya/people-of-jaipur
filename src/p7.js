@@ -2184,7 +2184,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
-  Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t);
+  Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t);
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
     pv.position.y = mv ? Math.abs(Math.sin(w)) * 0.08 : 0; pv.rotation.z = mv ? Math.sin(w) * 0.04 : Math.sin(t * 0.5 + ph) * 0.008;
