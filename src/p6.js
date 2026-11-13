@@ -331,7 +331,7 @@ const Swap = (()=>{
   return {apply};
 })();
 /* A Jaipur auto-rickshaw: green and yellow body, black canvas roof */
-const AUTO_YAW = 0, CAMEL_YAW = Math.PI; let autoCount = 0;
+const AUTO_YAW = 0, CAMEL_YAW = Math.PI, COW_YAW = 0; let autoCount = 0;
 function makeAuto(){
   const g = new THREE.Group(), GRN = '#2C7A3F', YEL = '#F2C230', BLK = '#1C1C1F', CHR = '#D9DCE0', SEAT = '#6E2A26';
   const parts = [
@@ -507,7 +507,11 @@ const AnimalRig = (()=>{
     r.inst.position.y = -a.body.position.y * 0 ; r.mixer.update(dt * (moving ? Math.min(1.6, 0.6 + Math.abs(a.v)*0.5) : 1)); } }
   return {attach, update};
 })();
-cows.forEach((c, i)=>AnimalRig.attach(c, i % 3 === 2 ? 'Bull' : 'Cow', i % 3 === 2 ? 1.55 : 1.45, null));
+// every other cow is the detailed resting cow ("Cow" by Asheraf, CC BY 4.0); it stays put since it has no walking animation
+cows.forEach((c, i)=>{
+  if (i % 2 === 1){ c.range = 0.01; c.still = true; Swap.apply(c.g, 'models/animals/CowStatic.glb', {length: 2.3, yaw: COW_YAW, hide: [c.body, ...c.legs, c.head].filter(Boolean)}); }
+  else AnimalRig.attach(c, i % 4 === 2 ? 'Bull' : 'Cow', i % 4 === 2 ? 1.55 : 1.45, null);
+});
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });
 /* The jeep that drives up to Sunset Point */
 function makeJeep(){

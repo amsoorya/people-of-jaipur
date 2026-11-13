@@ -2074,7 +2074,7 @@ $('tabComm').addEventListener('click', ()=>openComm('meets'));
 /* =========================================================
    Animals: wander, stand around, lie down, get up, and make way for a horn
    ========================================================= */
-cows.concat(camels).forEach(a=>{ a.circle = {x:a.pos.x, z:a.pos.z, r: a.type==='cow' ? 1.0 : 1.3}; circles.push(a.circle); a.range = a.type==='cow' ? 5 : 3; });
+cows.concat(camels).forEach(a=>{ a.circle = {x:a.pos.x, z:a.pos.z, r: a.type==='cow' ? 1.0 : 1.3}; circles.push(a.circle); a.range = a.still ? 0.01 : a.type==='cow' ? 5 : 3; });
 function scareAnimals(x, z, radius){
   for (const a of cows.concat(camels)){
     if (a.type === 'camel' && a.state === 'driven') continue;
