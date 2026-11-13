@@ -309,7 +309,29 @@ function wheel(parts, x, y, z, rotY = 0){
   parts.push(cpart(HUB, '#C9CCD2', m4(x, y, z, 1, 1, 1, 0, 0, Math.PI/2)));
   parts.push(cpart(HUB, '#2A2A2E', m4(x, y, z, 0.55, 1.15, 0.55, 0, 0, Math.PI/2)));
 }
+/* Swap a hand-built object for a detailed model once it loads (falls back to the hand-built one) */
+const Swap = (()=>{
+  const ok = !!THREE.GLTFLoader, loader = ok ? new THREE.GLTFLoader() : null, cache = {};
+  const load = url => cache[url] || (cache[url] = new Promise(res=>loader.load(url, g=>res(g.scene), undefined, ()=>res(null))));
+  function apply(g, url, o){
+    if (!ok) return;
+    load(url).then(root=>{ if (!root) return;
+      const inst = root.clone(true), pivot = new THREE.Group(); pivot.add(inst);
+      let b = new THREE.Box3().setFromObject(inst); const sz = b.getSize(new THREE.Vector3());
+      if (sz.x > sz.z) inst.rotation.y = Math.PI/2;                 // long side along z
+      inst.rotation.y += o.yaw || 0; inst.updateMatrixWorld(true);
+      b = new THREE.Box3().setFromObject(inst); const s2 = b.getSize(new THREE.Vector3());
+      const k = o.height ? o.height / s2.y : o.length / s2.z; inst.scale.multiplyScalar(k); inst.updateMatrixWorld(true);
+      b = new THREE.Box3().setFromObject(inst); const c = b.getCenter(new THREE.Vector3());
+      inst.position.x -= c.x; inst.position.z -= c.z + (o.dz || 0); inst.position.y -= b.min.y;
+      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); } } });
+      (o.hide || []).forEach(h=>h.visible = false); (o.parent || g).add(pivot); if (o.done) o.done(pivot);
+    });
+  }
+  return {apply};
+})();
 /* A Jaipur auto-rickshaw: green and yellow body, black canvas roof */
+const AUTO_YAW = 0, CAMEL_YAW = Math.PI; let autoCount = 0;
 function makeAuto(){
   const g = new THREE.Group(), GRN = '#2C7A3F', YEL = '#F2C230', BLK = '#1C1C1F', CHR = '#D9DCE0', SEAT = '#6E2A26';
   const parts = [
@@ -348,6 +370,9 @@ function makeAuto(){
   parts.push(cpart(TYRE, '#151515', m4(0, 1.0, -1.3, 1.05, 1.05, 1.05))); parts.push(cpart(HUB, '#C9CCD2', m4(0, 1.0, -1.3, 1, 1, 1, Math.PI/2, 0, 0)));
   const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
   const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.6), M_SCREEN); ws.position.set(0, 1.52, 1.0); ws.rotation.x = -0.14; g.add(ws);
+  // most autos are the Indian auto ("Auto Rickshaw" by rSquare, CC BY 4.0); every fourth is a tuk-tuk for variety
+  const tuk = (autoCount++ % 4) === 3;
+  Swap.apply(g, tuk ? 'models/vehicles/tuktuk.glb' : 'models/vehicles/auto.glb', {length: tuk ? 2.9 : 2.7, yaw: AUTO_YAW, hide: [m, ws]});
   scene.add(g); return g;
 }
 /* Traffic keeps left, as in India, and goes round Badi Chaupar's fountain instead of through it */
@@ -442,6 +467,7 @@ function makeCamel(){
     cpart(S24, C3, m4(0, -1.41, 0.03, 0.12, 0.05, 0.15)),
   ]);
   const legs = [[-0.27, 0.7], [0.27, 0.7], [-0.27, -0.72], [0.27, -0.72]].map(([x, z])=>{ const l = new THREE.Mesh(legGeo, PM); l.position.set(x, 1.45, z); l.castShadow = true; g.add(l); return l; });
+  Swap.apply(g, 'models/animals/Camel.glb', {height: 3.0, yaw: CAMEL_YAW, hide: [bm, ...legs], done: pv=>{ g.userData.model = pv; }});   // "camel" by omarme37, CC BY 4.0
   scene.add(g); return {g, legs, body:bm};
 }
 const camels = camelSpots.map(([x,z,r])=>{ const c = makeCamel(); return {type:'camel', g:c.g, legs:c.legs, body:c.body, pos:V3(x,0,z), home:V3(x,0,z), heading:r, v:0, state:'parked', walk:0, beh:'idle', bt:3+Math.random()*6, sit:0, legH:1.45, sitDrop:1.05, range:4, circle:null}; });

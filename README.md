@@ -116,6 +116,10 @@ Open http://localhost:8000. Without Supabase details in `config.js`, you can sti
 ## Credits
 
 - Inspired by **[People of Bengaluru](https://peopleofbengaluru.com/)**
+- People, cows and bulls: **[Quaternius](https://quaternius.com)** (Ultimate Modular Men, Ultimate Modular Women, Ultimate Animated Animals), CC0
+- "[Auto Rickshaw](https://sketchfab.com/3d-models/auto-rickshaw-44776bcb34e04c1a8b9c18a70376304e)" by [rSquare](https://sketchfab.com/rSquare), [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
+- "[camel](https://sketchfab.com/3d-models/camel-44ef2ea4b50a49e395e5e3ebbdc99f98)" by [omarme37](https://sketchfab.com/omarme37), [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
+- "Thai Tuk Tuk 3D model (PBR, real-time)" from Sketchfab, used under its open licence
 - Built for the people of Jaipur 🩷
 
 ---
