@@ -1940,20 +1940,41 @@ $('tabComm').addEventListener('click', ()=>openComm('meets'));
 /* =========================================================
    Animals: wander, stand around, lie down, get up, and make way for a horn
    ========================================================= */
-cows.concat(camels).forEach(a=>{ a.circle = {x:a.pos.x, z:a.pos.z, r: a.type==='cow' ? 1.0 : 1.3}; circles.push(a.circle); });
+cows.concat(camels).forEach(a=>{ a.circle = {x:a.pos.x, z:a.pos.z, r: a.type==='cow' ? 1.0 : 1.3}; circles.push(a.circle); a.range = a.type==='cow' ? 5 : 3; });
 function scareAnimals(x, z, radius){
   for (const a of cows.concat(camels)){
     if (a.type === 'camel' && a.state === 'driven') continue;
     const d = Math.hypot(a.pos.x - x, a.pos.z - z); if (d > radius) continue;
     const ax = (a.pos.x - x)/(d||1), az = (a.pos.z - z)/(d||1);
-    a.beh = 'flee'; a.bt = 6; a.target = V3(a.pos.x + ax*6 + (Math.random()-0.5)*2, 0, a.pos.z + az*6 + (Math.random()-0.5)*2);
+    let tg = null; for (let i=0;i<10 && !tg;i++){ const spread = (Math.random()-0.5)*1.6, cx = ax*Math.cos(spread) - az*Math.sin(spread), cz = ax*Math.sin(spread) + az*Math.cos(spread), dd = 4 + Math.random()*3, x2 = a.pos.x + cx*dd, z2 = a.pos.z + cz*dd; if (freeSpot(a, x2, z2)) tg = V3(x2,0,z2); }
+    if (!tg) continue; a.beh = 'flee'; a.bt = 8; a.stuck = 0; a.target = tg;
   }
 }
+// Is this spot somewhere an animal can actually stand?
+function freeSpot(a, x, z){
+  if (hillH(x,z) > 0.3 || Math.abs(groundY(x,z)) > 0.05) return false;
+  if (Math.hypot(x-LAKE.x, z-LAKE.z) < LAKE.r + 2) return false;
+  for (const c of colliders) if (x > c.minX-1.2 && x < c.maxX+1.2 && z > c.minZ-1.2 && z < c.maxZ+1.2) return false;
+  for (const c of circles) if (c !== a.circle && c.r > 0 && Math.hypot(x-c.x, z-c.z) < c.r + 1.4) return false;
+  return true;
+}
+function pickTarget(a, cx, cz, radius){
+  for (let i=0;i<12;i++){ const ang = Math.random()*Math.PI*2, r = 1.5 + Math.random()*radius, x = cx + Math.cos(ang)*r, z = cz + Math.sin(ang)*r; if (freeSpot(a, x, z)) return V3(x,0,z); }
+  return null;
+}
 function moveAnimal(a, tx, tz, speed, dt){
-  const want = Math.atan2(tx - a.pos.x, tz - a.pos.z); a.heading = angLerp(a.heading, want, Math.min(1, dt*2.5));
-  const np = tmpV.set(a.pos.x + Math.sin(a.heading)*speed*dt, 0, a.pos.z + Math.cos(a.heading)*speed*dt);
+  const dx = tx - a.pos.x, dz = tz - a.pos.z, dist = Math.hypot(dx,dz);
+  const want = Math.atan2(dx, dz); a.heading = angLerp(a.heading, want, Math.min(1, dt*3));
+  // only walk forward once roughly facing the target, so they never spiral round it
+  const facing = Math.cos(want - a.heading), step = Math.min(dist, speed*dt) * Math.max(0, facing);
+  const ox = a.pos.x, oz = a.pos.z;
+  const np = tmpV.set(ox + Math.sin(a.heading)*step, 0, oz + Math.cos(a.heading)*step);
   const save = a.circle.r; a.circle.r = 0; resolve(np, a.type==='cow' ? 0.8 : 1.1); a.circle.r = save;
-  const moved = Math.hypot(np.x - a.pos.x, np.z - a.pos.z); a.pos.x = np.x; a.pos.z = np.z; a.walk += moved*2.2; return moved;
+  // never let a collision push carry them faster than a walk
+  let mx = np.x - ox, mz = np.z - oz; const m = Math.hypot(mx,mz), cap = speed*dt*1.05;
+  if (m > cap){ mx *= cap/m; mz *= cap/m; }
+  a.pos.x = ox + mx; a.pos.z = oz + mz; const moved = Math.hypot(mx,mz); a.walk += moved*2.2;
+  return {moved, dist, wanted: step};
 }
 function updateAnimal(a, dt){
   a.bt -= dt;
@@ -1962,22 +1983,24 @@ function updateAnimal(a, dt){
     a.sit = Math.max(0, a.sit - dt*0.8);
     if (a.bt <= 0 && standing){
       const r = Math.random();
-      if (r < 0.45){ const ang = Math.random()*Math.PI*2, rad = Math.random()*a.range; a.target = V3(a.home.x + Math.cos(ang)*rad, 0, a.home.z + Math.sin(ang)*rad); a.beh = 'walk'; a.bt = 20; }
+      if (r < 0.45){ const tg = pickTarget(a, a.home.x, a.home.z, a.range); if (tg){ a.target = tg; a.beh = 'walk'; a.bt = 25; a.stuck = 0; } else a.bt = 3 + Math.random()*4; }
       else if (r < 0.75){ a.beh = 'sitting'; a.bt = 12 + Math.random()*25; }
       else a.bt = 3 + Math.random()*6;
     }
   } else if (a.beh === 'walk' || a.beh === 'flee'){
     if (!standing){ a.sit = Math.max(0, a.sit - dt*(a.beh==='flee' ? 1.6 : 0.8)); }
     else {
-      const sp = a.beh === 'flee' ? (a.type==='cow' ? 1.6 : 1.4) : 0.8;
-      const moved = moveAnimal(a, a.target.x, a.target.z, sp, dt);
-      if (Math.hypot(a.target.x - a.pos.x, a.target.z - a.pos.z) < 0.5 || a.bt <= 0 || moved < sp*dt*0.15){ if (a.beh === 'flee') a.home.set(a.pos.x, 0, a.pos.z); a.beh = 'idle'; a.bt = 4 + Math.random()*8; }
+      const sp = a.beh === 'flee' ? (a.type==='cow' ? 1.3 : 1.1) : 0.7;
+      const r = moveAnimal(a, a.target.x, a.target.z, sp, dt);
+      // blocked: something is in the way, so stop rather than shove past it
+      if (r.wanted > 0 && r.moved < r.wanted*0.5) a.stuck = (a.stuck||0) + dt; else a.stuck = Math.max(0, (a.stuck||0) - dt);
+      let other = false; for (const o of cows.concat(camels)) if (o !== a && Math.hypot(o.pos.x-a.pos.x, o.pos.z-a.pos.z) < 2.6 && Math.cos(Math.atan2(o.pos.x-a.pos.x, o.pos.z-a.pos.z) - a.heading) > 0.5){ other = true; break; }
+      if (r.dist < 0.6 || a.bt <= 0 || a.stuck > 1.2 || other){ if (a.beh === 'flee' && freeSpot(a, a.pos.x, a.pos.z)) a.home.set(a.pos.x, 0, a.pos.z); a.beh = 'idle'; a.bt = 4 + Math.random()*8; }
     }
   } else if (a.beh === 'sitting'){
     a.sit = Math.min(1, a.sit + dt*0.6);
     if (a.bt <= 0){ a.beh = 'idle'; a.bt = 3 + Math.random()*5; }
   }
-  // pose: body lowers, legs fold, head bobs, legs swing while walking
   const s = a.sit, moving = (a.beh === 'walk' || a.beh === 'flee') && standing;
   a.body.position.y = -a.sitDrop*s;
   a.legs.forEach((l,i)=>{ l.scale.y = 1 - 0.7*s; l.position.y = a.legH - a.sitDrop*s*0.4; l.rotation.x = moving ? Math.sin(a.walk + (i===0||i===3 ? 0 : Math.PI))*0.4 : 0; });
