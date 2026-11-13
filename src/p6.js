@@ -261,7 +261,7 @@ const P = {pos:new THREE.Vector3(-25,0,3), rot:Math.PI, walk:0, y:0};
 
 /* NPCs */
 const npcs = [];
-const fontReady = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,2500))]) : Promise.resolve();
+const fontReady = (document.fonts && document.fonts.ready) ? Promise.race([Promise.all([document.fonts.ready, document.fonts.load('italic 800 52px "Barlow Condensed"'), document.fonts.load('600 28px "Barlow Condensed"')]), new Promise(r=>setTimeout(r,3000))]) : Promise.resolve();
 function nameSprite(text){
   const [c,x] = cv(10,10); x.font = '600 44px Hind, system-ui, sans-serif';
   const W = Math.ceil(x.measureText(text).width + 64), H = 78; c.width = W; c.height = H;

@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#B85C48">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@400;500;600;700&family=Yatra+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@400;500;600;700&family=Yatra+One&family=Barlow+Condensed:ital,wght@0,600;1,700;1,800&display=swap" rel="stylesheet">
 <style>
 :root{
   --surface:#FFF4EA; --surface-2:#F9E3D3; --ink:#3B1E19; --ink-soft:#7A4A40;
@@ -2131,7 +2131,7 @@ const P = {pos:new THREE.Vector3(-25,0,3), rot:Math.PI, walk:0, y:0};
 
 /* NPCs */
 const npcs = [];
-const fontReady = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,2500))]) : Promise.resolve();
+const fontReady = (document.fonts && document.fonts.ready) ? Promise.race([Promise.all([document.fonts.ready, document.fonts.load('italic 800 52px "Barlow Condensed"'), document.fonts.load('600 28px "Barlow Condensed"')]), new Promise(r=>setTimeout(r,3000))]) : Promise.resolve();
 function nameSprite(text){
   const [c,x] = cv(10,10); x.font = '600 44px Hind, system-ui, sans-serif';
   const W = Math.ceil(x.measureText(text).width + 64), H = 78; c.width = W; c.height = H;
@@ -2799,17 +2799,22 @@ let fontsDone = false;
 function tagSub(m){ const co = m.p.company ? companyOf(m.p.company) : null; return [m.p.role, co && co.name].filter(Boolean).join(' · ').slice(0,44); }
 function tagChip(m){ if (m.p.open) return {t: m.p.looking ? `OPEN TO WORK · ${m.p.looking}`.slice(0,40) : 'OPEN TO WORK', bg:'#1F8A4C', fg:'#FFFFFF'}; if (m.p.coffee) return {t:'☕ Up for a coffee chat', bg:'#F5E3C8', fg:'#5A3A1A'}; if (m.p.status) return {t:m.p.status, bg:'#FFF4EA', fg:'#3B1E19'}; return null; }
 function tagKey(m, nm){ const c = tagChip(m); return [nm, tagSub(m), c && c.t].join('|'); }
+/* Name tags: bold condensed italic name, "role · company" underneath, an optional status chip, and a small
+   orange pointer down to the person. No background box; a soft shadow keeps it readable on any wall. */
 function nameTag(name, sub, chip, live){
-  const [c,x] = cv(10,10); const F1 = '700 46px Hind, system-ui, sans-serif', F2 = '500 30px Hind, system-ui, sans-serif', F3 = '700 26px Hind, system-ui, sans-serif';
-  x.font = F1; const w1 = x.measureText(name.toUpperCase()).width; x.font = F2; const w2 = sub ? x.measureText(sub).width : 0; x.font = F3; const w3 = chip ? x.measureText(chip.t).width + 40 : 0;
-  const W = Math.ceil(Math.max(w1 + (live ? 40 : 0), w2, w3) + 40), H = 64 + (sub ? 40 : 0) + (chip ? 50 : 0); c.width = W; c.height = H;
-  x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = 'rgba(0,0,0,0.65)'; x.shadowBlur = 8; x.shadowOffsetY = 2;
-  let y = 32; x.font = F1; x.fillStyle = '#FFFFFF'; x.fillText(name.toUpperCase(), W/2 + (live ? 20 : 0), y);
-  if (live){ x.shadowBlur = 0; x.fillStyle = '#34C27A'; x.beginPath(); x.arc(W/2 - w1/2 - 4, y, 10, 0, Math.PI*2); x.fill(); x.shadowBlur = 8; }
-  if (sub){ y += 40; x.font = F2; x.fillStyle = '#F4EAD8'; x.fillText(sub, W/2, y); }
-  if (chip){ y += 48; x.shadowBlur = 0; const cw = w3, ch = 40, cx0 = W/2 - cw/2, r = 20; x.fillStyle = chip.bg; x.beginPath(); x.moveTo(cx0+r,y-ch/2); x.lineTo(cx0+cw-r,y-ch/2); x.arc(cx0+cw-r,y,r,-Math.PI/2,Math.PI/2); x.lineTo(cx0+r,y+ch/2); x.arc(cx0+r,y,r,Math.PI/2,Math.PI*1.5); x.fill(); x.font = F3; x.fillStyle = chip.fg; x.fillText(chip.t, W/2, y+1); }
+  const [c,x] = cv(10,10); const F1 = 'italic 800 52px "Barlow Condensed", Hind, system-ui, sans-serif', F2 = '600 28px "Barlow Condensed", Hind, system-ui, sans-serif', F3 = 'italic 700 24px "Barlow Condensed", Hind, system-ui, sans-serif';
+  const N = name.toUpperCase(); x.font = F1; const w1 = x.measureText(N).width; x.font = F2; const w2 = sub ? x.measureText(sub).width : 0; x.font = F3; const w3 = chip ? x.measureText(chip.t.toUpperCase()).width + 28 : 0;
+  const W = Math.ceil(Math.max(w1 + (live ? 34 : 0), w2, w3) + 30), H = 56 + (sub ? 32 : 0) + (chip ? 40 : 0) + 26; c.width = W; c.height = H;
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = 'rgba(0,0,0,0.75)'; x.shadowBlur = 6; x.shadowOffsetY = 2;
+  let y = 30; x.font = F1; x.fillStyle = '#F2F2F2'; x.fillText(N, W/2 + (live ? 17 : 0), y);
+  if (live){ x.shadowBlur = 0; x.fillStyle = '#34C27A'; x.beginPath(); x.arc(W/2 - w1/2 - 2, y, 8, 0, Math.PI*2); x.fill(); x.shadowBlur = 6; }
+  if (sub){ y += 32; x.font = F2; x.fillStyle = '#E9E3DA'; x.fillText(sub, W/2, y); }
+  if (chip){ y += 36; x.shadowBlur = 0; const cw = w3, ch = 30, cx0 = W/2 - cw/2; x.fillStyle = chip.bg; x.beginPath(); x.moveTo(cx0+6,y-ch/2); x.lineTo(cx0+cw,y-ch/2); x.lineTo(cx0+cw-6,y+ch/2); x.lineTo(cx0,y+ch/2); x.closePath(); x.fill(); x.font = F3; x.fillStyle = chip.fg; x.fillText(chip.t.toUpperCase(), W/2, y+1); x.shadowBlur = 6; }
+  // pointer
+  y = H - 12; x.shadowBlur = 3; x.fillStyle = '#EE9C14'; x.beginPath(); x.moveTo(W/2 - 9, y - 7); x.lineTo(W/2 + 9, y - 7); x.lineTo(W/2, y + 6); x.closePath(); x.fill();
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.minFilter = THREE.LinearFilter;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:t, transparent:true, depthWrite:false, toneMapped:false})); const k = 0.0072; s.scale.set(W*k, H*k, 1); s.center.set(0.5, 0); return s;
+  const m = new THREE.SpriteMaterial({map:t, transparent:true, depthWrite:false, toneMapped:false}); m.color.setScalar(0.86);   // just under bloom so the text never glows
+  const s = new THREE.Sprite(m); const k = 0.0052; s.scale.set(W*k, H*k, 1); s.center.set(0.5, 0); return s;
 }
 function liveSprite(text){
   const [c,x] = cv(10,10); x.font = '600 44px Hind, system-ui, sans-serif';
@@ -2901,7 +2906,7 @@ function updatePeers(dt){
       e.ch.g.position.set(e.cur.x,e.cur.y||0,e.cur.z); e.rot = angLerp(e.rot, e.tr, Math.min(1,dt*8)); e.ch.g.rotation.y = e.rot;
       if (e.sit){ seat(e.ch); e.ch.g.position.y = (e.cur.y||0) - 0.42; } else { if (e.moving) e.walk += dt*8; animatePerson(e.ch, e.walk, e.moving?1:0, t); }
       if (Date.now() - e.wv < 2500){ e.ch.b.rSh.rotation.set(-2.5,0,0.3 + Math.sin(t*7)*0.2); e.ch.b.rEl.rotation.x = -0.5; }
-      if (e.label) e.label.position.set(e.cur.x, 2.3, e.cur.z);
+      if (e.label) e.label.position.set(e.cur.x, (e.cur.y||0) + 2.05, e.cur.z);
     }
   });
 }
@@ -3427,7 +3432,7 @@ async function syncMembers(snap){
   $('creatorBtn').hidden = !(CREATOR_ID && memberMap.has(CREATOR_ID));
   if (typeof refreshOffices === 'function') refreshOffices();
   const names = await memberNames([...memberMap.keys()]);
-  memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== tagKey(m, nm)){ if (m.label) scene.remove(m.label); m.label = nameTag(m.id === CREATOR_ID ? `${nm.split(' ')[0]} · Creator` : nm.split(' ')[0], tagSub(m), tagChip(m)); m.labelText = tagKey(m, nm); m.label.position.set(m.p.pos[0],2.55,m.p.pos[1]); scene.add(m.label); } });
+  memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== tagKey(m, nm)){ if (m.label) scene.remove(m.label); m.label = nameTag(m.id === CREATOR_ID ? `${nm.split(' ')[0]} · Creator` : nm.split(' ')[0], tagSub(m), tagChip(m)); m.labelText = tagKey(m, nm); m.label.position.set(m.p.pos[0],2.05,m.p.pos[1]); scene.add(m.label); } });
   syncMemberVisibility();
 }
 function removeMember(id){ const m = memberMap.get(id); if (!m) return; scene.remove(m.ch.g); scene.remove(m.marker); if (m.label) scene.remove(m.label); const i = npcs.indexOf(m); if (i>=0) npcs.splice(i,1); const j = circles.indexOf(m.circle); if (j>=0) circles.splice(j,1); memberMap.delete(id); }
@@ -4870,7 +4875,7 @@ function frame(){
   }
 
   // name tags and markers follow members as they move about
-  memberMap.forEach(m=>{ const g = m.ch.g.position; if (m.label) m.label.position.set(g.x, 2.55, g.z); m.marker.position.set(g.x, 2.38, g.z); });
+  memberMap.forEach(m=>{ const g = m.ch.g.position; if (m.label) m.label.position.set(g.x, 2.05, g.z); m.marker.visible = false; });
   if (mode === 'play'){
     nearNpc = inShop || riding || (best && best.hidden) ? null : best;
     updateAction();
