@@ -3103,7 +3103,7 @@ function meetCreator(isWelcome){
   if (!$('prodWrap').hidden && prod) closeProducts();
   for (const id of ['coWrap','bizWrap','joinWrap','jobsWrap','recWrap']) $(id).hidden = true;
   if (riding) exitAuto(); if (inShop) exitShop(); if (flying) setFly(false);
-  const a = m.rot || 0; P.pos.set(m.p.pos[0] + Math.sin(a)*1.8, 0, m.p.pos[1] + Math.cos(a)*1.8); resolve(P.pos); P.rot = a; snapCam = true;
+  const a = m.rot || 0; P.pos.set(m.p.pos[0] + Math.sin(a)*4.5, 0, m.p.pos[1] + Math.cos(a)*4.5); resolve(P.pos); P.rot = a; dist = Math.max(dist, 4.5); pitch = 0.2; snapCam = true;
   setTimeout(()=>{ openCard(m); if (isWelcome) $('cNote').textContent = `Welcome to People of Jaipur! Meet ${m.p.name.split(' ')[0]}, who built this city. Tap Connect to say hello.`; }, 700);
   return true;
 }
