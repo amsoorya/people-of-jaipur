@@ -2177,7 +2177,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
-  Rig.update(dt);
+  Rig.update(dt); AnimalRig.update(dt);
   // player
   let movingNow = false;
   if (mode === 'play' && flying){

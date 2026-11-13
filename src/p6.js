@@ -292,28 +292,62 @@ for (let i=0;i<(lowEnd?12:22);i++){
   w.len = w.a.distanceTo(w.b); scene.add(ch.g); walkers.push(w);
 }
 /* Auto-rickshaws */
+/* Smooth shapes for vehicles and animals */
+const S24 = new THREE.SphereGeometry(1, 24, 16), C20 = new THREE.CylinderGeometry(1, 1, 1, 20);
+function RBOX(w, h, d, r){   // a box with rounded edges
+  const key = [w,h,d,r].join(','); RBOX.c = RBOX.c || {}; if (RBOX.c[key]) return RBOX.c[key];
+  const x = w/2 - r, y = h/2 - r, sh = new THREE.Shape();
+  sh.moveTo(-x, -h/2); sh.lineTo(x, -h/2); sh.quadraticCurveTo(w/2, -h/2, w/2, -y); sh.lineTo(w/2, y); sh.quadraticCurveTo(w/2, h/2, x, h/2);
+  sh.lineTo(-x, h/2); sh.quadraticCurveTo(-w/2, h/2, -w/2, y); sh.lineTo(-w/2, -y); sh.quadraticCurveTo(-w/2, -h/2, -x, -h/2);
+  const g = new THREE.ExtrudeGeometry(sh, {depth: Math.max(0.001, d - 2*r), bevelEnabled:true, bevelThickness:r, bevelSize:r*0.6, bevelSegments:3, curveSegments:6});
+  g.translate(0, 0, -(d - 2*r)/2); g.computeVertexNormals(); return RBOX.c[key] = g;
+}
+const HALFCYL = new THREE.CylinderGeometry(1, 1, 1, 22, 1, true, -Math.PI/2, Math.PI);
+const TYRE = new THREE.TorusGeometry(0.22, 0.085, 10, 22), HUB = new THREE.CylinderGeometry(0.13, 0.13, 0.1, 16);
+function wheel(parts, x, y, z, rotY = 0){
+  parts.push(cpart(TYRE, '#151515', m4(x, y, z, 1, 1, 1, 0, Math.PI/2 + rotY, 0)));
+  parts.push(cpart(HUB, '#C9CCD2', m4(x, y, z, 1, 1, 1, 0, 0, Math.PI/2)));
+  parts.push(cpart(HUB, '#2A2A2E', m4(x, y, z, 0.55, 1.15, 0.55, 0, 0, Math.PI/2)));
+}
+/* A Jaipur auto-rickshaw: green and yellow body, black canvas roof */
 function makeAuto(){
-  const g = new THREE.Group();
+  const g = new THREE.Group(), GRN = '#2C7A3F', YEL = '#F2C230', BLK = '#1C1C1F', CHR = '#D9DCE0', SEAT = '#6E2A26';
   const parts = [
-    cpart(UBOX,'#2F7A3E',m4(0,0.42,0,1.3,0.22,2.4)),                       // floor pan
-    cpart(UBOX,'#2F7A3E',m4(0,0.85,0.95,0.9,0.9,0.5)),                     // front cowl
-    cpart(S16,'#2F7A3E',m4(0,0.75,1.18,0.42,0.35,0.22)),
-    cpart(UBOX,'#2F7A3E',m4(0,0.8,-1.12,1.3,0.75,0.16)),                   // low rear panel
-    cpart(UBOX,'#F2C230',m4(0,1.2,-1.12,1.32,0.08,0.18)),
-    cpart(UBOX,'#F2C230',m4(0,0.55,0,1.32,0.06,2.42)),                     // yellow stripe
-    cpart(S16,'#1F1F22',m4(0,2.02,-0.15,0.72,0.16,1.12)),                  // canopy
-    cpart(UBOX,'#1F1F22',m4(0,1.98,-0.15,1.4,0.06,2.15)),
-    cpart(UBOX,'#1F1F22',m4(0,1.88,1.02,1.1,0.05,0.05)), cpart(UBOX,'#1F1F22',m4(-0.54,1.55,1.0,0.04,0.66,0.05,0.12)), cpart(UBOX,'#1F1F22',m4(0.54,1.55,1.0,0.04,0.66,0.05,0.12)),
-    cpart(UBOX,'#6B4530',m4(0,0.82,0.3,0.55,0.12,0.5)),                    // driver seat
-    cpart(UBOX,'#6B4530',m4(0,0.8,-0.65,1.2,0.14,0.62)),                   // rear bench
-    cpart(UBOX,'#6B4530',m4(0,1.15,-0.95,1.2,0.6,0.1)),
-    cpart(C12,'#2A2A2A',m4(0,1.18,0.7,0.022,0.8,0.022,0,0,Math.PI/2)),     // handlebar
-    cpart(S16,'#FFF4C8',m4(0,0.95,1.22,0.09,0.09,0.04)),
+    cpart(RBOX(1.32, 0.42, 2.36, 0.12), GRN, m4(0, 0.58, -0.02)),                 // lower body
+    cpart(RBOX(1.34, 0.09, 2.38, 0.04), YEL, m4(0, 0.82, -0.02)),                 // yellow waist band
+    cpart(RBOX(0.98, 1.0, 0.5, 0.2), GRN, m4(0, 0.98, 0.96)),                     // front cowl
+    cpart(S24, GRN, m4(0, 0.78, 1.16, 0.5, 0.36, 0.22)),                          // nose
+    cpart(RBOX(0.3, 0.1, 0.46, 0.04), BLK, m4(0, 0.47, 1.1)),                     // front mudguard
+    cpart(RBOX(1.32, 0.62, 0.12, 0.05), GRN, m4(0, 0.98, -1.15)),                 // rear panel
+    cpart(RBOX(1.0, 0.18, 0.06, 0.03), YEL, m4(0, 1.06, -1.22)),                  // rear stripe
+    cpart(HALFCYL, BLK, m4(0, 1.82, -0.12, 0.72, 2.16, 0.3, Math.PI/2, 0, 0)),    // rounded canvas roof
+    cpart(RBOX(1.46, 0.06, 2.2, 0.03), BLK, m4(0, 1.82, -0.12)),                  // roof rim
+    cpart(RBOX(1.36, 0.62, 0.06, 0.03), BLK, m4(0, 1.52, -1.16)),                 // rear canvas
+    cpart(RBOX(0.6, 0.2, 0.02, 0.02), '#8FA9B3', m4(0, 1.6, -1.2)),               // little rear window
+    cpart(RBOX(0.58, 0.14, 0.52, 0.06), SEAT, m4(0, 0.86, 0.3)),                  // driver seat
+    cpart(RBOX(1.18, 0.16, 0.6, 0.07), SEAT, m4(0, 0.84, -0.66)),                 // passenger bench
+    cpart(RBOX(1.18, 0.56, 0.12, 0.06), SEAT, m4(0, 1.16, -0.96)),                // backrest
+    cpart(C20, '#2A2A2A', m4(0, 1.2, 0.72, 0.024, 0.82, 0.024, 0, 0, Math.PI/2)), // handlebar
+    cpart(C20, BLK, m4(-0.41, 1.2, 0.72, 0.04, 0.12, 0.04, 0, 0, Math.PI/2)), cpart(C20, BLK, m4(0.41, 1.2, 0.72, 0.04, 0.12, 0.04, 0, 0, Math.PI/2)),
+    cpart(C20, CHR, m4(0, 1.0, 1.24, 0.11, 0.06, 0.11, Math.PI/2, 0, 0)),         // headlight
+    cpart(S24, '#FFF6D6', m4(0, 1.0, 1.27, 0.085, 0.085, 0.03)),
+    cpart(C20, '#F2EFE6', m4(0, 0.6, 1.27, 0.18, 0.1, 0.02, Math.PI/2, 0, 0)),    // number plate
+    cpart(RBOX(0.12, 0.08, 0.04, 0.015), '#D8342B', m4(-0.5, 0.95, -1.22)), cpart(RBOX(0.12, 0.08, 0.04, 0.015), '#D8342B', m4(0.5, 0.95, -1.22)), // tail lights
+    cpart(RBOX(0.4, 0.14, 0.03, 0.02), '#F2EFE6', m4(0, 0.7, -1.23)),            // rear plate
   ];
-  for (const [x,z] of [[-0.66,1.05],[0.66,1.05],[-0.66,-1.1],[0.66,-1.1]]) parts.push(cpart(C12,'#2F2F2F',m4(x,1.45,z,0.03,1.05,0.03)));
-  for (const [x,z] of [[0,1.0],[-0.66,-0.85],[0.66,-0.85]]) parts.push(cpart(new THREE.CylinderGeometry(0.28,0.28,0.16,14),'#151515',m4(x,0.28,z,1,1,1,0,0,Math.PI/2)));
+  // windscreen frame, roof poles and grab rails
+  for (const x of [-0.52, 0.52]) parts.push(cpart(C20, BLK, m4(x, 1.52, 1.0, 0.028, 0.62, 0.028, 0.14, 0, 0)));
+  parts.push(cpart(C20, BLK, m4(0, 1.84, 1.04, 0.028, 1.06, 0.028, 0, 0, Math.PI/2)));
+  for (const [x, z] of [[-0.66, 0.45], [0.66, 0.45], [-0.66, -1.1], [0.66, -1.1]]) parts.push(cpart(C20, CHR, m4(x, 1.32, z, 0.022, 1.0, 0.022)));
+  for (const x of [-0.67, 0.67]) parts.push(cpart(C20, CHR, m4(x, 1.12, -0.35, 0.018, 1.5, 0.018, Math.PI/2, 0, 0)));
+  // mirrors
+  for (const sx of [-1, 1]){ parts.push(cpart(C20, BLK, m4(sx*0.56, 1.42, 0.98, 0.012, 0.22, 0.012, 0, 0, sx*0.9))); parts.push(cpart(S24, CHR, m4(sx*0.66, 1.5, 0.98, 0.07, 0.05, 0.02))); }
+  // wheels and the spare on the back
+  wheel(parts, 0, 0.3, 1.02); wheel(parts, -0.62, 0.3, -0.82); wheel(parts, 0.62, 0.3, -0.82);
+  for (const sx of [-1, 1]) parts.push(cpart(RBOX(0.2, 0.08, 0.6, 0.04), BLK, m4(sx*0.62, 0.6, -0.82)));
+  parts.push(cpart(TYRE, '#151515', m4(0, 1.0, -1.3, 1.05, 1.05, 1.05))); parts.push(cpart(HUB, '#C9CCD2', m4(0, 1.0, -1.3, 1, 1, 1, Math.PI/2, 0, 0)));
   const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
-  const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.04,0.64), M_SCREEN); ws.position.set(0,1.55,1.0); ws.rotation.x = -0.12; g.add(ws);
+  const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.6), M_SCREEN); ws.position.set(0, 1.52, 1.0); ws.rotation.x = -0.14; g.add(ws);
   scene.add(g); return g;
 }
 /* Traffic keeps left, as in India, and goes round Badi Chaupar's fountain instead of through it */
@@ -378,17 +412,36 @@ scooters.forEach(s=>{ s.g.position.copy(s.pos); s.g.rotation.y = s.heading; });
 
 /* Camels you can ride */
 function makeCamel(){
-  const g = new THREE.Group(), C = '#C49A6C', C2 = '#B88A5A';
+  const g = new THREE.Group(), C = '#C79B68', C2 = '#B4844F', C3 = '#9C7044';
+  // neck: a smooth curve from the chest up to the head
+  const neckCurve = new THREE.CatmullRomCurve3([V3(0, 2.05, 0.85), V3(0, 2.2, 1.25), V3(0, 2.62, 1.48), V3(0, 2.9, 1.52)]);
+  const neck = new THREE.TubeGeometry(neckCurve, 16, 0.15, 12, false);
   const body = merge([
-    cpart(S16,C,m4(0,1.85,0,0.52,0.5,1.1)), cpart(S16,C2,m4(0,2.32,-0.15,0.42,0.42,0.5)),
-    cpart(UBOX,'#B83A6B',m4(0,2.62,-0.1,1.0,0.1,0.95)), cpart(UBOX,'#E8B33A',m4(0,2.57,-0.1,1.04,0.04,1.0)),
-    cpart(C12,C,m4(0,2.35,1.15,0.14,0.9,0.16,0.75)), cpart(S16,C,m4(0,2.85,1.55,0.15,0.15,0.3)), cpart(S16,C2,m4(0,2.82,1.82,0.1,0.1,0.12)),
-    cpart(S16,'#2A1A12',m4(0.09,2.92,1.62,0.025,0.025,0.025)), cpart(S16,'#2A1A12',m4(-0.09,2.92,1.62,0.025,0.025,0.025)),
-    cpart(C12,'#D8342B',m4(0,2.2,1.0,0.17,0.05,0.17,0.75)), cpart(UBOX,C2,m4(0,1.75,-1.1,0.06,0.5,0.06,-0.3)),
+    cpart(S24, C, m4(0, 1.9, 0, 0.5, 0.48, 1.05)),                    // barrel
+    cpart(S24, C2, m4(0, 2.28, -0.12, 0.4, 0.42, 0.52)),              // hump
+    cpart(S24, C, m4(0, 1.92, 0.78, 0.36, 0.38, 0.36)),               // chest
+    cpart(S24, C, m4(0, 1.88, -0.9, 0.42, 0.42, 0.36)),               // rump
+    cpart(neck, C, m4(0, 0, 0)),
+    cpart(S24, C, m4(0, 2.95, 1.62, 0.15, 0.15, 0.24)),               // head
+    cpart(S24, C2, m4(0, 2.9, 1.86, 0.1, 0.1, 0.14)),                 // muzzle
+    cpart(S24, '#2A1A12', m4(0.11, 3.0, 1.66, 0.025, 0.025, 0.025)), cpart(S24, '#2A1A12', m4(-0.11, 3.0, 1.66, 0.025, 0.025, 0.025)),
+    cpart(CONE(8), C2, m4(0.09, 3.1, 1.5, 0.035, 0.09, 0.035, -0.3)), cpart(CONE(8), C2, m4(-0.09, 3.1, 1.5, 0.035, 0.09, 0.035, -0.3)),
+    // saddle: a red and gold Rajasthani blanket with tassels
+    cpart(RBOX(1.02, 0.08, 1.0, 0.04), '#B83A6B', m4(0, 2.66, -0.1)), cpart(RBOX(1.06, 0.04, 1.04, 0.02), '#E8B33A', m4(0, 2.61, -0.1)),
+    cpart(RBOX(0.5, 0.2, 0.62, 0.08), '#7A2E2A', m4(0, 2.78, -0.1)),
+    cpart(C20, '#D8342B', m4(0, 2.12, 0.98, 0.18, 0.05, 0.18, 0.75)),   // neck band
+    cpart(C20, C3, m4(0, 1.78, -1.18, 0.035, 0.55, 0.035, -0.3)), cpart(S24, '#4A3424', m4(0, 1.52, -1.27, 0.05, 0.1, 0.05)), // tail
   ]);
-  const bm = new THREE.Mesh(body, PM); bm.castShadow = true; g.add(bm); g.userData.body = bm;
-  const legGeo = merge([cpart(C12,C,m4(0,-0.42,0,0.09,0.84,0.09)), cpart(C12,C2,m4(0,-1.1,0,0.07,0.6,0.07)), cpart(S16,'#8A6A4A',m4(0,-1.42,0.03,0.11,0.05,0.14))]);
-  const legs = [[-0.28,0.7],[0.28,0.7],[-0.28,-0.7],[0.28,-0.7]].map(([x,z])=>{ const l = new THREE.Mesh(legGeo, PM); l.position.set(x,1.45,z); l.castShadow = true; g.add(l); return l; });
+  const tass = []; for (const x of [-0.45, -0.15, 0.15, 0.45]) for (const sx of [-1, 1]) tass.push(cpart(S24, ['#E8B33A','#2E8C87','#D8342B','#F4EDE2'][Math.abs(Math.round(x*10))%4], m4(sx*0.53, 2.5, x*1.1 - 0.1, 0.035, 0.07, 0.035)));
+  const bm = new THREE.Mesh(merge([body, ...tass]), PM); bm.castShadow = true; g.add(bm); g.userData.body = bm;
+  // legs: thigh, knobbly knee, slim shin and a wide pad of a foot
+  const legGeo = merge([
+    cpart(new THREE.CylinderGeometry(0.17, 0.085, 1.2, 14), C, m4(0, -0.22, 0)),   // thick thigh that runs up into the body
+    cpart(S24, C2, m4(0, -0.82, 0, 0.095, 0.1, 0.095)),
+    cpart(new THREE.CylinderGeometry(0.065, 0.055, 0.56, 12), C2, m4(0, -1.1, 0)),
+    cpart(S24, C3, m4(0, -1.41, 0.03, 0.12, 0.05, 0.15)),
+  ]);
+  const legs = [[-0.27, 0.7], [0.27, 0.7], [-0.27, -0.72], [0.27, -0.72]].map(([x, z])=>{ const l = new THREE.Mesh(legGeo, PM); l.position.set(x, 1.45, z); l.castShadow = true; g.add(l); return l; });
   scene.add(g); return {g, legs, body:bm};
 }
 const camels = camelSpots.map(([x,z,r])=>{ const c = makeCamel(); return {type:'camel', g:c.g, legs:c.legs, body:c.body, pos:V3(x,0,z), home:V3(x,0,z), heading:r, v:0, state:'parked', walk:0, beh:'idle', bt:3+Math.random()*6, sit:0, legH:1.45, sitDrop:1.05, range:4, circle:null}; });
@@ -405,6 +458,30 @@ function makeCow(col){
 }
 const COW_COLS = ['#F1ECE3','#E8E1D4','#8C7A6A','#D9CDB8'];
 const cows = cowSpots.map(([x,z,r],i)=>{ const c = makeCow(COW_COLS[i%COW_COLS.length]); return {type:'cow', g:c.g, legs:c.legs, body:c.body, head:c.head, pos:V3(x,0,z), home:V3(x,0,z), heading:r||0, v:0, walk:0, beh: i%2 ? 'sitting' : 'idle', bt:4+Math.random()*8, sit: i%2 ? 1 : 0, legH:0.85, sitDrop:0.55, range:7, circle:null}; });
+/* Animated cows and bulls (Quaternius, CC0) replace the simple ones once they load */
+const AnimalRig = (()=>{
+  const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils), loader = ok ? new THREE.GLTFLoader() : null, cache = {}, live = [];
+  // measure height from the skeleton (the mesh's own bounds ignore the armature's scale)
+  const load = n => cache[n] || (cache[n] = new Promise(res=>loader.load(`models/animals/${n}.glb`, g=>{ const r = g.scene; r.updateMatrixWorld(true); let lo = Infinity, hi = -Infinity; const v = new THREE.Vector3();
+    r.traverse(o=>{ if (o.isBone){ o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); if (!isFinite(hi)){ const b = new THREE.Box3().setFromObject(r); lo = b.min.y; hi = b.max.y; }
+    res({root:r, clips:g.animations, h:(hi - Math.min(lo, 0))||1}); }, undefined, ()=>res(null))));
+  function attach(a, name, height, tint){
+    if (!ok) return;
+    load(name).then(m=>{ if (!m) return;
+      const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(height / m.h);
+      inst.traverse(o=>{ if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.material = o.material.clone(); o.material.roughness = 0.85; if (tint && /^Main$/.test(o.material.name)) o.material.color.set(tint).convertSRGBToLinear(); });
+      a.g.add(inst); a.body.visible = false; a.legs.forEach(l=>l.visible = false); if (a.head) a.head.visible = false;
+      const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const c of m.clips) acts[c.name] = mixer.clipAction(c);
+      a.rig = {inst, mixer, acts, cur:null, h:height}; live.push(a);
+    });
+  }
+  function play(r, n){ if (r.cur === n || !r.acts[n]) return; r.acts[n].reset().fadeIn(0.3).play(); if (r.cur) r.acts[r.cur].fadeOut(0.3); r.cur = n; }
+  function update(dt){ for (const a of live){ const r = a.rig, moving = Math.abs(a.v || 0) > 0.05, sit = (a.sit || 0) > 0.5;
+    play(r, moving ? (Math.abs(a.v) > 2.2 && r.acts.Gallop ? 'Gallop' : 'Walk') : sit ? 'Eating' : ((a.bt|0) % 3 === 0 ? 'Eating' : 'Idle'));
+    r.inst.position.y = -a.body.position.y * 0 ; r.mixer.update(dt * (moving ? Math.min(1.6, 0.6 + Math.abs(a.v)*0.5) : 1)); } }
+  return {attach, update};
+})();
+cows.forEach((c, i)=>AnimalRig.attach(c, i % 3 === 2 ? 'Bull' : 'Cow', i % 3 === 2 ? 1.55 : 1.45, null));
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });
 /* The jeep that drives up to Sunset Point */
 function makeJeep(){
