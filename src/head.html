@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>People of Jaipur — walk the Pink City, meet its designers and builders</title>
+<meta name="description" content="A 3D Jaipur you can walk through. Visit Hawa Mahal, Jantar Mantar, Jal Mahal and the city’s favourite cafés, and meet the designers and builders who live here.">
+<meta name="theme-color" content="#B85C48">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@400;500;600;700&family=Yatra+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface:#FFF4EA; --surface-2:#F9E3D3; --ink:#3B1E19; --ink-soft:#7A4A40;
+  --pink:#B85C48; --marigold:#EE9C14;
+  --line:rgba(59,30,25,.14); --shadow:0 18px 50px rgba(59,30,25,.28); --scrim:rgba(60,24,18,.28);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --surface:#2B1A18; --surface-2:#3A2420; --ink:#FBE7DB; --ink-soft:#D8AFA2;
+    --pink:#F08E78; --marigold:#F5B13A;
+    --line:rgba(251,231,219,.16); --shadow:0 18px 50px rgba(0,0,0,.5); --scrim:rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --surface:#2B1A18; --surface-2:#3A2420; --ink:#FBE7DB; --ink-soft:#D8AFA2;
+  --pink:#F08E78; --marigold:#F5B13A;
+  --line:rgba(251,231,219,.16); --shadow:0 18px 50px rgba(0,0,0,.5); --scrim:rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;overflow:hidden;background:#E9C2A2}
+body{font-family:'Hind',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;touch-action:none;user-select:none;-webkit-user-select:none}
+[hidden]{display:none!important}
+canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--marigold);outline-offset:3px}
+
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:#E9C2A2;color:#7A4A40;font-size:17px;transition:opacity .5s}
+#loading.done{opacity:0;pointer-events:none}
+
+#intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;
+  padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  background:radial-gradient(ellipse 60% 55% at 50% 50%, rgba(60,20,12,.5) 0%, rgba(60,20,12,.25) 55%, rgba(60,20,12,.05) 100%);
+  transition:opacity .7s ease}
+#intro.leaving{opacity:0;pointer-events:none}
+.kicker{font-weight:600;font-size:clamp(18px,2.6vw,26px);color:#FFF6EE;text-shadow:0 2px 14px rgba(60,20,10,.55);margin:0}
+h1.city{font-family:'Rozha One',Georgia,serif;font-weight:400;margin:-.06em 0 0;line-height:.9;
+  font-size:clamp(88px,19vw,240px);color:#FFF3E8;
+  text-shadow:0 .035em 0 #C9654F,0 .07em 0 #A84F3C,0 .14em .35em rgba(60,20,10,.45)}
+.lede{max-width:36ch;margin:22px auto 0;font-size:clamp(17px,2.1vw,21px);line-height:1.5;color:#FFF6EE;text-shadow:0 1px 12px rgba(60,20,10,.7)}
+.start{margin-top:30px;border:0;background:var(--marigold);color:#3B1E19;font-weight:600;font-size:18px;padding:15px 34px;border-radius:999px;box-shadow:0 10px 28px rgba(80,30,5,.4);transition:transform .15s ease}
+.start:hover{transform:translateY(-1px)}
+.hint{margin-top:18px;font-size:14px;color:#FFEADB;text-shadow:0 1px 8px rgba(60,20,10,.7)}
+
+#topbar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:calc(env(safe-area-inset-left,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;pointer-events:none;z-index:5}
+#topbar > *{pointer-events:auto}
+.hud{flex:0 1 340px;min-width:0;
+  background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:16px;padding:9px 16px 9px;box-shadow:0 6px 20px rgba(59,30,25,.12)}
+.hud .brand{font-family:'Rozha One',Georgia,serif;font-size:19px;line-height:1.1;color:var(--pink)}
+.hud .area{font-size:16px;font-weight:600;color:var(--ink);margin-top:3px}
+.hud .fact{font-size:14px;line-height:1.4;color:var(--ink-soft);margin-top:1px}
+.topright{flex:1 1 auto;display:flex;flex-direction:column;align-items:flex-end;gap:10px;min-width:0}
+.pill{border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-radius:999px;padding:9px 16px;font-weight:600;font-size:15px;color:var(--ink);box-shadow:0 6px 20px rgba(59,30,25,.12)}
+#mapWrap{position:fixed;inset:0;background:#1B1410;z-index:20}
+#bigmap{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.maptop{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+.maptop > *{pointer-events:auto}
+.maptitle{font-family:'Rozha One',Georgia,serif;font-size:26px;color:#FFF3E8;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.mapsub{font-size:15px;color:#F5DCCB;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.mapzoom{position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;gap:8px}
+.mapzoom .pill{width:46px;height:46px;padding:0;font-size:22px}
+#minimap{cursor:pointer;width:160px;height:160px;border-radius:20px;border:1px solid var(--line);box-shadow:0 6px 20px rgba(59,30,25,.16);background:#E8C9A6}
+
+#bottomStack{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);display:flex;flex-direction:column;align-items:center;gap:10px;max-width:calc(100vw - 32px);z-index:5;pointer-events:none}
+#bottomStack > *{pointer-events:auto}
+body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
+#prompt{
+  border:0;background:var(--marigold);color:#3B1E19;font-weight:600;font-size:17px;padding:12px 22px;border-radius:999px;box-shadow:0 10px 26px rgba(80,30,5,.35);display:flex;align-items:center;gap:10px}
+#prompt kbd{font-family:inherit;font-size:13px;background:rgba(59,30,25,.14);border-radius:6px;padding:2px 7px}
+
+#cardWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px}
+.card{width:min(420px,100%);background:var(--surface);color:var(--ink);border-radius:26px;box-shadow:var(--shadow);overflow:hidden;animation:pop .22s ease-out}
+@keyframes pop{from{transform:translateY(12px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.card{animation:none}#intro{transition:none}}
+.card-top{background:var(--pink);padding:22px 24px 20px;display:flex;gap:16px;align-items:center;position:relative}
+.card-top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:14px;
+  background:radial-gradient(circle at 7px 0,var(--pink) 6.5px,transparent 7px) 0 0/14px 14px repeat-x}
+.avatar{flex:none;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;font-family:'Rozha One',Georgia,serif;font-size:26px;color:#FFF6EE;border:3px solid #FFF3E8}
+.card h2{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:28px;line-height:1.05;margin:0;color:#FFF6EE}
+.card .role{color:#FFE4D6;font-size:16px;margin-top:3px}
+.card-body{padding:24px 24px 22px}
+.field{margin:0 0 14px}
+.field dt{font-size:14px;color:var(--ink-soft);margin-bottom:2px}
+.field dd{margin:0;font-size:17px;line-height:1.5}
+.actions{display:flex;gap:10px;margin-top:20px}
+.btn{flex:1;border-radius:14px;padding:12px 14px;font-weight:600;font-size:16px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink)}
+.btn.primary{background:var(--marigold);border-color:transparent;color:#3B1E19}
+.note{font-size:14px;color:var(--ink-soft);margin:12px 0 0;min-height:1em}
+
+#panel{position:fixed;z-index:6;top:calc(env(safe-area-inset-top,0px) + 66px);right:calc(env(safe-area-inset-right,0px) + 14px);width:min(340px,calc(100vw - 28px));
+  max-height:calc(100% - 100px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:8px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;padding:4px;margin:4px 4px 8px;background:var(--surface-2);border-radius:14px}
+.tab{flex:1;border:0;background:none;border-radius:10px;padding:8px;font-weight:600;font-size:15px;color:var(--ink-soft)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 2px 6px rgba(59,30,25,.12)}
+.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:none;border-radius:14px;padding:9px 10px}
+.row:hover{background:var(--surface-2)}
+.row .dot{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#FFF6EE;font-family:'Rozha One',Georgia,serif;font-size:17px}
+.row b{display:block;font-weight:600;font-size:16px;line-height:1.2}
+.row span{display:block;font-size:14px;color:var(--ink-soft);line-height:1.3}
+
+#stick{position:fixed;left:calc(env(safe-area-inset-left,0px) + 22px);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:118px;height:118px;border-radius:50%;
+  background:color-mix(in srgb,var(--surface) 55%,transparent);border:2px solid color-mix(in srgb,var(--surface) 85%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
+#knob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:var(--marigold);box-shadow:0 4px 12px rgba(80,30,5,.35)}
+
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pill[aria-pressed="true"]{background:var(--marigold);color:#3B1E19;border-color:transparent}
+.live{display:inline-flex;align-items:center;gap:8px;cursor:default}
+.live i{width:9px;height:9px;border-radius:50%;background:#34C27A;box-shadow:0 0 0 3px rgba(52,194,122,.25)}
+#flyPad{position:fixed;right:calc(env(safe-area-inset-right,0px) + 18px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);display:flex;flex-direction:column;gap:10px}
+#flyPad .pill{padding:14px 18px}
+#flyHint{background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:10px 16px;font-size:15px;color:var(--ink);max-width:calc(100vw - 32px);text-align:center}
+
+#mapWrap{position:fixed;inset:0;background:#1B1410;z-index:20}
+#bigmap{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.maptop{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+.maptop > *{pointer-events:auto}
+.maptitle{font-family:'Rozha One',Georgia,serif;font-size:26px;color:#FFF3E8;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.mapsub{font-size:15px;color:#F5DCCB;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.mapzoom{position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;gap:8px}
+.mapzoom .pill{width:46px;height:46px;padding:0;font-size:22px}
+#joinWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:10;overflow:auto}
+.join{max-height:calc(100% - 8px);overflow:auto}
+.fld{display:block;margin:0 0 14px}
+.fld > span{display:block;font-size:14px;color:var(--ink-soft);margin-bottom:4px}
+.fld input,.fld textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;resize:none;user-select:text;-webkit-user-select:text}
+.fld output{display:block;font-size:17px;font-weight:600}
+.fld small{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatches button{width:38px;height:38px;border-radius:50%;border:3px solid transparent;box-shadow:0 0 0 1px var(--line)}
+.swatches button[aria-pressed="true"]{border-color:var(--ink)}
+.linkbtn{border:0;background:none;color:var(--ink-soft);text-decoration:underline;font-size:14px;margin-top:14px;padding:4px 0}
+#chatWrap{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:flex-end;padding:16px;z-index:12;pointer-events:none}
+.chat{pointer-events:auto;width:min(400px,100%);max-height:min(560px,calc(100% - 20px));display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border-radius:22px;box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden}
+.chat-top{display:flex;align-items:center;gap:12px;padding:14px 14px 12px;background:var(--surface-2)}
+.chat-who{flex:1;min-width:0}
+.chat-top h2{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:21px;margin:0;line-height:1.1}
+.chat-top .role{font-size:14px;color:var(--ink-soft)}
+.avatar.sm{width:44px;height:44px;font-size:19px;border-width:2px}
+.chat-log{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:120px;user-select:text;-webkit-user-select:text}
+.msg{max-width:85%;padding:9px 13px;border-radius:16px;font-size:16px;line-height:1.45}
+.msg.them{background:var(--surface-2);align-self:flex-start;border-bottom-left-radius:6px}
+.msg.me{background:var(--marigold);color:#3B1E19;align-self:flex-end;border-bottom-right-radius:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px}
+.chat-in{display:flex;gap:8px;padding:10px 14px 4px;border-top:1px solid var(--line)}
+.chat-in input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;user-select:text;-webkit-user-select:text}
+.chat-in .btn{flex:none}
+.chat .note{padding:0 14px 10px;margin:4px 0 0}
+#prodWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(380px,calc(100vw - 28px))}
+.prod{background:var(--surface);color:var(--ink);border-radius:22px;box-shadow:var(--shadow);border:1px solid var(--line);padding:16px 18px 14px}
+.prod-shop{font-size:14px;color:var(--ink-soft)}
+.prod-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.prod-head h2{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:23px;margin:2px 0 0;line-height:1.15}
+.prod-price{font-weight:700;font-size:18px;white-space:nowrap}
+.prod-desc{font-size:16px;line-height:1.5;margin:8px 0 10px}
+.prod-nav{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:10px}
+.prod-nav span{font-size:14px;color:var(--ink-soft)}
+.prod-actions{display:flex;gap:8px;flex-wrap:wrap}
+.prod-actions .btn{flex:1 1 auto;padding:10px 12px;font-size:15px}
+#bizWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
+.sheet{max-height:calc(100vh - 120px);overflow:auto}
+#notifWrap,#commWrap,#guideWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(420px,calc(100vw - 28px))}
+#guideWrap{width:min(520px,calc(100vw - 28px))}
+#meetWrap,#clubWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
+.nrow,.crow{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.nrow > div,.crow > div{flex:1;min-width:0}
+.nrow b,.crow b{display:block;font-size:16px}
+.nrow span,.crow span{display:block;font-size:14px;color:var(--ink-soft);line-height:1.4}
+.nrow .btn,.crow .btn{flex:none;padding:7px 12px;font-size:14px}
+.when{font-weight:600;color:var(--pink)}
+.socials{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.socials a{font-size:14px;font-weight:600;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;text-decoration:none}
+.gsec{margin:0 0 12px}
+.gsec b{display:block;font-size:16px;margin-bottom:2px}
+.gsec p{margin:0;font-size:15px;line-height:1.5;color:var(--ink-soft)}
+.badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:#D8342B;color:#fff;font-size:12px;font-weight:700;margin-left:6px;line-height:18px;text-align:center}
+.logopick{display:flex;align-items:center;gap:12px}
+.logopick img{width:56px;height:56px;object-fit:contain;border-radius:12px;background:#fff;border:1px solid var(--line)}
+.logopick input{font:inherit;font-size:14px;color:var(--ink);min-width:0}
+.flogo{width:34px;height:34px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--line);flex:none}
+.jlogo{width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;border:1px solid var(--line);margin:0 0 8px}
+.teamrow{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:16px}
+.teamrow input{width:20px;height:20px}
+#menuBtn.dot::after{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#D8342B;margin-left:6px;vertical-align:middle}
+.fld select{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.prow{display:flex;gap:8px;margin-bottom:8px}
+.prow input{flex:2;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:9px 11px;user-select:text;-webkit-user-select:text}
+.prow input + input{flex:1}
+#menuWrap{position:fixed;inset:0;z-index:9}
+.menu{position:absolute;top:calc(env(safe-area-inset-top,0px) + 64px);right:calc(env(safe-area-inset-right,0px) + 12px);width:min(320px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:6px}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 8px}
+.mrow > span{font-size:15px;color:var(--ink-soft)}
+.seg{display:flex;background:var(--surface-2);border-radius:12px;padding:3px;gap:2px}
+.seg button{border:0;background:none;border-radius:9px;padding:7px 11px;font-size:14px;font-weight:600;color:var(--ink-soft)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(59,30,25,.15)}
+.seg.wide{flex-wrap:wrap}
+.mitem{text-align:left;border:0;background:none;border-radius:12px;padding:11px 10px;font-size:16px;font-weight:500;color:var(--ink)}
+.mitem:hover{background:var(--surface-2)}
+.mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
+#outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
+#outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
+#outfitWrap .card{width:min(360px,100%)}
+#jobsWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(400px,calc(100vw - 28px))}
+.jt{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:23px;margin:2px 0 8px}
+.job{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.job b{display:block;font-size:16px}
+.job span{font-size:14px;color:var(--ink-soft)}
+.job .btn{flex:none;padding:8px 14px;font-size:15px}
+.applyln{width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px 11px;margin:0 0 12px;user-select:text;-webkit-user-select:text}
+.prow select{flex:1;min-width:0;font:inherit;font-size:15px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px}
+#roleWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:14;overflow:auto}
+.role-card{width:min(440px,100%);animation:none}
+.choice{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:16px;padding:13px 16px;margin:0 0 10px;color:var(--ink)}
+.choice:hover{border-color:var(--pink)}
+.choice b{display:block;font-size:17px;margin-bottom:2px}
+.choice span{display:block;font-size:14px;color:var(--ink-soft);line-height:1.4}
+#liftWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(380px,calc(100vw - 28px));max-height:calc(100% - 100px);overflow:auto}
+.lift .frow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.lift .frow b{font-size:15px}
+.lift .frow span{display:block;font-size:14px;color:var(--ink-soft)}
+.lift .frow .btn{flex:none;padding:7px 12px;font-size:14px}
+.msg .who{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:1px}
+.chat-log .empty{color:var(--ink-soft);font-size:15px;text-align:center;margin:20px 8px}
+#runBtn{position:fixed;left:calc(env(safe-area-inset-left,0px) + 40px);bottom:calc(env(safe-area-inset-bottom,0px) + 152px);z-index:5}
+body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, body.dlg #viewBtn{visibility:hidden}
+.slotsum{padding:6px 10px 10px;font-size:14px;color:var(--ink-soft)}
+.slotsum b{color:var(--ink)}
+#viewBtn{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 90px);z-index:5}
+@media (max-width:760px){ #minimap{width:110px;height:110px} .hud .fact{display:none} .hud{flex-basis:220px} .btnrow .pill{padding:8px 12px;font-size:14px} }
+@media (max-height:520px){
+  #minimap{display:none} .hud .fact{display:none} .hud{padding:6px 12px;flex-basis:200px} .hud .brand{font-size:15px} .hud .area{font-size:14px}
+  .btnrow .pill{padding:7px 12px;font-size:14px}
+  body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 18px);left:auto;right:calc(env(safe-area-inset-right,0px) + 16px);transform:none;align-items:flex-end;max-width:46vw}
+  #stick{width:104px;height:104px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px)}
+  #flyHint{font-size:13px;padding:8px 12px}
+}
+</style>
+</head>
+<body>
+<canvas id="scene" tabindex="0" aria-label="A 3D Jaipur you can walk through"></canvas>
+<div id="loading">Building the Pink City…</div>
+
+<section id="intro" hidden>
+  <p class="kicker">People of</p>
+  <h1 class="city">Jaipur</h1>
+  <p class="lede">Fly over the Pink City at dusk. Land anywhere, and meet the people who design and build it, live.</p>
+  <button class="start" id="startBtn">Enter the city</button>
+  <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
+</section>
+
+<div id="topbar" hidden>
+<div class="hud" id="hud">
+  <div class="brand">People of Jaipur</div>
+  <div class="area" id="area">Hawa Mahal</div>
+  <div class="fact" id="fact"></div>
+</div>
+
+<div class="topright" id="topright">
+  <div class="btnrow">
+    <span class="pill live" id="livePill" hidden><i></i><span id="liveCount"></span></span>
+    <button class="pill" id="peopleBtn" aria-expanded="false" aria-controls="panel">Explore</button>
+    <button class="pill" id="mapBtn">Map</button>
+    <button class="pill" id="flyBtn" aria-pressed="false">Fly</button>
+    <button class="pill" id="musicTop" aria-pressed="true">Music on</button>
+    <button class="pill" id="menuBtn" aria-expanded="false" aria-controls="menuWrap">Menu</button>
+  </div>
+  <canvas id="minimap" width="320" height="320" aria-hidden="true"></canvas>
+</div>
+</div>
+
+<div id="menuWrap" hidden>
+  <div class="menu" role="dialog" aria-label="Menu">
+    <div class="mrow"><span>Time of day</span><div class="seg" id="timeSeg"><button data-t="day">Day</button><button data-t="dusk">Dusk</button><button data-t="night">Night</button></div></div>
+    <button class="mitem" id="musicBtn" aria-pressed="true">Music: on</button>
+    <button class="mitem" id="runToggle" aria-pressed="false">Always run: off</button>
+    <button class="mitem" id="notifBtn">Notifications</button>
+    <button class="mitem" id="communityBtn">Community: meets and clubs</button>
+    <button class="mitem" id="cityChatBtn">City chat</button>
+    <button class="mitem" id="inboxBtn" hidden>Messages for your shop</button>
+    <button class="mitem" id="outfitBtn">Change your outfit</button>
+    <button class="mitem" id="roleBtn">Register as an individual, business or company</button>
+    <button class="mitem" id="joinBtn" hidden>Add yourself to the city</button>
+    <button class="mitem" id="timeBtn" hidden>Dusk</button>
+    <button class="mitem" id="guideBtn">What you can do here</button>
+    <p class="mhelp" id="mhelp">W to walk, A and D to turn, Shift to run, drag to look. Walk up to people, shops, autos, scooters and camels, then press E.</p>
+  </div>
+</div>
+<div id="outfitWrap" hidden>
+  <div class="card join" role="dialog" aria-modal="true" aria-labelledby="outTitle">
+    <div class="card-top"><div><h2 id="outTitle">Your outfit</h2><div class="role">Others walking the city see this too.</div></div></div>
+    <div class="card-body">
+      <div class="fld"><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
+      <div class="fld"><span>On your head</span><div class="seg wide" id="oHead"><button data-v="turban">Turban</button><button data-v="hair">Short hair</button><button data-v="longhair">Long hair</button><button data-v="odhni">Odhni</button></div></div>
+      <div class="fld"><span>Top</span><div class="swatches" id="oTop"></div></div>
+      <div class="fld"><span>Bottom</span><div class="swatches" id="oBot"></div></div>
+      <div class="fld"><span>Turban, odhni or hair</span><div class="swatches" id="oHc"></div></div>
+      <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkin"></div></div>
+      <div class="actions"><button class="btn primary" id="oDone">Done</button></div>
+    </div>
+  </div>
+</div>
+<div id="notifWrap" hidden>
+  <section class="prod sheet" aria-labelledby="notifTitle">
+    <h2 class="jt" id="notifTitle">Notifications</h2>
+    <div id="notifList"></div>
+    <div class="prod-actions"><button class="btn" id="notifClose">Done</button></div>
+  </section>
+</div>
+<div id="commWrap" hidden>
+  <section class="prod sheet wide" aria-labelledby="commTitle">
+    <h2 class="jt" id="commTitle">Community board</h2>
+    <div class="tabs"><button class="tab" id="cmMeets" aria-selected="true">Meets</button><button class="tab" id="cmClubs" aria-selected="false">Clubs</button></div>
+    <div id="commList"></div>
+    <div class="prod-actions"><button class="btn primary" id="commNew">Organise a meet</button><button class="btn" id="commClose">Done</button></div>
+    <p class="note" id="commNote"></p>
+  </section>
+</div>
+<div id="meetWrap" hidden>
+  <form class="card join" id="meetForm" role="dialog" aria-modal="true" aria-labelledby="meetTitle" novalidate>
+    <div class="card-top"><div><h2 id="meetTitle">Organise a meet</h2><div class="role">It goes on the community board for everyone.</div></div></div>
+    <div class="card-body">
+      <label class="fld"><span>What’s the meet?</span><input id="mTitle" maxlength="70" placeholder="Jaipur ML meetup: LLMs in production" required></label>
+      <label class="fld"><span>When</span><input id="mWhen" type="datetime-local" required></label>
+      <label class="fld"><span>Where</span><input id="mWhere" maxlength="120" placeholder="Curious Life, C-Scheme, or an online link"></label>
+      <label class="fld"><span>Joining link (optional)</span><input id="mLink" maxlength="200" placeholder="https:// for an online meet or sign-up page" inputmode="url"></label>
+      <label class="fld"><span>About it</span><textarea id="mAbout" maxlength="300" rows="3"></textarea></label>
+      <label class="fld"><span>For which club? (optional)</span><select id="mClub"><option value="">Not tied to a club</option></select></label>
+      <label class="fld"><span>Spots (optional)</span><input id="mCap" type="number" min="2" max="500" placeholder="No limit"></label>
+      <p class="note" id="mNote"></p>
+      <div class="actions"><button class="btn primary" type="submit" id="mSave">Post the meet</button><button class="btn" type="button" id="mCancel">Cancel</button></div>
+    </div>
+  </form>
+</div>
+<div id="clubWrap" hidden>
+  <form class="card join" id="clubForm" role="dialog" aria-modal="true" aria-labelledby="clubTitle" novalidate>
+    <div class="card-top"><div><h2 id="clubTitle">Start a club</h2><div class="role">A group people can join, with its own chat.</div></div></div>
+    <div class="card-body">
+      <label class="fld"><span>Club name</span><input id="kName" maxlength="50" placeholder="Jaipur Builders Club" required></label>
+      <label class="fld"><span>What it’s about</span><textarea id="kAbout" maxlength="260" rows="3" required></textarea></label>
+      <p class="note" id="kNote"></p>
+      <div class="actions"><button class="btn primary" type="submit" id="kSave">Start the club</button><button class="btn" type="button" id="kCancel">Cancel</button></div>
+    </div>
+  </form>
+</div>
+<div id="guideWrap" hidden>
+  <section class="prod sheet wide guide" aria-labelledby="guideTitle">
+    <h2 class="jt" id="guideTitle">What you can do here</h2>
+    <div class="gsec"><b>Move around</b><p>W walks, A and D turn, S steps back, Shift runs. Drag to look around and scroll to zoom. On a phone, use the joystick and the Run button. Press F, or tap Fly, to fly over the city. Open the Map to see Jaipur from above and tap anywhere to go there.</p></div>
+    <div class="gsec"><b>The one key you need</b><p>Walk up to something and a button appears at the bottom. Press E, or tap it. That’s how you enter shops and towers, call lifts, sit at tables and steps, ride things and meet people.</p></div>
+    <div class="gsec"><b>Get around Jaipur</b><p>Stop a passing auto and drive it. Ride a scooter from the stands. Ride a camel at Jal Mahal. Take the jeep, or walk the spiral road, up to Sunset Point. Press V in a vehicle for the view from your seat.</p></div>
+    <div class="gsec"><b>Join the city</b><p>Menu, then “Register as an individual, business or company”. As an individual you get a profile and a spot. A business takes one of 205 free shops. An IT company takes one of 18 floors in the Jagatpura Tech Park and posts open roles.</p></div>
+    <div class="gsec"><b>Connect with people</b><p>Explore, then People, shows who’s online and who has joined. Walk up to someone online to wave. Open a profile and tap Connect. When they accept, you’re both told, private messages unlock, and you can see each other’s LinkedIn and other links.</p></div>
+    <div class="gsec"><b>Meets and clubs</b><p>Menu, then Community, or the notice boards at Badi Chaupar and in the Tech Park lobbies. Organise a meet with a date and place, join one, start a club, or join a club and its chat.</p></div>
+    <div class="gsec"><b>Talk</b><p>Sit at any café table to join that café’s chat. City chat is in the Menu. Shops have their own chat where the owner replies. Notifications in the Menu show connection requests, accepted connections and new messages.</p></div>
+    <div class="gsec" id="guidePriv"></div>
+    <div class="prod-actions"><button class="btn" id="guideClose">Got it</button></div>
+  </section>
+</div>
+<div id="roleWrap" hidden>
+  <div class="card role-card" role="dialog" aria-modal="true" aria-labelledby="roleTitle">
+    <div class="card-top"><div><h2 id="roleTitle">How are you joining?</h2><div class="role">Pick one and we’ll set you up in the city.</div></div></div>
+    <div class="card-body">
+      <button class="choice" data-role="explore"><b>Just exploring</b><span>Walk around, ride, chat and visit shops.</span></button>
+      <button class="choice" data-role="individual"><b>As an individual</b><span>Get your own character and spot in the city, with your LinkedIn.</span></button>
+      <button class="choice" data-role="business"><b>As a business</b><span>Take a shop or stall in the bazaar, with your products, store link and address.</span></button>
+      <button class="choice" data-role="company"><b>As an IT company</b><span>Take a floor in the Jagatpura Tech Park and post open roles.</span></button>
+      <p class="note" id="roleNote"></p>
+    </div>
+  </div>
+</div>
+<div id="liftWrap" hidden>
+  <section class="prod lift" aria-labelledby="liftTitle">
+    <div class="prod-shop" id="liftTower"></div>
+    <h2 class="jt" id="liftTitle">Where to?</h2>
+    <div id="liftList"></div>
+    <div class="prod-actions"><button class="btn" id="liftClose">Stay here</button></div>
+  </section>
+</div>
+<div id="jobsWrap" hidden>
+  <section class="prod" aria-labelledby="jobsTitle">
+    <div class="prod-shop" id="jobsCo"></div>
+    <h2 class="jt" id="jobsTitle">Open roles</h2>
+    <div id="jobsList"></div>
+    <div class="prod-actions"><button class="btn" id="jobsSite" hidden>Visit website</button><button class="btn" id="jobsClose">Done</button></div>
+    <button class="linkbtn" id="coClaim" hidden>Is this your company? Register it</button>
+  </section>
+</div>
+<div id="coWrap" hidden>
+  <form class="card join" id="coForm" role="dialog" aria-modal="true" aria-labelledby="coTitle" novalidate>
+    <div class="card-top"><div><h2 id="coTitle">Register your company</h2><div class="role">Your company takes this office, and your openings show on the jobs board.</div></div></div>
+    <div class="card-body">
+      <label class="fld"><span>Company name</span><input id="cName2" maxlength="48" required></label>
+      <div class="fld"><span>Logo (optional)</span><div class="logopick"><img id="cLogoPrev" alt="Logo preview" hidden><input type="file" id="cLogo" accept="image/png,image/jpeg,image/webp"></div><small>A square PNG on a clear background looks best. We shrink it for you.</small></div>
+      <label class="fld"><span>What you do</span><textarea id="cAbout" maxlength="220" rows="2" required></textarea></label>
+      <label class="fld"><span>Website</span><input id="cUrl" maxlength="200" placeholder="https://" inputmode="url"></label>
+      <label class="fld"><span>Office address</span><input id="cAddr" maxlength="160" placeholder="Jagatpura, Jaipur"></label>
+      <div class="fld"><span>Open roles (up to three)</span>
+        <div class="prow"><input id="cJ0" maxlength="60" placeholder="Role title"><select id="cT0"><option>Full-time</option><option>Internship</option><option>Part-time</option><option>Contract</option></select></div><input class="applyln" id="cA0" maxlength="200" placeholder="Apply link (https://)">
+        <div class="prow"><input id="cJ1" maxlength="60" placeholder="Role title"><select id="cT1"><option>Full-time</option><option>Internship</option><option>Part-time</option><option>Contract</option></select></div><input class="applyln" id="cA1" maxlength="200" placeholder="Apply link (https://)">
+        <div class="prow"><input id="cJ2" maxlength="60" placeholder="Role title"><select id="cT2"><option>Full-time</option><option>Internship</option><option>Part-time</option><option>Contract</option></select></div><input class="applyln" id="cA2" maxlength="200" placeholder="Apply link (https://)">
+      </div>
+      <div class="fld" id="coTeamWrap" hidden><span>People who say they work here</span><div id="coTeam"></div><small>Tick the people you can vouch for. Only they appear in your office.</small></div>
+      <p class="note" id="coNote"></p>
+      <div class="actions"><button class="btn primary" type="submit" id="coSave">Register this office</button><button class="btn" type="button" id="coCancel">Cancel</button></div>
+      <button class="linkbtn" type="button" id="coRemove" hidden>Remove my company</button>
+    </div>
+  </form>
+</div>
+<button class="pill" id="runBtn" hidden aria-pressed="false">Run</button>
+<div id="panel" hidden>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabPeople" aria-selected="true">People</button>
+    <button class="tab" role="tab" id="tabPlaces" aria-selected="false">Places</button>
+    <button class="tab" role="tab" id="tabShops" aria-selected="false">Shops</button>
+    <button class="tab" role="tab" id="tabOffices" aria-selected="false">Offices</button>
+    <button class="tab" role="tab" id="tabJobs" aria-selected="false">Jobs</button>
+    <button class="tab" role="tab" id="tabComm" aria-selected="false">Community</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+
+
+<div id="cardWrap" hidden>
+  <article class="card" role="dialog" aria-modal="true" aria-labelledby="cName">
+    <div class="card-top">
+      <div class="avatar" id="cAvatar"></div>
+      <div><h2 id="cName"></h2><div class="role" id="cRole"></div></div>
+    </div>
+    <div class="card-body">
+      <dl>
+        <div class="field"><dt>Find them</dt><dd id="cArea"></dd></div>
+        <div class="field"><dt>Building</dt><dd id="cBuild"></dd></div>
+      </dl>
+      <div class="actions">
+        <button class="btn primary" id="hiBtn">Say hi</button>
+        <button class="btn" id="officeBtn" hidden>Visit their office</button>
+        <button class="btn" id="waveBtn" hidden>Wave</button>
+        <button class="btn primary" id="connBtn" hidden>Connect</button>
+        <button class="btn" id="dmBtn" hidden>Message</button>
+        <button class="btn" id="closeBtn">Keep walking</button>
+      </div>
+      <div class="socials" id="cSocials" hidden></div>
+      <p class="note" id="cNote"></p>
+    </div>
+  </article>
+</div>
+
+<div id="chatWrap" hidden>
+  <section class="chat" role="dialog" aria-modal="true" aria-labelledby="chatName">
+    <div class="chat-top"><div class="avatar sm" id="chatAv"></div><div class="chat-who"><h2 id="chatName"></h2><div class="role" id="chatRole"></div></div><button class="pill" id="chatClose">Close</button></div>
+    <div class="chat-log" id="chatLog" aria-live="polite"></div>
+    <div class="chips" id="chatChips"></div>
+    <form class="chat-in" id="chatForm"><input id="chatInput" placeholder="Say something…" maxlength="240" autocomplete="off" aria-label="Your message"><button class="btn primary" id="chatSend">Send</button></form>
+    <p class="note" id="chatNote"></p>
+  </section>
+</div>
+<div id="prodWrap" hidden>
+  <section class="prod" aria-labelledby="prodName">
+    <div class="prod-shop" id="prodShop"></div>
+    <div class="prod-head"><h2 id="prodName"></h2><div class="prod-price" id="prodPrice"></div></div>
+    <p class="prod-desc" id="prodDesc"></p>
+    <div class="prod-nav"><button class="btn" id="prodPrev">Previous</button><span id="prodCount"></span><button class="btn" id="prodNext">Next</button></div>
+    <div class="prod-actions"><button class="btn primary" id="prodAsk">Ask the seller</button><button class="btn" id="prodBuy" hidden>Visit their store</button><button class="btn" id="prodDir" hidden>Directions</button><button class="btn" id="prodClose">Done</button></div>
+    <p class="note" id="prodNote"></p>
+    <button class="linkbtn" id="prodClaim" hidden>Is this your shop? Register it</button>
+  </section>
+</div>
+<div id="bizWrap" hidden>
+  <form class="card join" id="bizForm" role="dialog" aria-modal="true" aria-labelledby="bizTitle" novalidate>
+    <div class="card-top"><div><h2 id="bizTitle">Register your shop</h2><div class="role">Your business takes over this shop for everyone who visits.</div></div></div>
+    <div class="card-body">
+      <label class="fld"><span>Business name</span><input id="bName" maxlength="40" required></label>
+      <label class="fld"><span>What you sell</span><select id="bKind"><option value="0">Textiles and clothing</option><option value="1">Bangles</option><option value="2">Sweets and snacks</option><option value="3">Jewellery</option><option value="4">Juttis and footwear</option><option value="5">Spices</option><option value="6">Café</option></select></label>
+      <label class="fld"><span>About your shop</span><textarea id="bDesc" maxlength="200" rows="2" required></textarea></label>
+      <label class="fld"><span>Website or online store</span><input id="bUrl" maxlength="200" placeholder="https://" inputmode="url"></label>
+      <label class="fld"><span>Shop address</span><input id="bAddr" maxlength="160" placeholder="Shop 12, Johari Bazaar, Jaipur"></label>
+      <div class="fld"><span>Three things you sell</span>
+        <div class="prow"><input id="bP0" maxlength="40" placeholder="Product"><input id="bR0" maxlength="14" placeholder="₹ price"></div>
+        <div class="prow"><input id="bP1" maxlength="40" placeholder="Product"><input id="bR1" maxlength="14" placeholder="₹ price"></div>
+        <div class="prow"><input id="bP2" maxlength="40" placeholder="Product"><input id="bR2" maxlength="14" placeholder="₹ price"></div>
+      </div>
+      <p class="note" id="bNote"></p>
+      <div class="actions"><button class="btn primary" type="submit" id="bSave">Register this shop</button><button class="btn" type="button" id="bCancel">Cancel</button></div>
+      <button class="linkbtn" type="button" id="bRemove" hidden>Remove my shop</button>
+    </div>
+  </form>
+</div>
+<div id="joinWrap" hidden>
+  <form class="card join" id="joinForm" role="dialog" aria-modal="true" aria-labelledby="joinTitle" novalidate>
+    <div class="card-top"><div><h2 id="joinTitle">Add yourself to Jaipur</h2><div class="role">You’ll stand right where you are now, for everyone who visits.</div></div></div>
+    <div class="card-body">
+      <label class="fld"><span>Your name</span><output id="jName">Signed in</output><small>From the account you’re signed in with, so people know it’s really you.</small></label>
+      <label class="fld"><span>What you do</span><input id="jRole" maxlength="60" placeholder="Product designer" required></label>
+      <label class="fld"><span>What you’re building</span><textarea id="jBuild" maxlength="160" rows="2" placeholder="A booking app for blue pottery workshops" required></textarea></label>
+      <label class="fld" id="jNameWrap" hidden><span>Your name</span><input id="jNameIn" maxlength="48" placeholder="As people know you"></label>
+      <label class="fld"><span>LinkedIn profile</span><input id="jLink" maxlength="120" placeholder="https://www.linkedin.com/in/your-name" inputmode="url"></label>
+      <div class="fld"><span>Other profiles (optional)</span>
+        <input class="applyln" id="jX" maxlength="120" placeholder="X or Twitter: https://x.com/you" inputmode="url">
+        <input class="applyln" id="jIg" maxlength="120" placeholder="Instagram: https://instagram.com/you" inputmode="url">
+        <input class="applyln" id="jGh" maxlength="120" placeholder="GitHub: https://github.com/you" inputmode="url">
+        <input class="applyln" id="jWeb" maxlength="160" placeholder="Website: https://" inputmode="url">
+        <small id="jPriv">Only people you’ve connected with see these links.</small></div>
+      <label class="fld"><span>Where do you work? (optional)</span><select id="jCo"><option value="">Not listed, or I’d rather not say</option></select><small>The company confirms you before you show up in their office.</small></label>
+      <p class="note">Your character wears your current outfit. Change it any time from the Menu.</p>
+      <div id="jSw" hidden></div>
+      <p class="note" id="jNote"></p>
+      <div class="actions"><button class="btn primary" type="submit" id="jSave">Save and stand here</button><button class="btn" type="button" id="jCancel">Cancel</button></div>
+      <button class="linkbtn" type="button" id="jRemove" hidden>Remove me from the city</button>
+    </div>
+  </form>
+</div>
+<div id="mapWrap" hidden>
+  <canvas id="bigmap" aria-label="Satellite map of Jaipur"></canvas>
+  <div class="maptop">
+    <div><div class="maptitle">Jaipur from above</div><div class="mapsub">Tap a place or anywhere on the map to go there</div></div>
+    <button class="pill" id="mapClose">Close</button>
+  </div>
+  <div class="mapzoom"><button class="pill" id="zin" aria-label="Zoom in">+</button><button class="pill" id="zout" aria-label="Zoom out">−</button></div>
+</div>
+<div id="stick" hidden><div id="knob"></div></div>
+<button class="pill" id="viewBtn" hidden>Inside view</button>
+<div id="flyPad" hidden><button class="pill" id="upBtn" aria-label="Fly up">Up</button><button class="pill" id="downBtn" aria-label="Fly down">Down</button></div>
+<div id="bottomStack"><div id="flyHint" hidden></div><button id="prompt" hidden></button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
