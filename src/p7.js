@@ -99,7 +99,7 @@ function start(){
   if (mode !== 'intro') return;
   mode = 'play'; intro.classList.add('leaving'); setTimeout(()=>intro.hidden = true, 750);
   $('topbar').hidden = false; if (isCoarse){ stick.hidden = false; runBtn.hidden = false; }
-  P.pos.set(-25,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.22; snapCam = true; canvas.focus(); Music.start();
+  P.pos.set(-31,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.14; dist = 4.6; snapCam = true; canvas.focus(); Music.start();
   if (!isCoarse){ showHint('W to walk, A and D to turn, drag to look around. Walk up to shops and autos, then press E.'); setTimeout(()=>{ if (!flying && !riding) showHint(null); }, 9000); }
 }
 const initials = n => n.split(' ').map(s=>s[0]).join('').slice(0,2);
@@ -288,7 +288,7 @@ function tagKey(m, nm){ const c = tagChip(m); return [nm, tagSub(m), c && c.t].j
 /* Name tags: bold condensed italic name, "role · company" underneath, an optional status chip, and a small
    orange pointer down to the person. No background box; a soft shadow keeps it readable on any wall. */
 function nameTag(name, sub, chip, live){
-  const [c,x] = cv(10,10); const F1 = 'italic 800 52px "Barlow Condensed", Hind, system-ui, sans-serif', F2 = '600 28px "Barlow Condensed", Hind, system-ui, sans-serif', F3 = 'italic 700 24px "Barlow Condensed", Hind, system-ui, sans-serif';
+  const [c,x] = cv(10,10); const F1 = '700 44px Hind, system-ui, sans-serif', F2 = '500 26px Hind, system-ui, sans-serif', F3 = '700 22px Hind, system-ui, sans-serif';
   const N = name.toUpperCase(); x.font = F1; const w1 = x.measureText(N).width; x.font = F2; const w2 = sub ? x.measureText(sub).width : 0; x.font = F3; const w3 = chip ? x.measureText(chip.t.toUpperCase()).width + 28 : 0;
   const W = Math.ceil(Math.max(w1 + (live ? 34 : 0), w2, w3) + 30), H = 56 + (sub ? 32 : 0) + (chip ? 40 : 0) + 26; c.width = W; c.height = H;
   x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = 'rgba(0,0,0,0.75)'; x.shadowBlur = 6; x.shadowOffsetY = 2;
@@ -877,7 +877,15 @@ function needsSignIn(){ return !!(window.JP_AUTH && window.JP_AUTH.signIn) && !(
 function askSignIn(what){ showHint(`Sign in to ${what || 'interact'}. You can keep walking and looking around without signing in.`); setTimeout(()=>showHint(''), 3500); try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); }
 function doAction(){ if (!action) return; if (needsSignIn() && !GUEST_OK.test(action.key)){ askSignIn(/^(npc|meet|wave)/.test(action.key) ? 'meet people' : /^(hail|in|sc|camel|jeep)/.test(action.key) ? 'ride' : /tbl/.test(action.key) ? 'join the chat' : 'do that'); return; } action.fn(); }
 $('ghostSign').addEventListener('click', ()=>askSignIn('meet people, ride and chat'));
-setInterval(()=>{ $('ghostBar').hidden = !(mode === 'play' && needsSignIn()); }, 1000);
+$('ghostVisible').addEventListener('click', ()=>askSignIn('become visible'));
+const findSomeone = () => { if (mode !== 'play') return; tab = 'people'; togglePanel(true); renderList(); };
+$('findBtn').addEventListener('click', findSomeone);
+// guests walk as a white ghost of their character, like People of Bengaluru
+function ghostPlayer(on){ const r = player.rig; if (!r || !r.inst) return; if (r.ghost === on) return; r.ghost = on;
+  r.inst.traverse(o=>{ if (!o.isMesh) return; if (on){ o.userData.realMat = o.userData.realMat || o.material; const m = o.userData.realMat.clone(); m.color.set('#E9EDF2'); m.map = null; if (m.emissive) m.emissive.set('#262C36'); m.needsUpdate = true; m.roughness = 0.45; m.metalness = 0.1; o.material = m; } else if (o.userData.realMat) o.material = o.userData.realMat; }); }
+setInterval(()=>{ const g = mode === 'play' && needsSignIn(); $('ghostBar').hidden = !g; $('findBtn').hidden = mode !== 'play'; ghostPlayer(g); }, 400);
+addEventListener('keydown', e=>{ if (mode !== 'play' || (e.target && e.target.matches && e.target.matches('input,textarea'))) return; const k = e.key.toLowerCase();
+  if (k === 'v' && !riding && needsSignIn()) askSignIn('become visible'); });
 
 
 /* =========================================================

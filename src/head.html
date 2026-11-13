@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#B85C48">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@400;500;600;700&family=Yatra+One&family=Barlow+Condensed:ital,wght@0,600;1,700;1,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@400;500;600;700&family=Yatra+One&display=swap" rel="stylesheet">
 <style>
 :root{
   --surface:#FFF4EA; --surface-2:#F9E3D3; --ink:#3B1E19; --ink-soft:#7A4A40;
@@ -226,6 +226,12 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #ghostBar b{letter-spacing:.06em;white-space:nowrap}#ghostBar span{opacity:.85}#ghostBar button{border:0;border-radius:10px;padding:7px 14px;background:#EE9C14;color:#2A1A10;font-weight:700;white-space:nowrap}
 @media (max-width:720px){#ghostBar span{display:none}#ghostBar{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}}
 .seg.chars{flex-wrap:wrap}.seg.chars button{flex:1 1 30%}
+#ghostBar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 66px);left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:10px;background:rgba(28,22,20,.88);color:#FFF4EA;padding:8px 8px 8px 16px;border-radius:14px;font-size:14px;box-shadow:var(--shadow);max-width:calc(100vw - 24px)}
+#ghostBar b{letter-spacing:.06em;white-space:nowrap}#ghostBar span{opacity:.85}.gi{display:none}
+#ghostBar button,#findBtn{border:0;border-radius:10px;padding:7px 12px;background:#EE9C14;color:#2A1A10;font-weight:700;white-space:nowrap}#ghostBar button.alt{background:#FFF4EA}
+#ghostBar kbd,#findBtn kbd{display:none}
+#findBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 236px);right:calc(env(safe-area-inset-right,0px) + 14px);z-index:9;box-shadow:var(--shadow);font-family:inherit}
+@media (max-width:720px){#ghostBar span{display:none}#ghostBar{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}#findBtn{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 200px)}}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -282,7 +288,9 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
-<div id="ghostBar" hidden><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet. Sign in to meet people, ride and chat.</span><button id="ghostSign">Sign in</button></div>
+<div id="ghostBar" hidden><i class="gi">👤</i><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet.</span><button id="ghostVisible">Become visible</button><button id="ghostSign" class="alt">Sign in</button></div>
+<button id="findBtn" hidden>Find someone</button>
+
 <div id="topbar" hidden>
 <div class="hud" id="hud">
   <div class="brand">People of Jaipur</div>

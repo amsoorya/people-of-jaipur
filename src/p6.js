@@ -181,7 +181,10 @@ const Rig = (()=>{
       const by = key => Object.entries(stats).sort((a,b)=>b[1][key]-a[1][key])[0];
       const tp = by('top'), bt = by('bot');
       const clips = g.animations.map(c=>{ const k = c.clone(); k.name = c.name.replace(/^.*\|/, ''); return k; });   // 'CharacterArmature|Walk' -> 'Walk'
-      res({root, clips, scale: 1.72 / h, top: tp && tp[0], bottom: bt && bt[0] !== (tp && tp[0]) ? bt[0] : null});
+      // real height comes from the skeleton (bind-pose mesh bounds ignore the armature's own scale): feet to head bone is ~88% of standing height
+      let blo = Infinity, bhi = -Infinity; const bv = new THREE.Vector3(); root.traverse(o=>{ if (o.isBone){ o.getWorldPosition(bv); blo = Math.min(blo, bv.y); bhi = Math.max(bhi, bv.y); } });
+      const boneH = isFinite(bhi) && bhi > blo ? (bhi - blo) / 0.88 : h;
+      res({root, clips, scale: 1.72 / boneH, top: tp && tp[0], bottom: bt && bt[0] !== (tp && tp[0]) ? bt[0] : null});
     }, ()=>res(null)));
     return cache[name];
   }
@@ -268,7 +271,7 @@ const P = {pos:new THREE.Vector3(-25,0,3), rot:Math.PI, walk:0, y:0};
 
 /* NPCs */
 const npcs = [];
-const fontReady = (document.fonts && document.fonts.ready) ? Promise.race([Promise.all([document.fonts.ready, document.fonts.load('italic 800 52px "Barlow Condensed"'), document.fonts.load('600 28px "Barlow Condensed"')]), new Promise(r=>setTimeout(r,3000))]) : Promise.resolve();
+const fontReady = (document.fonts && document.fonts.ready) ? Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,2500))]) : Promise.resolve();
 function nameSprite(text){
   const [c,x] = cv(10,10); x.font = '600 44px Hind, system-ui, sans-serif';
   const W = Math.ceil(x.measureText(text).width + 64), H = 78; c.width = W; c.height = H;
@@ -577,7 +580,7 @@ const AnimalRig = (()=>{
 })();
 // every other cow is the detailed resting cow ("Cow" by Asheraf, CC BY 4.0); it stays put since it has no walking animation
 // every cow is animated: Brahman zebus ("Brahman Cow" by kunyong_Chen, CC BY 4.0) and Quaternius cows and bulls
-cows.forEach((c, i)=>AnimalRig.attach(c, i % 2 === 1 ? 'Brahman' : i % 4 === 2 ? 'Bull' : 'Cow', i % 2 === 1 ? 1.6 : i % 4 === 2 ? 1.55 : 1.45, null));
+cows.forEach((c, i)=>AnimalRig.attach(c, i % 3 === 2 ? 'Bull' : 'Cow', i % 3 === 2 ? 1.55 : 1.45, null));   // fully animated only: walk, graze, idle, gallop
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });
 /* Rigged camel ("Bactrian Camel (Low Poly)" by Nyilonelycompany, CC BY-NC-SA 4.0). The model only has an idle
    animation, so the walk is made here: camels pace, moving both legs on one side together. */
