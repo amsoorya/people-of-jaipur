@@ -225,6 +225,7 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #ghostBar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 66px);left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:12px;background:rgba(28,22,20,.88);color:#FFF4EA;padding:8px 8px 8px 16px;border-radius:14px;font-size:14px;box-shadow:var(--shadow);max-width:calc(100vw - 24px)}
 #ghostBar b{letter-spacing:.06em;white-space:nowrap}#ghostBar span{opacity:.85}#ghostBar button{border:0;border-radius:10px;padding:7px 14px;background:#EE9C14;color:#2A1A10;font-weight:700;white-space:nowrap}
 @media (max-width:720px){#ghostBar span{display:none}#ghostBar{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}}
+.seg.chars{flex-wrap:wrap}.seg.chars button{flex:1 1 30%}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -324,10 +325,11 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <div class="card join" role="dialog" aria-modal="true" aria-labelledby="outTitle">
     <div class="card-top"><div><h2 id="outTitle">Your outfit</h2><div class="role">Others walking the city see this too.</div></div></div>
     <div class="card-body">
-      <div class="fld"><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
+      <div class="fld"><span>Character</span><div class="seg wide chars" id="oModel"></div></div>
+      <div class="fld" hidden><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
       <div class="fld"><span>On your head</span><div class="seg wide" id="oHead"><button data-v="turban">Turban</button><button data-v="hair">Short hair</button><button data-v="longhair">Long hair</button><button data-v="odhni">Odhni</button></div></div>
-      <div class="fld"><span>Top</span><div class="swatches" id="oTop"></div></div>
-      <div class="fld"><span>Bottom</span><div class="swatches" id="oBot"></div></div>
+      <div class="fld" hidden><span>Top</span><div class="swatches" id="oTop"></div></div>
+      <div class="fld" hidden><span>Bottom</span><div class="swatches" id="oBot"></div></div>
       <div class="fld"><span>Turban, odhni or hair</span><div class="swatches" id="oHc"></div></div>
       <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkin"></div></div>
       <div class="actions"><button class="btn primary" id="oDone">Done</button></div>

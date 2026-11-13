@@ -229,6 +229,7 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #ghostBar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 66px);left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:12px;background:rgba(28,22,20,.88);color:#FFF4EA;padding:8px 8px 8px 16px;border-radius:14px;font-size:14px;box-shadow:var(--shadow);max-width:calc(100vw - 24px)}
 #ghostBar b{letter-spacing:.06em;white-space:nowrap}#ghostBar span{opacity:.85}#ghostBar button{border:0;border-radius:10px;padding:7px 14px;background:#EE9C14;color:#2A1A10;font-weight:700;white-space:nowrap}
 @media (max-width:720px){#ghostBar span{display:none}#ghostBar{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}}
+.seg.chars{flex-wrap:wrap}.seg.chars button{flex:1 1 30%}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -328,10 +329,11 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <div class="card join" role="dialog" aria-modal="true" aria-labelledby="outTitle">
     <div class="card-top"><div><h2 id="outTitle">Your outfit</h2><div class="role">Others walking the city see this too.</div></div></div>
     <div class="card-body">
-      <div class="fld"><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
+      <div class="fld"><span>Character</span><div class="seg wide chars" id="oModel"></div></div>
+      <div class="fld" hidden><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
       <div class="fld"><span>On your head</span><div class="seg wide" id="oHead"><button data-v="turban">Turban</button><button data-v="hair">Short hair</button><button data-v="longhair">Long hair</button><button data-v="odhni">Odhni</button></div></div>
-      <div class="fld"><span>Top</span><div class="swatches" id="oTop"></div></div>
-      <div class="fld"><span>Bottom</span><div class="swatches" id="oBot"></div></div>
+      <div class="fld" hidden><span>Top</span><div class="swatches" id="oTop"></div></div>
+      <div class="fld" hidden><span>Bottom</span><div class="swatches" id="oBot"></div></div>
       <div class="fld"><span>Turban, odhni or hair</span><div class="swatches" id="oHc"></div></div>
       <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkin"></div></div>
       <div class="actions"><button class="btn primary" id="oDone">Done</button></div>
@@ -2048,11 +2050,11 @@ const Rig = (()=>{
   }
   function attach(ch, L){
     if (!ok || L.noRig) return;
-    const female = L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni';
+    const female = (L.model && L.model.startsWith('f_')) || (!(L.model && L.model.startsWith('m_')) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
     const KURTA = ['m_Casual_2','m_Adventurer'], SHIRT = ['m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Adventurer'];   // turbans never go on top of a hat
-    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    const name = ((MALE.includes(L.model) || FEMALE.includes(L.model)) && L.model) || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
       if (!m || !cl || !ch.g) return;
@@ -2312,7 +2314,7 @@ const PigeonRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
-    const k = 0.46 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
+    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
       const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);
@@ -2580,8 +2582,8 @@ if (isCoarse) document.body.classList.add('touch');
 const intro = $('intro'), hud = $('hud'), topright = $('topright'), panel = $('panel'), prompt = $('prompt'), cardWrap = $('cardWrap');
 if (isCoarse) $('hint').textContent = 'Use the joystick to walk and drag to look around';
 $('startBtn').addEventListener('click', ()=>{ let pr = null; try { pr = localStorage.getItem('jp-pending-role'); localStorage.removeItem('jp-pending-role'); } catch(e){}
-  if (pr === 'signin' && db && myId){ start(); welcomeBack(); return; }
-  if (pr && db && myId){ start(); runRole(pr); return; }
+  if (pr === 'signin' && db && myId){ start(); pickCharacterThen(welcomeBack); return; }
+  if (pr && db && myId){ start(); pickCharacterThen(()=>runRole(pr)); return; }
   if (db && myId){ start(); welcomeBack(); return; }   // already signed in: no need to ask how they're joining again
   showRoles(); });
 const signInReturning = () => { if (!(window.JP_AUTH && window.JP_AUTH.signIn)) return; try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); };
@@ -2591,6 +2593,13 @@ $('roleSignIn').addEventListener('click', signInReturning);
   const inn = window.JP_AUTH.signedIn(); $('introSign').hidden = inn; $('roleSignIn').hidden = inn; if (inn) $('startBtn').textContent = 'Enter the city';
 })();
 /* Signed-in members go to their own spot; if they haven't added themselves yet, offer it. */
+function pickCharacterThen(next){
+  let done = false; try { done = !!localStorage.getItem('jp-picked-character'); } catch(e){}
+  if (done || myDoc){ next(); return; }
+  $('outTitle').textContent = 'Choose your character'; cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false;
+  const fin = () => { $('oDone').removeEventListener('click', fin); try { localStorage.setItem('jp-picked-character', '1'); } catch(e){} $('outTitle').textContent = 'Your outfit'; setTimeout(next, 50); };
+  $('oDone').addEventListener('click', fin);
+}
 async function welcomeBack(){
   for (let i=0;i<30 && !profilesLoaded;i++) await new Promise(r=>setTimeout(r,200));
   if (myDoc){ const x = clampN(myDoc.x,-290,290,null), z = clampN(myDoc.z,-290,290,null); if (x!==null){ P.pos.set(x, 0, z + 1.6); resolve(P.pos); snapCam = true; }
@@ -3909,7 +3918,8 @@ try { const sv = JSON.parse(localStorage.getItem('jp-look') || 'null'); if (sv &
 function lookFromCode(L){
   const st = ['kurta','shirt','lehenga'].includes(L.style) ? L.style : 'kurta', hd = ['turban','hair','longhair','odhni'].includes(L.head) ? L.head : 'hair';
   const ix = (arr,i) => arr[Math.max(0,Math.min(arr.length-1,(i|0)))];
-  return {style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
+  const md = (typeof L.model === 'string' && /^[mf]_[A-Za-z_0-9]+$/.test(L.model)) ? L.model : undefined;
+  return {model: md, style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
 }
 function rebuildPlayer(){
   const parent = player.g.parent, pos = player.g.position.clone(), rot = player.g.rotation.clone();
@@ -3924,7 +3934,12 @@ function swatchRow(id, arr, key){
   arr.forEach((c,i)=>{ const b = document.createElement('button'); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', `${key} colour ${i+1}`); b.setAttribute('aria-pressed', String(myLook[key]===i)); b.addEventListener('click', ()=>{ myLook[key] = i; saveLook(); }); el.appendChild(b); });
 }
 function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook[key]))); }
-function renderOutfit(){ segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
+/* Characters: the 3D outfits people can pick (natural outfit colours; skin tone and headwear are yours to choose) */
+const CHARACTERS = [['m_Casual_2','Casual'],['m_Worker','Worker'],['m_Adventurer','Explorer'],['f_Casual','Casual (woman)'],['f_Formal','Dress'],['f_Worker','Worker (woman)'],['f_Adventurer','Explorer (woman)']];
+{ const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
+  box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = v === 'f_Formal' ? 'lehenga' : v.startsWith('f_') ? 'lehenga' : 'kurta';
+    if (v.startsWith('f_') && myLook.head === 'turban') myLook.head = 'longhair'; if (!v.startsWith('f_') && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
+function renderOutfit(){ [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === (myLook.model || 'm_Casual_2')))); segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
 function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); lastSent = ''; }
 $('oStyle').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.style = e.target.dataset.v; if (myLook.style==='lehenga' && myLook.head==='turban') myLook.head = 'odhni'; saveLook(); } });
 $('oHead').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.head = e.target.dataset.v; saveLook(); } });

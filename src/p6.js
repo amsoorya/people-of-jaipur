@@ -180,11 +180,11 @@ const Rig = (()=>{
   }
   function attach(ch, L){
     if (!ok || L.noRig) return;
-    const female = L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni';
+    const female = (L.model && L.model.startsWith('f_')) || (!(L.model && L.model.startsWith('m_')) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
     const KURTA = ['m_Casual_2','m_Adventurer'], SHIRT = ['m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Adventurer'];   // turbans never go on top of a hat
-    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    const name = ((MALE.includes(L.model) || FEMALE.includes(L.model)) && L.model) || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
       if (!m || !cl || !ch.g) return;
@@ -444,7 +444,7 @@ const PigeonRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils); let ready = false; const birds = [];
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
-    const k = 0.46 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
+    const k = 0.7 / len, clips = {};   // a touch larger than life so they read on screen g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
       const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);

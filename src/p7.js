@@ -71,8 +71,8 @@ if (isCoarse) document.body.classList.add('touch');
 const intro = $('intro'), hud = $('hud'), topright = $('topright'), panel = $('panel'), prompt = $('prompt'), cardWrap = $('cardWrap');
 if (isCoarse) $('hint').textContent = 'Use the joystick to walk and drag to look around';
 $('startBtn').addEventListener('click', ()=>{ let pr = null; try { pr = localStorage.getItem('jp-pending-role'); localStorage.removeItem('jp-pending-role'); } catch(e){}
-  if (pr === 'signin' && db && myId){ start(); welcomeBack(); return; }
-  if (pr && db && myId){ start(); runRole(pr); return; }
+  if (pr === 'signin' && db && myId){ start(); pickCharacterThen(welcomeBack); return; }
+  if (pr && db && myId){ start(); pickCharacterThen(()=>runRole(pr)); return; }
   if (db && myId){ start(); welcomeBack(); return; }   // already signed in: no need to ask how they're joining again
   showRoles(); });
 const signInReturning = () => { if (!(window.JP_AUTH && window.JP_AUTH.signIn)) return; try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); };
@@ -82,6 +82,13 @@ $('roleSignIn').addEventListener('click', signInReturning);
   const inn = window.JP_AUTH.signedIn(); $('introSign').hidden = inn; $('roleSignIn').hidden = inn; if (inn) $('startBtn').textContent = 'Enter the city';
 })();
 /* Signed-in members go to their own spot; if they haven't added themselves yet, offer it. */
+function pickCharacterThen(next){
+  let done = false; try { done = !!localStorage.getItem('jp-picked-character'); } catch(e){}
+  if (done || myDoc){ next(); return; }
+  $('outTitle').textContent = 'Choose your character'; cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false;
+  const fin = () => { $('oDone').removeEventListener('click', fin); try { localStorage.setItem('jp-picked-character', '1'); } catch(e){} $('outTitle').textContent = 'Your outfit'; setTimeout(next, 50); };
+  $('oDone').addEventListener('click', fin);
+}
 async function welcomeBack(){
   for (let i=0;i<30 && !profilesLoaded;i++) await new Promise(r=>setTimeout(r,200));
   if (myDoc){ const x = clampN(myDoc.x,-290,290,null), z = clampN(myDoc.z,-290,290,null); if (x!==null){ P.pos.set(x, 0, z + 1.6); resolve(P.pos); snapCam = true; }
@@ -1400,7 +1407,8 @@ try { const sv = JSON.parse(localStorage.getItem('jp-look') || 'null'); if (sv &
 function lookFromCode(L){
   const st = ['kurta','shirt','lehenga'].includes(L.style) ? L.style : 'kurta', hd = ['turban','hair','longhair','odhni'].includes(L.head) ? L.head : 'hair';
   const ix = (arr,i) => arr[Math.max(0,Math.min(arr.length-1,(i|0)))];
-  return {style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
+  const md = (typeof L.model === 'string' && /^[mf]_[A-Za-z_0-9]+$/.test(L.model)) ? L.model : undefined;
+  return {model: md, style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
 }
 function rebuildPlayer(){
   const parent = player.g.parent, pos = player.g.position.clone(), rot = player.g.rotation.clone();
@@ -1415,7 +1423,12 @@ function swatchRow(id, arr, key){
   arr.forEach((c,i)=>{ const b = document.createElement('button'); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', `${key} colour ${i+1}`); b.setAttribute('aria-pressed', String(myLook[key]===i)); b.addEventListener('click', ()=>{ myLook[key] = i; saveLook(); }); el.appendChild(b); });
 }
 function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook[key]))); }
-function renderOutfit(){ segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
+/* Characters: the 3D outfits people can pick (natural outfit colours; skin tone and headwear are yours to choose) */
+const CHARACTERS = [['m_Casual_2','Casual'],['m_Worker','Worker'],['m_Adventurer','Explorer'],['f_Casual','Casual (woman)'],['f_Formal','Dress'],['f_Worker','Worker (woman)'],['f_Adventurer','Explorer (woman)']];
+{ const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
+  box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = v === 'f_Formal' ? 'lehenga' : v.startsWith('f_') ? 'lehenga' : 'kurta';
+    if (v.startsWith('f_') && myLook.head === 'turban') myLook.head = 'longhair'; if (!v.startsWith('f_') && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
+function renderOutfit(){ [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === (myLook.model || 'm_Casual_2')))); segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
 function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); lastSent = ''; }
 $('oStyle').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.style = e.target.dataset.v; if (myLook.style==='lehenga' && myLook.head==='turban') myLook.head = 'odhni'; saveLook(); } });
 $('oHead').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.head = e.target.dataset.v; saveLook(); } });
