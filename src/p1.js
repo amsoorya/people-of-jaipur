@@ -46,7 +46,7 @@ if (THREE.GLTFLoader){
 }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance', logarithmicDepthBuffer:true});   // precise depth so layered clothes (suit over shirt) never flicker
 renderer.setPixelRatio(Math.min(devicePixelRatio, lowEnd ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputEncoding = THREE.sRGBEncoding;

@@ -156,8 +156,9 @@ function animatePerson(ch, walk, amt, tt){
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
 const Rig = (()=>{
-  const MALE = ['m_Casual_2','m_Worker'];   // full-length, single-layer outfits (the suit's shirt flickers through its jacket)
-  const FEMALE = ['f_Casual','f_Formal','f_Worker'];
+  // the same Quaternius outfits People of Bengaluru uses; costumes (SWAT, spacesuit, sci-fi) are only for people who pick them
+  const MALE = ['m_Casual_2','m_Casual_Hoodie','m_Suit','m_Worker','m_Punk','m_Adventurer'], MALE_ALL = [...MALE, 'm_Swat', 'm_Spacesuit'];   // full-length, single-layer outfits (the suit's shirt flickers through its jacket)
+  const FEMALE = ['f_Casual','f_Formal','f_Suit','f_Worker','f_Punk','f_Adventurer'], FEMALE_ALL = [...FEMALE, 'f_SciFi'];
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
   const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
   const loadClips = k => clipSets[k] || (clipSets[k] = new Promise(res=>loader.load(`models/people/_anims_${k}.glb`, g=>res(g.animations), undefined, ()=>res(null))));
@@ -183,24 +184,25 @@ const Rig = (()=>{
     const female = (L.model && L.model.startsWith('f_')) || (!(L.model && L.model.startsWith('m_')) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
-    const KURTA = ['m_Casual_2'], SHIRT = ['m_Casual_2','m_Worker'], NOHAT = ['m_Casual_2'];   // turbans never go on top of a hat
-    const name = ((MALE.includes(L.model) || FEMALE.includes(L.model)) && L.model) || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    const KURTA = ['m_Casual_2','m_Casual_Hoodie','m_Punk'], SHIRT = ['m_Casual_2','m_Suit','m_Worker','m_Casual_Hoodie','m_Adventurer'], NOHAT = ['m_Casual_2','m_Suit','m_Casual_Hoodie','m_Punk'];   // turbans never go on top of a hat
+    const name = ((MALE_ALL.includes(L.model) || FEMALE_ALL.includes(L.model)) && L.model) || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     const body = ch.g;   // if this character is rebuilt before the model arrives, the late model must not attach to the new body
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
       if (!m || !cl || !ch.g || ch.g !== body || ch.rig.inst) return;
       const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(m.scale);
-      const turban = L.head === 'turban', odhni = L.head === 'odhni';
+      const turban = false, odhni = false;   // characters are used exactly as designed, like People of Bengaluru: no added turbans
       const tint = (mat, c) => { if (c) mat.color.set(c).convertSRGBToLinear(); };
       inst.traverse(o=>{
         if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
         const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
-        // keep each outfit's own designed colours; only skin tone follows the person's choice
-        if (SKIN.test(nm)) tint(o.material, L.skin);
-        else if (turban && (HAIR.test(nm) || /hair|hat/i.test(nm) || /hair|hat/i.test(o.name || ''))) o.visible = false;   // the turban replaces hair and hats
+        // every outfit keeps its own designed colours, skin and hair
       });
       ch.g.add(inst); ch.mesh.visible = false;
       const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
+      // a turban replaces whatever the outfit wears on top of the head (hair, hard hats, caps): hide any part that sits wholly above the neck
+      if (turban || odhni){ inst.updateMatrixWorld(true); const all = new THREE.Box3().setFromObject(inst), hgt = all.max.y - all.min.y, neckY = all.min.y + hgt * 0.84;
+        inst.traverse(o=>{ if (!o.isMesh || SKIN.test(o.material.name || '') || /^(Eye|Eyebrows)/.test(o.material.name || '')) return; const bb = new THREE.Box3().setFromObject(o); if (bb.min.y > neckY) o.visible = false; }); }
       if ((turban || odhni) && bones.Head){
         // size the turban in world units, whatever the bone's own scale is
         ch.g.updateMatrixWorld(true); const ws = new THREE.Vector3(); bones.Head.getWorldScale(ws); const gs = new THREE.Vector3(); ch.g.getWorldScale(gs); const k = gs.x / ws.x;

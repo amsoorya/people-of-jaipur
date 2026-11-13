@@ -396,17 +396,7 @@ function updatePeers(dt){
    Sound: auto horn
    ========================================================= */
 let actx = null;
-function horn(){
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const t0 = actx.currentTime;
-    [0, 0.22].forEach(off=>{
-      const o = actx.createOscillator(), g = actx.createGain(); o.type = 'square'; o.frequency.setValueAtTime(420, t0+off); o.frequency.setValueAtTime(380, t0+off+0.08);
-      g.gain.setValueAtTime(0.0001, t0+off); g.gain.exponentialRampToValueAtTime(0.08, t0+off+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0+off+0.17);
-      o.connect(g).connect(actx.destination); o.start(t0+off); o.stop(t0+off+0.2);
-    });
-  } catch(e){}
-}
+function horn(kind, gain){ try { Sound.horn(kind || (riding ? riding.type : 'auto'), gain == null ? 1 : gain); } catch(e){} }
 
 /* =========================================================
    Autos: hail one, get in, drive it
@@ -519,7 +509,7 @@ function trafficSpeed(a){
   const base = laneGap(a, a.base.x, a.base.z, fx, fz);
   // stuck behind something that isn't moving: pull out towards the centre and go round it
   if (base.gap < 7 && base.still) a.blockT = (a.blockT || 0) + 1/60; else a.blockT = 0;
-  if (a.blockT > 1.0 && !a.honked){ a.honked = true; scareAnimals(a.pos.x + Math.sin(a.heading)*5, a.pos.z + Math.cos(a.heading)*5, 6); if (Math.hypot(a.pos.x-P.pos.x, a.pos.z-P.pos.z) < 25) horn(); }
+  if (a.blockT > 1.0 && !a.honked){ a.honked = true; horn(a.type || 'auto', Math.max(0, 1 - Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z) / 45) * 0.6); scareAnimals(a.pos.x + Math.sin(a.heading)*5, a.pos.z + Math.cos(a.heading)*5, 6); if (Math.hypot(a.pos.x-P.pos.x, a.pos.z-P.pos.z) < 25) horn(); }
   if (a.blockT === 0) a.honked = false;
   if (a.blockT > 2.2) a.offT = 2.7;
   else if (a.offT && base.gap > 9) a.offT = 0;
@@ -1065,7 +1055,65 @@ const Music = (()=>{
   document.addEventListener('visibilitychange', ()=>{ if (!ctx) return; if (document.hidden) ctx.suspend(); else if (on) ctx.resume(); });
   return {start, toggle, get on(){ return on; }, ctx:()=>ctx};
 })();
-$('musicBtn').addEventListener('click', ()=>{ const v = Music.toggle(); $('musicBtn').setAttribute('aria-pressed', String(v)); });
+$('musicBtn').addEventListener('click', ()=>{ const v = Music.toggle(); $('musicBtn').setAttribute('aria-pressed', String(v)); Sound.setOn(v); });
+/* =========================================================
+   Sound: horns, footsteps and a quiet city in the background, all made in the browser (no audio files)
+   ========================================================= */
+const Sound = (()=>{
+  let ctx = null, out = null, amb = null, noiseBuf = null, on = true, lastStep = 0, nextHorn = 0, nextBird = 0, nextCoo = 0;
+  function init(){
+    if (ctx) return true;
+    try { ctx = (Music.ctx && Music.ctx()) || new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return false; }
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(ctx.destination);
+    out = ctx.createGain(); out.gain.value = 0.9; out.connect(comp);
+    // two seconds of soft noise, reused for steps and the city hum
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = noiseBuf.getChannelData(0); let b = 0;
+    for (let i = 0; i < d.length; i++){ b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = b * 3.5 + (Math.random() * 2 - 1) * 0.15; }
+    // city bed: low traffic rumble
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+    amb = ctx.createGain(); amb.gain.value = 0; src.connect(lp).connect(amb).connect(out); src.start();
+    return true;
+  }
+  const now = () => ctx.currentTime;
+  // electric two-tone horns: auto "pee-peeep", scooter higher and thinner, jeep lower and fuller
+  const HORN = {auto:[410, 512, 0.13, 0.32], scooter:[560, 700, 0.1, 0.22], jeep:[300, 378, 0.18, 0.42], camel:[410, 512, 0.13, 0.32]};
+  function horn(kind, gain){
+    if (!on || gain <= 0.01 || !init()) return; ctx.resume();
+    const [f1, f2, a, b2] = HORN[kind] || HORN.auto, t0 = now();
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 0.9;
+    const shaper = ctx.createWaveShaper(); const curve = new Float32Array(256); for (let i = 0; i < 256; i++){ const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); } shaper.curve = curve;
+    const g = ctx.createGain(); g.gain.value = 0; shaper.connect(bp).connect(g).connect(out);
+    for (const f of [f1, f2]){ for (const det of [-4, 4]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det; o.connect(shaper); o.start(t0); o.stop(t0 + a + b2 + 0.25); } }
+    const v = 0.22 * gain, env = (s, len) => { g.gain.setTargetAtTime(v, t0 + s, 0.006); g.gain.setTargetAtTime(0.0001, t0 + s + len, 0.02); };
+    env(0, a); env(a + 0.09, b2);
+  }
+  // a footstep: a short, soft scuff with a little thud
+  function stepSound(run, inside){
+    const t0 = now(), s = ctx.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = (inside ? 1400 : 700) + Math.random() * 300; f.Q.value = 1.1;
+    const g = ctx.createGain(), v = (run ? 0.16 : 0.1) * (inside ? 1.2 : 1); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + (run ? 0.09 : 0.12));
+    s.connect(f).connect(g).connect(out); s.start(t0, Math.random() * 1.5, 0.15);
+    const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.06); og.gain.setValueAtTime(v * 0.5, t0); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07); o.connect(og).connect(out); o.start(t0); o.stop(t0 + 0.08);
+  }
+  function step(walk, run, inside){
+    if (!on || !init()) return; const k = Math.floor(walk / Math.PI); if (k !== lastStep){ lastStep = k; stepSound(run, inside); }
+  }
+  function chirp(){ const t0 = now(), n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++){ const o = ctx.createOscillator(), g = ctx.createGain(), s = t0 + i * 0.11, f = 2600 + Math.random() * 900;
+      o.type = 'sine'; o.frequency.setValueAtTime(f, s); o.frequency.exponentialRampToValueAtTime(f * 1.35, s + 0.06); g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.018, s + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.08); o.connect(g).connect(out); o.start(s); o.stop(s + 0.1); } }
+  function coo(){ const t0 = now(); [0, 0.32].forEach((d, i)=>{ const o = ctx.createOscillator(), g = ctx.createGain(), s = t0 + d; o.type = 'sine'; o.frequency.setValueAtTime(i ? 300 : 340, s); o.frequency.exponentialRampToValueAtTime(i ? 250 : 290, s + 0.25);
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.03, s + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.28); o.connect(g).connect(out); o.start(s); o.stop(s + 0.3); }); }
+  // called every frame: the city hum follows where you are, with the odd far-off horn, birds and pigeons
+  function update(t, inside, nearPigeons){
+    if (!ctx) return; const target = on && mode === 'play' ? (inside ? 0.012 : 0.05) : 0; amb.gain.setTargetAtTime(target, now(), 0.6);
+    if (!on || mode !== 'play' || inside) return;
+    if (t > nextHorn){ nextHorn = t + 7 + Math.random() * 12; horn(Math.random() < 0.7 ? 'auto' : 'scooter', 0.12 + Math.random() * 0.12); }
+    if (t > nextBird){ nextBird = t + 4 + Math.random() * 9; chirp(); }
+    if (nearPigeons && t > nextCoo){ nextCoo = t + 3 + Math.random() * 5; coo(); }
+  }
+  // browsers only allow sound after a click or key press
+  const wake = () => { if (init()) ctx.resume(); }; addEventListener('pointerdown', wake, {once:true}); addEventListener('keydown', wake, {once:true});
+  return {horn, step, update, setOn(v){ on = v; }};
+})();
 
 /* =========================================================
    Inside view for autos and scooters
@@ -1425,7 +1473,8 @@ function swatchRow(id, arr, key){
 }
 function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook[key]))); }
 /* Characters: the 3D outfits people can pick (natural outfit colours; skin tone and headwear are yours to choose) */
-const CHARACTERS = [['m_Casual_2','Casual'],['m_Worker','Worker'],['f_Casual','Casual (woman)'],['f_Formal','Dress'],['f_Worker','Worker (woman)']];
+const CHARACTERS = [['m_Casual_2','PM'],['m_Casual_Hoodie','Developer'],['m_Suit','Investor'],['m_Punk','Rockstar'],['m_Adventurer','Maker'],['m_Worker','Worker'],['m_Swat','SWAT'],['m_Spacesuit','Moonshot'],
+  ['f_Casual','Creative'],['f_Suit','Founder'],['f_Punk','Designer'],['f_Formal','Formal'],['f_Adventurer','Adventurer'],['f_Worker','Worker (woman)'],['f_SciFi','Hero']];
 { const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
   box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = v === 'f_Formal' ? 'lehenga' : v.startsWith('f_') ? 'lehenga' : 'kurta';
     if (v.startsWith('f_') && myLook.head === 'turban') myLook.head = 'longhair'; if (!v.startsWith('f_') && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
@@ -2199,6 +2248,7 @@ const camRay = new THREE.Vector3();
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
   Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t);
+  Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
     pv.position.y = mv ? Math.abs(Math.sin(w)) * 0.08 : 0; pv.rotation.z = mv ? Math.sin(w) * 0.04 : Math.sin(t * 0.5 + ph) * 0.008;
@@ -2231,7 +2281,7 @@ function frame(){
       const sgn = Math.sign(fwdIn);
       P.pos.x += Math.sin(P.rot)*speed*sgn*dt; P.pos.z += Math.cos(P.rot)*speed*sgn*dt;
       if (inShop) shopResolve(P.pos); else resolve(P.pos);
-      P.walk += dt*speed*(run?1.35:1.9)*sgn; animatePerson(player, P.walk, run?1.25:1, t); movingNow = true;
+      P.walk += dt*speed*(run?1.35:1.9)*sgn; animatePerson(player, P.walk, run?1.25:1, t); movingNow = true; Sound.step(P.walk, run, !!inShop);
       if (inShop && !inShop.floor && P.pos.z > inShop.dims.D/2 + 0.1) exitShop();
     } else if (Math.abs(turn) > 0.05 && !sitting){ P.walk += dt*4; animatePerson(player, P.walk, 0.35, t); }
     else if (!sitting) animatePerson(player, P.walk, 0, t);
