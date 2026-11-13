@@ -220,6 +220,11 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 .mitem{text-align:left;border:0;background:none;border-radius:12px;padding:11px 10px;font-size:16px;font-weight:500;color:var(--ink)}
 .mitem:hover{background:var(--surface-2)}
 .introsign{margin-top:14px;color:#FFF4EA;font-size:16px;text-decoration:underline;background:none;border:0}
+.chk{display:flex;gap:8px;align-items:center;margin:6px 0;cursor:pointer}
+.chk input{width:18px;height:18px;margin:0}
+.chip{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;line-height:1.4}
+.chip.work{background:#1F8A4C;color:#fff}.chip.coffee{background:#F5E3C8;color:#5A3A1A}.chip.status{background:var(--surface-2);color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips:empty{display:none}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -466,7 +471,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <article class="card" role="dialog" aria-modal="true" aria-labelledby="cName">
     <div class="card-top">
       <div class="avatar" id="cAvatar"></div>
-      <div><h2 id="cName"></h2><div class="role" id="cRole"></div></div>
+      <div><h2 id="cName"></h2><div class="role" id="cRole"></div><div class="chips" id="cChips"></div></div>
     </div>
     <div class="card-body">
       <dl>
@@ -475,6 +480,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       </dl>
       <div class="actions">
         <button class="btn primary" id="hiBtn">Say hi</button>
+        <button class="btn primary" id="resumeBtn" hidden>View resume</button>
         <button class="btn" id="officeBtn" hidden>Visit their office</button>
         <button class="btn" id="waveBtn" hidden>Wave</button>
         <button class="btn primary" id="connBtn" hidden>Connect</button>
@@ -534,6 +540,15 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       <label class="fld"><span>Your name</span><output id="jName">Signed in</output><small>From the account you’re signed in with, so people know it’s really you.</small></label>
       <label class="fld"><span>What you do</span><input id="jRole" maxlength="60" placeholder="Product designer" required></label>
       <label class="fld"><span>What you’re building</span><textarea id="jBuild" maxlength="160" rows="2" placeholder="A booking app for blue pottery workshops" required></textarea></label>
+      <div class="fld"><span>Your status (optional)</span>
+        <label class="chk"><input type="checkbox" id="jOpen"> <b class="chip work">OPEN TO WORK</b></label>
+        <input class="applyln" id="jLooking" maxlength="60" placeholder="Looking for, e.g. Product design roles">
+        <label class="chk"><input type="checkbox" id="jCoffee"> <b class="chip coffee">☕ Up for a coffee chat</b></label>
+        <input class="applyln" id="jStatus" maxlength="50" placeholder="Short status, e.g. Hiring designers, Free for gigs">
+        <small>Shown on your name tag so people walking by know.</small></div>
+      <div class="fld"><span>Resume (optional)</span>
+        <input class="applyln" id="jResume" maxlength="300" placeholder="Link to your resume (https://)" inputmode="url">
+        <input type="file" id="jResumeFile" accept="application/pdf"><small id="jResumeNote">Upload a PDF (up to 5 MB) or paste a link. Anyone who opens your card can view it.</small></div>
       <label class="fld" id="jNameWrap" hidden><span>Your name</span><input id="jNameIn" maxlength="48" placeholder="As people know you"></label>
       <label class="fld"><span>LinkedIn profile</span><input id="jLink" maxlength="120" placeholder="https://www.linkedin.com/in/your-name" inputmode="url"></label>
       <div class="fld"><span>Other profiles (optional)</span>
@@ -2285,7 +2300,7 @@ function renderList(){
   $('tabJobs').setAttribute('aria-selected', String(tab==='jobs')); $('tabOffices').setAttribute('aria-selected', String(tab==='offices'));
   $('tabPeople').setAttribute('aria-selected', String(tab==='people')); $('tabPlaces').setAttribute('aria-selected', String(tab==='places')); $('tabShops').setAttribute('aria-selected', String(tab==='shops'));
   const peopleRows = ()=>{ const rows = []; live.peers.forEach(e=>{ const nm = peerName(e); const mm = e.by && memberMap.get(e.by); rows.push({t:nm, s:`Online now${e.place ? ', at ' + e.place : ''}`, c:'#34C27A', i:initials(nm==='Visitor'?'V':nm), go:()=>{ if (mm){ togglePanel(false); openCard(mm); return; } if (riding) exitAuto(); if (inShop) exitShop(); setFly(false); P.pos.set(e.cur.x+1.5,0,e.cur.z+1.5); resolve(P.pos); snapCam = true; }}); });
-    const on = onlineIds(); memberMap.forEach(m=>{ if (on.has(m.id)) return; const co = m.p.company ? companyOf(m.p.company) : null; const st2 = Social.status(m.id); rows.push({creator: m.id === CREATOR_ID, t:m.p.name, s:[m.id === CREATOR_ID ? 'Creator of People of Jaipur' : '', st2==='connected' ? 'Connected' : st2==='incoming' ? 'Wants to connect' : '', m.p.role, co && co.name].filter(Boolean).join(', ') || 'Member', c:lookColor(m.p.look), i:initials(m.p.name), go:()=>{ togglePanel(false); openCard(m); }}); });
+    const on = onlineIds(); memberMap.forEach(m=>{ if (on.has(m.id)) return; const co = m.p.company ? companyOf(m.p.company) : null; const st2 = Social.status(m.id); rows.push({creator: m.id === CREATOR_ID, t:m.p.name, s:[m.id === CREATOR_ID ? 'Creator of People of Jaipur' : '', m.p.open ? 'Open to work' : '', m.p.coffee ? '☕ Coffee chat' : '', st2==='connected' ? 'Connected' : st2==='incoming' ? 'Wants to connect' : '', m.p.role, co && co.name].filter(Boolean).join(', ') || 'Member', c:lookColor(m.p.look), i:initials(m.p.name), go:()=>{ togglePanel(false); openCard(m); }}); });
     const ci = rows.findIndex(r=>r.creator); if (ci > 0) rows.unshift(rows.splice(ci,1)[0]);
     if (myDoc) rows.unshift({t:`${myName || 'You'} (you)`, s:`Your spot${myDoc.place ? ', ' + myDoc.place : ''}. Tap to edit.`, c:'#EE9C14', i:initials(myName || 'You'), go:()=>{ togglePanel(false); openJoin(); }});
     return rows.length ? rows : [{t:'Nobody has joined yet', s: (db && myId) ? 'Be the first: Menu, then Add yourself to the city.' : 'Signed-in people show up here.', c:'#B85C48', i:'+', go:()=>{ if (db && myId) openJoin(); }}]; };
@@ -2335,6 +2350,9 @@ function openCard(n){
   $('waveBtn').hidden = true; refreshCardSocial(n);
   $('cNote').textContent = n.member ? (Social.status(n.id)==='connected' ? 'You’re connected.' : 'Connect to see their LinkedIn and other links, and to message them.') : '';
   $('hiBtn').hidden = !n.p.link;
+  { const cc = $('cChips'); cc.innerHTML = ''; const add = (t, cls) => { const b = document.createElement('b'); b.className = 'chip ' + cls; b.textContent = t; cc.appendChild(b); };
+    if (n.p.open) add(n.p.looking ? `OPEN TO WORK · ${n.p.looking}` : 'OPEN TO WORK', 'work'); if (n.p.coffee) add('☕ Up for a coffee chat', 'coffee'); if (n.p.status) add(n.p.status, 'status');
+    $('resumeBtn').hidden = !n.p.resume; $('resumeBtn').onclick = n.p.resume ? (()=>window.open(n.p.resume, '_blank', 'noopener')) : null; }
   if (n.id && n.id === CREATOR_ID){ $('cRole').textContent = `Creator of People of Jaipur${n.p.role ? ' · ' + n.p.role : ''}`; if (Social.status(n.id) !== 'connected') $('cNote').textContent = 'Say hello to the person who built this city. Tap Connect to message them.'; }
   cardWrap.hidden = false; prompt.hidden = true; $('hiBtn').focus();
 }
@@ -2453,6 +2471,22 @@ holdBtn('upBtn',1); holdBtn('downBtn',-1);
    ========================================================= */
 const live = {room:null, user:null, peers:new Map(), names:{}, connected:false};
 let fontsDone = false;
+/* Name tags: name, what they do, and a status chip (Open to work, Coffee chat, or their own status). */
+function tagSub(m){ const co = m.p.company ? companyOf(m.p.company) : null; return [m.p.role, co && co.name].filter(Boolean).join(' · ').slice(0,44); }
+function tagChip(m){ if (m.p.open) return {t: m.p.looking ? `OPEN TO WORK · ${m.p.looking}`.slice(0,40) : 'OPEN TO WORK', bg:'#1F8A4C', fg:'#FFFFFF'}; if (m.p.coffee) return {t:'☕ Up for a coffee chat', bg:'#F5E3C8', fg:'#5A3A1A'}; if (m.p.status) return {t:m.p.status, bg:'#FFF4EA', fg:'#3B1E19'}; return null; }
+function tagKey(m, nm){ const c = tagChip(m); return [nm, tagSub(m), c && c.t].join('|'); }
+function nameTag(name, sub, chip, live){
+  const [c,x] = cv(10,10); const F1 = '700 46px Hind, system-ui, sans-serif', F2 = '500 30px Hind, system-ui, sans-serif', F3 = '700 26px Hind, system-ui, sans-serif';
+  x.font = F1; const w1 = x.measureText(name.toUpperCase()).width; x.font = F2; const w2 = sub ? x.measureText(sub).width : 0; x.font = F3; const w3 = chip ? x.measureText(chip.t).width + 40 : 0;
+  const W = Math.ceil(Math.max(w1 + (live ? 40 : 0), w2, w3) + 40), H = 64 + (sub ? 40 : 0) + (chip ? 50 : 0); c.width = W; c.height = H;
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = 'rgba(0,0,0,0.65)'; x.shadowBlur = 8; x.shadowOffsetY = 2;
+  let y = 32; x.font = F1; x.fillStyle = '#FFFFFF'; x.fillText(name.toUpperCase(), W/2 + (live ? 20 : 0), y);
+  if (live){ x.shadowBlur = 0; x.fillStyle = '#34C27A'; x.beginPath(); x.arc(W/2 - w1/2 - 4, y, 10, 0, Math.PI*2); x.fill(); x.shadowBlur = 8; }
+  if (sub){ y += 40; x.font = F2; x.fillStyle = '#F4EAD8'; x.fillText(sub, W/2, y); }
+  if (chip){ y += 48; x.shadowBlur = 0; const cw = w3, ch = 40, cx0 = W/2 - cw/2, r = 20; x.fillStyle = chip.bg; x.beginPath(); x.moveTo(cx0+r,y-ch/2); x.lineTo(cx0+cw-r,y-ch/2); x.arc(cx0+cw-r,y,r,-Math.PI/2,Math.PI/2); x.lineTo(cx0+r,y+ch/2); x.arc(cx0+r,y,r,Math.PI/2,Math.PI*1.5); x.fill(); x.font = F3; x.fillStyle = chip.fg; x.fillText(chip.t, W/2, y+1); }
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.minFilter = THREE.LinearFilter;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map:t, transparent:true, depthWrite:false, toneMapped:false})); const k = 0.0072; s.scale.set(W*k, H*k, 1); s.center.set(0.5, 0); return s;
+}
 function liveSprite(text){
   const [c,x] = cv(10,10); x.font = '600 44px Hind, system-ui, sans-serif';
   const W = Math.ceil(x.measureText(text).width + 96), H = 78; c.width = W; c.height = H;
@@ -2470,7 +2504,8 @@ const orbGeo = new THREE.SphereGeometry(0.35,16,12), orbMat = new THREE.MeshBasi
 function peerName(e){ const n = e.by && live.names[e.by]; return n || 'Visitor'; }
 function refreshPeerLabels(){
   if (!fontsDone) return;
-  live.peers.forEach(e=>{ const nm = e.by && e.by === CREATOR_ID && peerName(e) !== 'Visitor' ? `${peerName(e).split(' ')[0]} · Creator` : peerName(e); if (e.labelText !== nm){ if (e.label){ scene.remove(e.label); e.label.material.map.dispose(); } e.label = liveSprite(nm); e.labelText = nm; scene.add(e.label); } });
+  live.peers.forEach(e=>{ const base = peerName(e), mm = e.by && memberMap.get(e.by), nm = e.by && e.by === CREATOR_ID && base !== 'Visitor' ? `${base.split(' ')[0]} · Creator` : base, key = mm ? tagKey(mm, nm) : nm;
+    if (e.labelText !== key){ if (e.label){ scene.remove(e.label); e.label.material.map.dispose(); } e.label = mm ? nameTag(nm, tagSub(mm), tagChip(mm), true) : liveSprite(nm); e.labelText = key; scene.add(e.label); } });
 }
 async function resolveNames(){
   if (!live.user) return;
@@ -3060,6 +3095,7 @@ async function syncMembers(snap){
       memberMap.set(doc.id, m); npcs.push(m); circles.push(m.circle = {x, z, r:0.45});
     }
     m.p.role = str(d.role,60); m.p.building = str(d.building,160); m.p.link = isLinkedIn(str(d.linkedin,120)) ? str(d.linkedin,120) : '';
+    m.p.open = !!d.openToWork; m.p.looking = str(d.looking,60); m.p.coffee = !!d.coffee; m.p.status = str(d.status,50); m.p.resume = safeUrl(str(d.resume,300)) ? str(d.resume,300) : '';
     m.p.area = str(d.place,60) || 'Somewhere in Jaipur'; m.p.company = str(d.company,80); m.p.displayName = str(d.displayName,48);
     const so = d.socials && typeof d.socials === 'object' ? d.socials : {}; m.p.socials = {}; SOCIALS.forEach(([k])=>{ const c2 = cleanSocial(k, str(so[k],200)); if (c2) m.p.socials[k] = c2; }); if (!m.p.socials.linkedin && isLinkedIn(str(d.linkedin,120))) m.p.socials.linkedin = str(d.linkedin,120);
     m.p.link = '';
@@ -3070,7 +3106,7 @@ async function syncMembers(snap){
   $('creatorBtn').hidden = !(CREATOR_ID && memberMap.has(CREATOR_ID));
   if (typeof refreshOffices === 'function') refreshOffices();
   const names = await memberNames([...memberMap.keys()]);
-  memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== nm){ if (m.label) scene.remove(m.label); m.label = liveSprite(m.id === CREATOR_ID ? `${nm.split(' ')[0]} · Creator` : nm.split(' ')[0]); m.labelText = nm; m.label.position.set(m.p.pos[0],2.35,m.p.pos[1]); scene.add(m.label); } });
+  memberMap.forEach(m=>{ const nm = (names[m.id] && names[m.id].name) || m.p.displayName || 'Someone'; m.p.name = nm; if (fontsDone && m.labelText !== tagKey(m, nm)){ if (m.label) scene.remove(m.label); m.label = nameTag(m.id === CREATOR_ID ? `${nm.split(' ')[0]} · Creator` : nm.split(' ')[0], tagSub(m), tagChip(m)); m.labelText = tagKey(m, nm); m.label.position.set(m.p.pos[0],2.55,m.p.pos[1]); scene.add(m.label); } });
   syncMemberVisibility();
 }
 function removeMember(id){ const m = memberMap.get(id); if (!m) return; scene.remove(m.ch.g); scene.remove(m.marker); if (m.label) scene.remove(m.label); const i = npcs.indexOf(m); if (i>=0) npcs.splice(i,1); const j = circles.indexOf(m.circle); if (j>=0) circles.splice(j,1); memberMap.delete(id); }
@@ -3100,6 +3136,8 @@ async function openJoin(){
   outfitPick = myDoc ? clampN(myDoc.outfit,0,OUTFITS.length-1,0)|0 : 0; [...sw.children].forEach((c,k)=>c.setAttribute('aria-pressed', String(k===outfitPick)));
   const jc = $('jCo'); jc.innerHTML = ''; const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Not listed, or I’d rather not say'; jc.appendChild(o0);
   coByslot.forEach(c=>{ const o = document.createElement('option'); o.value = c.owner; o.textContent = c.name; jc.appendChild(o); }); jc.value = myDoc ? str(myDoc.company,80) : '';
+  $('jOpen').checked = !!(myDoc && myDoc.openToWork); $('jLooking').value = myDoc ? str(myDoc.looking,60) : ''; $('jCoffee').checked = !!(myDoc && myDoc.coffee); $('jStatus').value = myDoc ? str(myDoc.status,50) : '';
+  $('jResume').value = myDoc ? str(myDoc.resume,300) : ''; $('jResumeFile').value = '';
   $('jRemove').hidden = !myDoc; $('jNote').textContent = ''; $('joinWrap').hidden = false; $('jRole').focus();
 }
 /* Meet the creator: walk new members over to the creator's spot and open their card. */
@@ -3113,12 +3151,12 @@ function meetCreator(isWelcome){
   // stand a few metres away on open ground (not pushed out of a wall right next to them), facing the creator
   const lp = livePeerOf(CREATOR_ID);   // online right now? meet them where they are
   if (lp && lp.y > 3){ showHint(`${m.p.name.split(' ')[0]} is flying around right now. Try again in a moment.`); setTimeout(()=>showHint(''), 3000); return false; }
-  const a = lp ? (lp.rot || 0) : (m.rot || 0), cx = lp ? lp.cur.x : m.p.pos[0], cz = lp ? lp.cur.z : m.p.pos[1]; let spot = null;
+  const a = lp ? (lp.rot || 0) : (m.rot || 0), cx = lp ? lp.cur.x : m.ch.g.position.x, cz = lp ? lp.cur.z : m.ch.g.position.z; let spot = null;
   for (const d of [5, 6, 4.5, 7]){ for (const off of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.6, -2.6, Math.PI]){
     const th = a + off, p = new THREE.Vector3(cx + Math.sin(th)*d, 0, cz + Math.cos(th)*d), q = p.clone(); resolve(q);
     if (q.distanceTo(p) < 0.05){ spot = {p, th}; break; } } if (spot) break; }
   if (!spot){ const p = new THREE.Vector3(cx + Math.sin(a)*5, 0, cz + Math.cos(a)*5); resolve(p); spot = {p, th:Math.atan2(p.x-cx, p.z-cz)}; }
-  P.pos.copy(spot.p); P.rot = spot.th + Math.PI; yaw = 0; pitch = 0.2; dist = Math.max(dist, 4.5); snapCam = true;
+  P.pos.copy(spot.p); P.rot = spot.th + Math.PI; yaw = spot.th + 0.35; pitch = 0.22; dist = Math.max(dist, 4.5); snapCam = true;   // camera behind the visitor, a little to the side, so both are in view
   setTimeout(()=>{ openCard(m); if (isWelcome) $('cNote').textContent = `Welcome to People of Jaipur! Meet ${m.p.name.split(' ')[0]}, who built this city. Tap Connect to say hello.`; }, 700);
   return true;
 }
@@ -3136,11 +3174,17 @@ $('joinForm').addEventListener('submit', async e=>{
   for (const [id,key] of [['jX','x'],['jIg','instagram'],['jGh','github'],['jWeb','website']]){ const v = $(id).value.trim(); const c2 = cleanSocial(key, v); if (c2 === null){ $('jNote').textContent = `Check your ${SOCIALS.find(s=>s[0]===key)[1]} link. It needs to start with https://`; return; } socials[key] = c2 || ''; }
   const dispName = $('jNameWrap').hidden ? '' : $('jNameIn').value.trim();
   if (!$('jNameWrap').hidden && !dispName){ $('jNote').textContent = 'Add your name so people know who you are.'; return; }
+  let resume = $('jResume').value.trim();
+  if (resume && !safeUrl(resume)){ $('jNote').textContent = 'Your resume link needs to start with https://'; return; }
+  const rf = $('jResumeFile').files && $('jResumeFile').files[0];
+  if (rf && rf.type !== 'application/pdf'){ $('jNote').textContent = 'Upload your resume as a PDF.'; return; }
+  if (rf && rf.size > 5*1024*1024){ $('jNote').textContent = 'That PDF is over 5 MB. Try a smaller one, or paste a link.'; return; }
   $('jSave').disabled = true; $('jNote').textContent = 'Saving…';
+  if (rf){ try { $('jNote').textContent = 'Uploading your resume…'; resume = await window.JP_FILES.uploadResume(rf); } catch(e){ $('jNote').textContent = 'Your resume didn’t upload. Try again, or paste a link.'; $('jSave').disabled = false; return; } }
   const spot = {x:+P.pos.x.toFixed(1), z:+P.pos.z.toFixed(1)};
   if (Social.private){ try { await Social.setSocials(socials); } catch(e){} }
   if (dispName && window.JP_AUTH && window.JP_AUTH.setName) window.JP_AUTH.setName(dispName);
-  const body = {role, building, displayName:dispName, socials: Social.private ? {} : socials, lk:Object.assign({},myLook), company:$('jCo').value || '', outfit:outfitPick, dress: myLook.style==='lehenga', skin:myLook.skin|0, x:spot.x, z:spot.z, r:+((P.rot+Math.PI)%(Math.PI*2)).toFixed(2), place:lastArea, updatedAt:Date.now()};
+  const body = {role, building, displayName:dispName, socials: Social.private ? {} : socials, lk:Object.assign({},myLook), company:$('jCo').value || '', outfit:outfitPick, dress: myLook.style==='lehenga', skin:myLook.skin|0, x:spot.x, z:spot.z, r:+((P.rot+Math.PI)%(Math.PI*2)).toFixed(2), place:lastArea, openToWork:$('jOpen').checked, looking:$('jLooking').value.trim().slice(0,60), coffee:$('jCoffee').checked, status:$('jStatus').value.trim().slice(0,50), resume, updatedAt:Date.now()};
   const firstJoin = !myDoc;
   try { await db.collection('profiles').doc(myId).set(body); $('jNote').textContent = 'Saved. When you’re offline, people find you at this spot.'; setTimeout(closeJoin, 900); if (firstJoin) setTimeout(()=>meetCreator(true), 1400); }
   catch(err){ $('jNote').textContent = (err && (err.code==='permission_denied' || err.code==='not_granted')) ? 'Sign in (in the Menu) to add yourself.' : 'That didn’t save. Check your connection and try again.'; }
@@ -4422,6 +4466,8 @@ function frame(){
     k.m.lookAt(camera.position); k.m.rotateZ(Math.sin(t*k.sp*2+k.ph)*0.45);
   }
 
+  // name tags and markers follow members as they move about
+  memberMap.forEach(m=>{ const g = m.ch.g.position; if (m.label) m.label.position.set(g.x, 2.55, g.z); m.marker.position.set(g.x, 2.38, g.z); });
   if (mode === 'play'){
     nearNpc = inShop || riding || (best && best.hidden) ? null : best;
     updateAction();

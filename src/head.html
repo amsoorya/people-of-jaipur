@@ -216,6 +216,11 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 .mitem{text-align:left;border:0;background:none;border-radius:12px;padding:11px 10px;font-size:16px;font-weight:500;color:var(--ink)}
 .mitem:hover{background:var(--surface-2)}
 .introsign{margin-top:14px;color:#FFF4EA;font-size:16px;text-decoration:underline;background:none;border:0}
+.chk{display:flex;gap:8px;align-items:center;margin:6px 0;cursor:pointer}
+.chk input{width:18px;height:18px;margin:0}
+.chip{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;line-height:1.4}
+.chip.work{background:#1F8A4C;color:#fff}.chip.coffee{background:#F5E3C8;color:#5A3A1A}.chip.status{background:var(--surface-2);color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips:empty{display:none}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -462,7 +467,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <article class="card" role="dialog" aria-modal="true" aria-labelledby="cName">
     <div class="card-top">
       <div class="avatar" id="cAvatar"></div>
-      <div><h2 id="cName"></h2><div class="role" id="cRole"></div></div>
+      <div><h2 id="cName"></h2><div class="role" id="cRole"></div><div class="chips" id="cChips"></div></div>
     </div>
     <div class="card-body">
       <dl>
@@ -471,6 +476,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       </dl>
       <div class="actions">
         <button class="btn primary" id="hiBtn">Say hi</button>
+        <button class="btn primary" id="resumeBtn" hidden>View resume</button>
         <button class="btn" id="officeBtn" hidden>Visit their office</button>
         <button class="btn" id="waveBtn" hidden>Wave</button>
         <button class="btn primary" id="connBtn" hidden>Connect</button>
@@ -530,6 +536,15 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       <label class="fld"><span>Your name</span><output id="jName">Signed in</output><small>From the account you’re signed in with, so people know it’s really you.</small></label>
       <label class="fld"><span>What you do</span><input id="jRole" maxlength="60" placeholder="Product designer" required></label>
       <label class="fld"><span>What you’re building</span><textarea id="jBuild" maxlength="160" rows="2" placeholder="A booking app for blue pottery workshops" required></textarea></label>
+      <div class="fld"><span>Your status (optional)</span>
+        <label class="chk"><input type="checkbox" id="jOpen"> <b class="chip work">OPEN TO WORK</b></label>
+        <input class="applyln" id="jLooking" maxlength="60" placeholder="Looking for, e.g. Product design roles">
+        <label class="chk"><input type="checkbox" id="jCoffee"> <b class="chip coffee">☕ Up for a coffee chat</b></label>
+        <input class="applyln" id="jStatus" maxlength="50" placeholder="Short status, e.g. Hiring designers, Free for gigs">
+        <small>Shown on your name tag so people walking by know.</small></div>
+      <div class="fld"><span>Resume (optional)</span>
+        <input class="applyln" id="jResume" maxlength="300" placeholder="Link to your resume (https://)" inputmode="url">
+        <input type="file" id="jResumeFile" accept="application/pdf"><small id="jResumeNote">Upload a PDF (up to 5 MB) or paste a link. Anyone who opens your card can view it.</small></div>
       <label class="fld" id="jNameWrap" hidden><span>Your name</span><input id="jNameIn" maxlength="48" placeholder="As people know you"></label>
       <label class="fld"><span>LinkedIn profile</span><input id="jLink" maxlength="120" placeholder="https://www.linkedin.com/in/your-name" inputmode="url"></label>
       <div class="fld"><span>Other profiles (optional)</span>

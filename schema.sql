@@ -92,6 +92,16 @@ create policy "Message your connections"    on public.messages for insert with c
 alter publication supabase_realtime add table public.connections;
 alter publication supabase_realtime add table public.messages;
 
+-- Resumes: a public bucket for PDFs. People upload only into their own folder.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('resumes', 'resumes', true, 5242880, array['application/pdf'])
+on conflict (id) do nothing;
+create policy "Anyone can open resumes" on storage.objects for select using (bucket_id = 'resumes');
+create policy "People upload their own resume" on storage.objects for insert to authenticated
+  with check (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "People remove their own resume" on storage.objects for delete to authenticated
+  using (bucket_id = 'resumes' and (storage.foldername(name))[1] = auth.uid()::text);
+
 -- Companies must be registered from a work email (you@yourcompany.com), not a personal one like Gmail.
 -- Individuals and shops can use any email. The site checks this too; this makes it a hard rule.
 create or replace function public.is_work_email() returns boolean language sql stable as $$

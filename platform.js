@@ -174,6 +174,18 @@
       return {id:data.publicUrl, url:data.publicUrl, sizeBytes:blob.size, contentType:type};
     },
   });
+  /* Resumes: PDFs in a public bucket, each person only in their own folder. */
+  window.JP_FILES = Object.freeze({
+    uploadResume: async (file) => {
+      await ready; if (!session) throw {code:'not_granted'};
+      if (file.type !== 'application/pdf') throw {code:'invalid_request', message:'PDF only'};
+      if (file.size > 5*1024*1024) throw {code:'too_large'};
+      const path = `${session.user.id}/resume-${Date.now()}.pdf`;
+      const {error} = await sb.storage.from('resumes').upload(path, file, {contentType:'application/pdf', upsert:false});
+      if (error) throw {code:'upstream_error', message:error.message};
+      return sb.storage.from('resumes').getPublicUrl(path).data.publicUrl;
+    },
+  });
   /* Connections, private links and direct messages: the database decides who can read what. */
   const socialH = [];
   const social = {
