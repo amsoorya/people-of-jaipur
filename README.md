@@ -121,6 +121,7 @@ Open http://localhost:8000. Without Supabase details in `config.js`, you can sti
 - "[camel](https://sketchfab.com/3d-models/camel-44ef2ea4b50a49e395e5e3ebbdc99f98)" by [omarme37](https://sketchfab.com/omarme37), [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
 - "Thai Tuk Tuk 3D model (PBR, real-time)" from Sketchfab, used under its open licence
 - "[Cow](https://sketchfab.com/3d-models/cow-f3caeee78b4d42978493d92209e56943)" by Asheraf, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
+- "Bactrian Camel (Low Poly)" by [Nyilonelycompany](https://sketchfab.com/Nyilonelycompany), [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/) (non-commercial use only)
 - Built for the people of Jaipur 🩷
 
 ---
