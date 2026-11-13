@@ -2178,6 +2178,11 @@ const camRay = new THREE.Vector3();
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
   Rig.update(dt); AnimalRig.update(dt);
+  // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
+  for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
+    pv.position.y = mv ? Math.abs(Math.sin(w)) * 0.08 : 0; pv.rotation.z = mv ? Math.sin(w) * 0.04 : Math.sin(t * 0.5 + ph) * 0.008;
+    pv.rotation.x = mv ? Math.sin(w * 2) * 0.02 : Math.sin(t * 0.7 + ph) * 0.012; pv.rotation.y = mv ? Math.sin(w) * 0.03 : Math.sin(t * 0.23 + ph) * 0.06;
+    pv.scale.y = 1 + Math.sin(t * 1.5 + ph) * 0.008; }
   // player
   let movingNow = false;
   if (mode === 'play' && flying){
@@ -2331,6 +2336,20 @@ if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
 renderer.compile(scene, camera);
 updateShutters();
 requestAnimationFrame(frame);
-setTimeout(()=>{ captureSatellite(); $('loading').classList.add('done'); intro.hidden = false; mode = 'intro'; }, 200);
+/* wait for the 3D people, vehicles and animals to download before opening the city */
+(function waitForModels(){
+  const t0 = performance.now(), MB = b => (b/1048576).toFixed(1);
+  const open = () => { captureSatellite(); $('loading').classList.add('done'); intro.hidden = false; mode = 'intro'; };
+  const tick = () => {
+    const L = ModelLoad, bs = Object.values(L.bytes), got = bs.reduce((a,b)=>a+b.loaded,0), tot = bs.reduce((a,b)=>a+b.total,0);
+    const frac = L.started ? Math.max(L.done / L.started, tot ? got / tot : 0) : 1;
+    $('ldFill').style.width = Math.round(Math.min(1, frac) * 100) + '%';
+    $('ldText').textContent = 'Loading the city…';
+    $('ldSub').textContent = tot ? `${MB(got)} of ${MB(tot)} MB${isCoarse ? ' · lighter models for your phone' : ''}` : `${L.done} of ${L.started} models`;
+    const waited = performance.now() - t0;
+    if ((L.started && L.done >= L.started && waited > 300) || waited > 60000) setTimeout(open, 150); else setTimeout(tick, 150);
+  };
+  setTimeout(tick, 200);
+})();
 window.__jp = { animals:()=>cows.map(c=>[c.beh, +c.pos.x.toFixed(1), +c.pos.z.toFixed(1), +c.sit.toFixed(2)]), honkAt:(x,z)=>scareAnimals(x,z,14), simAnimals:(sec)=>{ for (let i=0;i<sec*60;i++){ t += 1/60; updateAnimals(1/60); } }, exitHere:(i,x,z)=>{ const a = autos[i]; a.state='driven'; a.pos.set(x,0,z); a.heading = 0.4; riding = a; exitAuto(); }, sim:(sec)=>{ const n = Math.round(sec*60); for (let i=0;i<n;i++){ updateAutos(1/60); } }, autoInfo:(i)=>{ const a = autos[i]; return JSON.stringify({state:a.state, s:a.s, v:a.v, off:a.off, offT:a.offT, blockT:a.blockT, pos:[a.pos.x,a.pos.z], base:a.base && [a.base.x,a.base.z]}); }, setAuto:(i,sv)=>{ const a = autos[i]; a.s = sv; a.v = 0; }, traffic:()=>autos.map(a=>[+a.pos.x.toFixed(1),+a.pos.z.toFixed(1),+a.v.toFixed(1)]), logoRef:(v)=>logoUrl(v), liftPhase:()=>liftState&&liftState.phase, gotoFloor:(i)=>goToFloor(officeDoors[i]), tab:(x)=>{ tab = x; togglePanel(true); }, sitting:()=>!!sitting, ridingNow:()=>riding&&riding.type, lobby:(i)=>enterShop(lobbyDoors[i]), floor:(i)=>enterFloor(officeDoors[i]), roles:()=>showRoles(), lift:(t)=>openLift(t), gy:(x,z)=>groundY(x,z),  jeepGo:()=>rideJeep(), nearJeep:()=>{ P.pos.set(jeep.pos.x+2.5,0,jeep.pos.z); snapCam = true; }, nearCamel:i=>{ const c = camels[i]; P.pos.set(c.pos.x+2,0,c.pos.z); snapCam = true; }, look:(l)=>{ Object.assign(myLook,l); saveLook(); }, P:()=>[P.pos.x,P.y,P.pos.z], counts:()=>[shopDoors.length, officeDoors.length], enterDoorByName:(n)=>{ const d = shopDoors.find(x=>x.name===n); if (d) enterShop(d); return !!d; }, prods:()=>openProducts(), music:()=>Music.on, inside:(v)=>setInside(v), sendChat:(t)=>sendChat(t), nearScooter:i=>{ const a = scooters[i]; P.pos.set(a.pos.x+1.5, 0, a.pos.z+0.6); snapCam = true; }, nearAuto:i=>{ const a = autos[i]; P.pos.set(a.pos.x+3, 0, a.pos.z+0.5); resolve(P.pos); snapCam = true; }, door:i=>{ const d = shopDoors[i]; P.pos.set(d.x,0,d.z); P.rot = d.rot+Math.PI; yaw = d.rot; snapCam = true; return d.name; }, act:()=>doAction(), action:()=>action&&action.label, openMap, closeMap, doors:()=>shopDoors.length, autos:()=>autos.map(a=>[a.pos.x,a.pos.z,a.state]), key:(c,v)=>{keys[c]=v;}, fly:setFly, time:applyTime, tour:(u)=>{tourU=u;}, tp:(x,z,yw,pt,dst)=>{ P.pos.set(x,0,z); resolve(P.pos); yaw = yw; pitch = pt ?? 0.2; if (dst) dist = dst; snapCam = true; }, start, stats:()=>({calls:renderer.info.render.calls, tris:renderer.info.render.triangles, colliders:colliders.length}) };
 })();

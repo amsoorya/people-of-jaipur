@@ -156,7 +156,7 @@ function animatePerson(ch, walk, amt, tt){
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
 const Rig = (()=>{
-  const MALE = ['m_Casual_2','m_Casual_Hoodie','m_Suit','m_Worker','m_Beach','m_Farmer','m_Adventurer'];
+  const MALE = ['m_Casual_2','m_Suit','m_Worker','m_Adventurer'];   // full-length trousers and shirts only
   const FEMALE = ['f_Casual','f_Formal','f_Suit','f_Worker','f_Adventurer'];
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
   const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
@@ -183,8 +183,8 @@ const Rig = (()=>{
     const female = L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni';
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
-    const KURTA = ['m_Casual_2','m_Beach','m_Casual_Hoodie','m_Farmer'], SHIRT = ['m_Suit','m_Casual_2','m_Worker','m_Casual_Hoodie','m_Adventurer'];
-    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    const KURTA = ['m_Casual_2','m_Suit'], SHIRT = ['m_Suit','m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Suit'];   // turbans never go on top of a hat
+    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
       if (!m || !cl || !ch.g) return;
@@ -219,6 +219,7 @@ const Rig = (()=>{
       live.push(ch);
     });
   }
+  const SIT_HIP = -1.45, SIT_KNEE = 1.5;
   const IDLE = r => r.acts.Idle_Neutral ? 'Idle_Neutral' : 'Idle';
   function play(r, name, fade){
     if (name === 'Idle') name = IDLE(r);
@@ -229,12 +230,12 @@ const Rig = (()=>{
   }
   // seated pose: bend hips and knees, rest the hands (the packs have no sitting animation)
   function sitPose(r){
-    const b = r.bones; if (!b['UpperLeg.L']) return;
-    for (const s of ['L','R']){ b['UpperLeg.'+s].rotation.x += -1.45; b['LowerLeg.'+s].rotation.x += 1.5; }
-    if (b.Hips) b.Hips.position.y -= 0;
+    const b = r.bones, bone = n => b[n] || b[n.replace('.', '')];   // the loader strips dots from bone names
+    for (const sd of ['L','R']){ const ul = bone('UpperLeg.'+sd), ll = bone('LowerLeg.'+sd); if (ul) ul.rotation.x += SIT_HIP; if (ll) ll.rotation.x += SIT_KNEE; }
   }
   function update(dt){
     for (const ch of live){ const r = ch.rig; if (!r || !r.mixer) continue;
+      r.inst.position.y = r.sit ? -0.14 : 0;   // seated people sit a little lower on the seat
       if (r.sit){ play(r, 'Idle', 0.25); r.mixer.update(dt); sitPose(r); continue; }
       play(r, r.want || 'Idle', 0.25); r.mixer.update(dt); }
   }
@@ -324,9 +325,21 @@ const Swap = (()=>{
       const k = o.height ? o.height / s2.y : o.length / s2.z; inst.scale.multiplyScalar(k); inst.updateMatrixWorld(true);
       b = new THREE.Box3().setFromObject(inst); const c = b.getCenter(new THREE.Vector3());
       inst.position.x -= c.x; inst.position.z -= c.z + (o.dz || 0); inst.position.y -= b.min.y;
-      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); } } });
+      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); if (o.blackBody && m.material.map) blackLower(m); } } });
       (o.hide || []).forEach(h=>h.visible = false); (o.parent || g).add(pivot); if (o.done) o.done(pivot);
     });
+  }
+  // Jaipur autos are black below and yellow above: turn the yellow paint below the waist black
+  function blackLower(m){
+    m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox, cut = bb.min.y + 0.5 * (bb.max.y - bb.min.y);
+    m.material.onBeforeCompile = sh => {
+      sh.uniforms.uCut = {value: cut};
+      sh.vertexShader = 'varying float vLy;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vLy = position.y;');
+      sh.fragmentShader = 'uniform float uCut; varying float vLy;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+        { vec3 c = diffuseColor.rgb; float yel = step(0.3, c.r) * step(0.55 * c.r, c.g) * step(c.b, 0.55 * c.g) * step(0.12, c.r - c.b);
+          if (vLy < uCut) diffuseColor.rgb = mix(c, vec3(0.03, 0.03, 0.035), yel); }`);
+    };
+    m.material.customProgramCacheKey = () => 'blackLower' + cut.toFixed(3);
   }
   return {apply};
 })();
@@ -372,7 +385,7 @@ function makeAuto(){
   const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.6), M_SCREEN); ws.position.set(0, 1.52, 1.0); ws.rotation.x = -0.14; g.add(ws);
   // most autos are the Indian auto ("Auto Rickshaw" by rSquare, CC BY 4.0); every fourth is a tuk-tuk for variety
   const tuk = (autoCount++ % 4) === 3;
-  Swap.apply(g, tuk ? 'models/vehicles/tuktuk.glb' : 'models/vehicles/auto.glb', {length: tuk ? 2.9 : 2.7, yaw: AUTO_YAW, hide: [m, ws]});
+  Swap.apply(g, tuk ? 'models/vehicles/tuktuk.glb' : 'models/vehicles/auto.glb', {length: tuk ? 2.9 : 2.7, yaw: AUTO_YAW, hide: [m, ws], blackBody: !tuk});
   scene.add(g); return g;
 }
 /* Traffic keeps left, as in India, and goes round Badi Chaupar's fountain instead of through it */
@@ -509,7 +522,7 @@ const AnimalRig = (()=>{
 })();
 // every other cow is the detailed resting cow ("Cow" by Asheraf, CC BY 4.0); it stays put since it has no walking animation
 cows.forEach((c, i)=>{
-  if (i % 2 === 1){ c.range = 0.01; c.still = true; Swap.apply(c.g, 'models/animals/CowStatic.glb', {length: 2.3, yaw: COW_YAW, hide: [c.body, ...c.legs, c.head].filter(Boolean)}); }
+  if (i % 2 === 1){ c.range = 0.01; c.still = true; Swap.apply(c.g, 'models/animals/CowStatic.glb', {length: 2.3, yaw: COW_YAW, hide: [c.body, ...c.legs, c.head].filter(Boolean), done: pv=>{ c.g.userData.model = pv; }}); }
   else AnimalRig.attach(c, i % 4 === 2 ? 'Bull' : 'Cow', i % 4 === 2 ? 1.55 : 1.45, null);
 });
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });

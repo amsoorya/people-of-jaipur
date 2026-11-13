@@ -32,6 +32,18 @@ const PLACES = [
 const canvas = document.getElementById('scene');
 const isCoarse = matchMedia('(pointer: coarse)').matches;
 const lowEnd = isCoarse || (navigator.hardwareConcurrency||8) <= 4;
+/* 3D model downloads: phones get the lighter .lite versions; every download is tracked so the
+   loading screen can wait for the whole city before it opens. */
+const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb']);
+const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : u;
+const ModelLoad = {started:0, done:0, bytes:{}};
+if (THREE.GLTFLoader){
+  const load0 = THREE.GLTFLoader.prototype.load;
+  THREE.GLTFLoader.prototype.load = function(url, onLoad, onProgress, onError){
+    const u = modelUrl(url); ModelLoad.started++; let fin = false; const finish = () => { if (!fin){ fin = true; ModelLoad.done++; const b = ModelLoad.bytes[u]; if (b) b.loaded = b.total; } };
+    return load0.call(this, u, g => { finish(); onLoad && onLoad(g); }, e => { if (e && e.total) ModelLoad.bytes[u] = {loaded:e.loaded, total:e.total}; onProgress && onProgress(e); }, e => { finish(); onError && onError(e); });
+  };
+}
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});

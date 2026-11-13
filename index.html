@@ -48,6 +48,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 #loading{position:fixed;inset:0;display:grid;place-items:center;background:#E9C2A2;color:#7A4A40;font-size:17px;transition:opacity .5s}
 #loading.done{opacity:0;pointer-events:none}
+.ldbox{display:grid;gap:10px;justify-items:center;width:min(320px,80vw)}.ldbar{width:100%;height:8px;border-radius:99px;background:rgba(122,74,64,.2);overflow:hidden}.ldbar i{display:block;height:100%;width:0;background:#B85C48;border-radius:99px;transition:width .25s}#ldSub{font-size:13px;opacity:.8}
 
 #intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;
   padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
@@ -270,7 +271,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 </head>
 <body>
 <canvas id="scene" tabindex="0" aria-label="A 3D Jaipur you can walk through"></canvas>
-<div id="loading">Building the Pink City…</div>
+<div id="loading"><div class="ldbox"><div id="ldText">Building the Pink City…</div><div class="ldbar"><i id="ldFill"></i></div><small id="ldSub"></small></div></div>
 
 <section id="intro" hidden>
   <p class="kicker">People of</p>
@@ -632,6 +633,18 @@ const PLACES = [
 const canvas = document.getElementById('scene');
 const isCoarse = matchMedia('(pointer: coarse)').matches;
 const lowEnd = isCoarse || (navigator.hardwareConcurrency||8) <= 4;
+/* 3D model downloads: phones get the lighter .lite versions; every download is tracked so the
+   loading screen can wait for the whole city before it opens. */
+const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb']);
+const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : u;
+const ModelLoad = {started:0, done:0, bytes:{}};
+if (THREE.GLTFLoader){
+  const load0 = THREE.GLTFLoader.prototype.load;
+  THREE.GLTFLoader.prototype.load = function(url, onLoad, onProgress, onError){
+    const u = modelUrl(url); ModelLoad.started++; let fin = false; const finish = () => { if (!fin){ fin = true; ModelLoad.done++; const b = ModelLoad.bytes[u]; if (b) b.loaded = b.total; } };
+    return load0.call(this, u, g => { finish(); onLoad && onLoad(g); }, e => { if (e && e.total) ModelLoad.bytes[u] = {loaded:e.loaded, total:e.total}; onProgress && onProgress(e); }, e => { finish(); onError && onError(e); });
+  };
+}
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
@@ -2006,7 +2019,7 @@ function animatePerson(ch, walk, amt, tt){
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
 const Rig = (()=>{
-  const MALE = ['m_Casual_2','m_Casual_Hoodie','m_Suit','m_Worker','m_Beach','m_Farmer','m_Adventurer'];
+  const MALE = ['m_Casual_2','m_Suit','m_Worker','m_Adventurer'];   // full-length trousers and shirts only
   const FEMALE = ['f_Casual','f_Formal','f_Suit','f_Worker','f_Adventurer'];
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
   const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
@@ -2033,8 +2046,8 @@ const Rig = (()=>{
     const female = L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni';
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
-    const KURTA = ['m_Casual_2','m_Beach','m_Casual_Hoodie','m_Farmer'], SHIRT = ['m_Suit','m_Casual_2','m_Worker','m_Casual_Hoodie','m_Adventurer'];
-    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    const KURTA = ['m_Casual_2','m_Suit'], SHIRT = ['m_Suit','m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Suit'];   // turbans never go on top of a hat
+    const name = L.model || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
       if (!m || !cl || !ch.g) return;
@@ -2069,6 +2082,7 @@ const Rig = (()=>{
       live.push(ch);
     });
   }
+  const SIT_HIP = -1.45, SIT_KNEE = 1.5;
   const IDLE = r => r.acts.Idle_Neutral ? 'Idle_Neutral' : 'Idle';
   function play(r, name, fade){
     if (name === 'Idle') name = IDLE(r);
@@ -2079,12 +2093,12 @@ const Rig = (()=>{
   }
   // seated pose: bend hips and knees, rest the hands (the packs have no sitting animation)
   function sitPose(r){
-    const b = r.bones; if (!b['UpperLeg.L']) return;
-    for (const s of ['L','R']){ b['UpperLeg.'+s].rotation.x += -1.45; b['LowerLeg.'+s].rotation.x += 1.5; }
-    if (b.Hips) b.Hips.position.y -= 0;
+    const b = r.bones, bone = n => b[n] || b[n.replace('.', '')];   // the loader strips dots from bone names
+    for (const sd of ['L','R']){ const ul = bone('UpperLeg.'+sd), ll = bone('LowerLeg.'+sd); if (ul) ul.rotation.x += SIT_HIP; if (ll) ll.rotation.x += SIT_KNEE; }
   }
   function update(dt){
     for (const ch of live){ const r = ch.rig; if (!r || !r.mixer) continue;
+      r.inst.position.y = r.sit ? -0.14 : 0;   // seated people sit a little lower on the seat
       if (r.sit){ play(r, 'Idle', 0.25); r.mixer.update(dt); sitPose(r); continue; }
       play(r, r.want || 'Idle', 0.25); r.mixer.update(dt); }
   }
@@ -2174,9 +2188,21 @@ const Swap = (()=>{
       const k = o.height ? o.height / s2.y : o.length / s2.z; inst.scale.multiplyScalar(k); inst.updateMatrixWorld(true);
       b = new THREE.Box3().setFromObject(inst); const c = b.getCenter(new THREE.Vector3());
       inst.position.x -= c.x; inst.position.z -= c.z + (o.dz || 0); inst.position.y -= b.min.y;
-      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); } } });
+      inst.traverse(m=>{ if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; if (m.material){ m.material = m.material.clone(); m.material.metalness = Math.min(m.material.metalness, 0.3); if (o.blackBody && m.material.map) blackLower(m); } } });
       (o.hide || []).forEach(h=>h.visible = false); (o.parent || g).add(pivot); if (o.done) o.done(pivot);
     });
+  }
+  // Jaipur autos are black below and yellow above: turn the yellow paint below the waist black
+  function blackLower(m){
+    m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox, cut = bb.min.y + 0.5 * (bb.max.y - bb.min.y);
+    m.material.onBeforeCompile = sh => {
+      sh.uniforms.uCut = {value: cut};
+      sh.vertexShader = 'varying float vLy;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vLy = position.y;');
+      sh.fragmentShader = 'uniform float uCut; varying float vLy;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+        { vec3 c = diffuseColor.rgb; float yel = step(0.3, c.r) * step(0.55 * c.r, c.g) * step(c.b, 0.55 * c.g) * step(0.12, c.r - c.b);
+          if (vLy < uCut) diffuseColor.rgb = mix(c, vec3(0.03, 0.03, 0.035), yel); }`);
+    };
+    m.material.customProgramCacheKey = () => 'blackLower' + cut.toFixed(3);
   }
   return {apply};
 })();
@@ -2222,7 +2248,7 @@ function makeAuto(){
   const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.6), M_SCREEN); ws.position.set(0, 1.52, 1.0); ws.rotation.x = -0.14; g.add(ws);
   // most autos are the Indian auto ("Auto Rickshaw" by rSquare, CC BY 4.0); every fourth is a tuk-tuk for variety
   const tuk = (autoCount++ % 4) === 3;
-  Swap.apply(g, tuk ? 'models/vehicles/tuktuk.glb' : 'models/vehicles/auto.glb', {length: tuk ? 2.9 : 2.7, yaw: AUTO_YAW, hide: [m, ws]});
+  Swap.apply(g, tuk ? 'models/vehicles/tuktuk.glb' : 'models/vehicles/auto.glb', {length: tuk ? 2.9 : 2.7, yaw: AUTO_YAW, hide: [m, ws], blackBody: !tuk});
   scene.add(g); return g;
 }
 /* Traffic keeps left, as in India, and goes round Badi Chaupar's fountain instead of through it */
@@ -2359,7 +2385,7 @@ const AnimalRig = (()=>{
 })();
 // every other cow is the detailed resting cow ("Cow" by Asheraf, CC BY 4.0); it stays put since it has no walking animation
 cows.forEach((c, i)=>{
-  if (i % 2 === 1){ c.range = 0.01; c.still = true; Swap.apply(c.g, 'models/animals/CowStatic.glb', {length: 2.3, yaw: COW_YAW, hide: [c.body, ...c.legs, c.head].filter(Boolean)}); }
+  if (i % 2 === 1){ c.range = 0.01; c.still = true; Swap.apply(c.g, 'models/animals/CowStatic.glb', {length: 2.3, yaw: COW_YAW, hide: [c.body, ...c.legs, c.head].filter(Boolean), done: pv=>{ c.g.userData.model = pv; }}); }
   else AnimalRig.attach(c, i % 4 === 2 ? 'Bull' : 'Cow', i % 4 === 2 ? 1.55 : 1.45, null);
 });
 camels.forEach(c=>{ c.g.position.copy(c.pos); c.g.rotation.y = c.heading; });
@@ -4577,6 +4603,11 @@ const camRay = new THREE.Vector3();
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
   Rig.update(dt); AnimalRig.update(dt);
+  // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
+  for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
+    pv.position.y = mv ? Math.abs(Math.sin(w)) * 0.08 : 0; pv.rotation.z = mv ? Math.sin(w) * 0.04 : Math.sin(t * 0.5 + ph) * 0.008;
+    pv.rotation.x = mv ? Math.sin(w * 2) * 0.02 : Math.sin(t * 0.7 + ph) * 0.012; pv.rotation.y = mv ? Math.sin(w) * 0.03 : Math.sin(t * 0.23 + ph) * 0.06;
+    pv.scale.y = 1 + Math.sin(t * 1.5 + ph) * 0.008; }
   // player
   let movingNow = false;
   if (mode === 'play' && flying){
@@ -4730,7 +4761,21 @@ if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
 renderer.compile(scene, camera);
 updateShutters();
 requestAnimationFrame(frame);
-setTimeout(()=>{ captureSatellite(); $('loading').classList.add('done'); intro.hidden = false; mode = 'intro'; }, 200);
+/* wait for the 3D people, vehicles and animals to download before opening the city */
+(function waitForModels(){
+  const t0 = performance.now(), MB = b => (b/1048576).toFixed(1);
+  const open = () => { captureSatellite(); $('loading').classList.add('done'); intro.hidden = false; mode = 'intro'; };
+  const tick = () => {
+    const L = ModelLoad, bs = Object.values(L.bytes), got = bs.reduce((a,b)=>a+b.loaded,0), tot = bs.reduce((a,b)=>a+b.total,0);
+    const frac = L.started ? Math.max(L.done / L.started, tot ? got / tot : 0) : 1;
+    $('ldFill').style.width = Math.round(Math.min(1, frac) * 100) + '%';
+    $('ldText').textContent = 'Loading the city…';
+    $('ldSub').textContent = tot ? `${MB(got)} of ${MB(tot)} MB${isCoarse ? ' · lighter models for your phone' : ''}` : `${L.done} of ${L.started} models`;
+    const waited = performance.now() - t0;
+    if ((L.started && L.done >= L.started && waited > 300) || waited > 60000) setTimeout(open, 150); else setTimeout(tick, 150);
+  };
+  setTimeout(tick, 200);
+})();
 window.__jpDebug = { animals:()=>cows.map(c=>[c.beh, +c.pos.x.toFixed(1), +c.pos.z.toFixed(1), +c.sit.toFixed(2)]), honkAt:(x,z)=>scareAnimals(x,z,14), simAnimals:(sec)=>{ for (let i=0;i<sec*60;i++){ t += 1/60; updateAnimals(1/60); } }, exitHere:(i,x,z)=>{ const a = autos[i]; a.state='driven'; a.pos.set(x,0,z); a.heading = 0.4; riding = a; exitAuto(); }, sim:(sec)=>{ const n = Math.round(sec*60); for (let i=0;i<n;i++){ updateAutos(1/60); } }, autoInfo:(i)=>{ const a = autos[i]; return JSON.stringify({state:a.state, s:a.s, v:a.v, off:a.off, offT:a.offT, blockT:a.blockT, pos:[a.pos.x,a.pos.z], base:a.base && [a.base.x,a.base.z]}); }, setAuto:(i,sv)=>{ const a = autos[i]; a.s = sv; a.v = 0; }, traffic:()=>autos.map(a=>[+a.pos.x.toFixed(1),+a.pos.z.toFixed(1),+a.v.toFixed(1)]), logoRef:(v)=>logoUrl(v), liftPhase:()=>liftState&&liftState.phase, gotoFloor:(i)=>goToFloor(officeDoors[i]), tab:(x)=>{ tab = x; togglePanel(true); }, sitting:()=>!!sitting, ridingNow:()=>riding&&riding.type, lobby:(i)=>enterShop(lobbyDoors[i]), floor:(i)=>enterFloor(officeDoors[i]), roles:()=>showRoles(), lift:(t)=>openLift(t), gy:(x,z)=>groundY(x,z),  jeepGo:()=>rideJeep(), nearJeep:()=>{ P.pos.set(jeep.pos.x+2.5,0,jeep.pos.z); snapCam = true; }, nearCamel:i=>{ const c = camels[i]; P.pos.set(c.pos.x+2,0,c.pos.z); snapCam = true; }, look:(l)=>{ Object.assign(myLook,l); saveLook(); }, P:()=>[P.pos.x,P.y,P.pos.z], counts:()=>[shopDoors.length, officeDoors.length], enterDoorByName:(n)=>{ const d = shopDoors.find(x=>x.name===n); if (d) enterShop(d); return !!d; }, prods:()=>openProducts(), music:()=>Music.on, inside:(v)=>setInside(v), sendChat:(t)=>sendChat(t), nearScooter:i=>{ const a = scooters[i]; P.pos.set(a.pos.x+1.5, 0, a.pos.z+0.6); snapCam = true; }, nearAuto:i=>{ const a = autos[i]; P.pos.set(a.pos.x+3, 0, a.pos.z+0.5); resolve(P.pos); snapCam = true; }, door:i=>{ const d = shopDoors[i]; P.pos.set(d.x,0,d.z); P.rot = d.rot+Math.PI; yaw = d.rot; snapCam = true; return d.name; }, act:()=>doAction(), action:()=>action&&action.label, openMap, closeMap, doors:()=>shopDoors.length, autos:()=>autos.map(a=>[a.pos.x,a.pos.z,a.state]), key:(c,v)=>{keys[c]=v;}, fly:setFly, time:applyTime, tour:(u)=>{tourU=u;}, tp:(x,z,yw,pt,dst)=>{ P.pos.set(x,0,z); resolve(P.pos); yaw = yw; pitch = pt ?? 0.2; if (dst) dist = dst; snapCam = true; }, start, stats:()=>({calls:renderer.info.render.calls, tris:renderer.info.render.triangles, colliders:colliders.length}) };
 })();
 </script></body></html>
