@@ -156,8 +156,8 @@ function animatePerson(ch, walk, amt, tt){
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
 const Rig = (()=>{
-  const MALE = ['m_Casual_2','m_Worker','m_Adventurer'];   // full-length, single-layer outfits (the suit's shirt flickers through its jacket)
-  const FEMALE = ['f_Casual','f_Formal','f_Worker','f_Adventurer'];
+  const MALE = ['m_Casual_2','m_Worker'];   // full-length, single-layer outfits (the suit's shirt flickers through its jacket)
+  const FEMALE = ['f_Casual','f_Formal','f_Worker'];
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
   const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
   const loadClips = k => clipSets[k] || (clipSets[k] = new Promise(res=>loader.load(`models/people/_anims_${k}.glb`, g=>res(g.animations), undefined, ()=>res(null))));
@@ -183,11 +183,12 @@ const Rig = (()=>{
     const female = (L.model && L.model.startsWith('f_')) || (!(L.model && L.model.startsWith('m_')) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
-    const KURTA = ['m_Casual_2','m_Adventurer'], SHIRT = ['m_Casual_2','m_Worker','m_Adventurer'], NOHAT = ['m_Casual_2','m_Adventurer'];   // turbans never go on top of a hat
+    const KURTA = ['m_Casual_2'], SHIRT = ['m_Casual_2','m_Worker'], NOHAT = ['m_Casual_2'];   // turbans never go on top of a hat
     const name = ((MALE.includes(L.model) || FEMALE.includes(L.model)) && L.model) || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
+    const body = ch.g;   // if this character is rebuilt before the model arrives, the late model must not attach to the new body
     Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
-      if (!m || !cl || !ch.g) return;
+      if (!m || !cl || !ch.g || ch.g !== body || ch.rig.inst) return;
       const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(m.scale);
       const turban = L.head === 'turban', odhni = L.head === 'odhni';
       const tint = (mat, c) => { if (c) mat.color.set(c).convertSRGBToLinear(); };
@@ -196,7 +197,7 @@ const Rig = (()=>{
         const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
         // keep each outfit's own designed colours; only skin tone follows the person's choice
         if (SKIN.test(nm)) tint(o.material, L.skin);
-        else if (HAIR.test(nm) && turban) o.visible = false;
+        else if (turban && (HAIR.test(nm) || /hair|hat/i.test(nm) || /hair|hat/i.test(o.name || ''))) o.visible = false;   // the turban replaces hair and hats
       });
       ch.g.add(inst); ch.mesh.visible = false;
       const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
@@ -480,7 +481,7 @@ function makeScooter(col){
   const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
   // "Scooter Motorcycle" by NORBERTO-3D and, every third one, "Cyberpunk Scooter" by Berk Gedik (both CC BY 4.0)
   const cyber = (scooterCount++ % 3) === 2;
-  Swap.apply(g, cyber ? 'models/vehicles/scooter2.glb' : 'models/vehicles/scooter.glb', {length: cyber ? 1.95 : 1.85, hide: [m]});
+  Swap.apply(g, cyber ? 'models/vehicles/scooter2.glb' : 'models/vehicles/scooter.glb', cyber ? {height: 1.2, hide: [m]} : {length: 1.85, hide: [m]});   // the standing e-scooter is sized by height (handlebar ~1.2 m)
   scene.add(g); return g;
 }
 const SCOOTER_COLS = ['#1F3B6E','#B82B2B','#2A2A2A','#E8E2D6','#2E8C87','#E05A2B','#5E8F3A'];

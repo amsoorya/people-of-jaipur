@@ -1415,6 +1415,7 @@ function rebuildPlayer(){
   parent.remove(player.g);
   const np = makePerson(lookFromCode(myLook));
   player.g = np.g; player.mesh = np.mesh; player.b = np.b; player.dress = np.dress; player.lL = np.lL; player.lR = np.lR; player.aL = np.aL; player.aR = np.aR;
+  player.rig = np.rig;   // animate the new body's model, not the old one
   player.g.position.copy(pos); player.g.rotation.copy(rot); parent.add(player.g);
   if (riding) seat(player);
 }
@@ -1424,7 +1425,7 @@ function swatchRow(id, arr, key){
 }
 function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook[key]))); }
 /* Characters: the 3D outfits people can pick (natural outfit colours; skin tone and headwear are yours to choose) */
-const CHARACTERS = [['m_Casual_2','Casual'],['m_Worker','Worker'],['m_Adventurer','Explorer'],['f_Casual','Casual (woman)'],['f_Formal','Dress'],['f_Worker','Worker (woman)'],['f_Adventurer','Explorer (woman)']];
+const CHARACTERS = [['m_Casual_2','Casual'],['m_Worker','Worker'],['f_Casual','Casual (woman)'],['f_Formal','Dress'],['f_Worker','Worker (woman)']];
 { const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
   box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = v === 'f_Formal' ? 'lehenga' : v.startsWith('f_') ? 'lehenga' : 'kurta';
     if (v.startsWith('f_') && myLook.head === 'turban') myLook.head = 'longhair'; if (!v.startsWith('f_') && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
@@ -2270,11 +2271,20 @@ function frame(){
     const pos = tmpV.copy(w.a).lerp(w.b, w.t); const dir = w.dir;
     const nx = (w.b.z-w.a.z)/w.len, nz = -(w.b.x-w.a.x)/w.len;
     pos.x += nx*w.off; pos.z += nz*w.off;
-    const near = Math.hypot(pos.x-P.pos.x,pos.z-P.pos.z) < 1.3;
+    // personal space: stop for the player or for someone just ahead going the same way; step aside for people coming the other way
+    const fx = (w.b.x-w.a.x)/w.len*dir, fz = (w.b.z-w.a.z)/w.len*dir;
+    let near = Math.hypot(pos.x-P.pos.x,pos.z-P.pos.z) < 1.6, side = 0;
+    for (const o of walkers){ if (o === w || !o.pos.lengthSq()) continue; const dx = o.pos.x - w.pos.x, dz = o.pos.z - w.pos.z, dd = dx*dx + dz*dz; if (dd > 2.6) continue;
+      const ahead = dx*fx + dz*fz; if (ahead <= 0) continue;
+      if (o.dir === w.dir || o.stopped){ if (ahead < 1.1) near = true; } else side += (dx*nx + dz*nz) > 0 ? -1 : 1; }
+    w.side = (w.side || 0) + ((side ? Math.sign(side) * 0.6 : 0) - (w.side || 0)) * Math.min(1, dt * 3); pos.x += nx*w.side; pos.z += nz*w.side;
+    w.stopped = near;
     if (!near){ w.t += dir*w.sp*dt/w.len; w.walk += dt*w.sp*3.4; }
     if (w.t > 1){ w.t = 1; w.dir = -1; w.off = -w.off; } if (w.t < 0){ w.t = 0; w.dir = 1; w.off = -w.off; }
     resolve(pos, 0.32); w.pos.lerp(pos, w.pos.lengthSq() ? Math.min(1, dt*10) : 1);
     w.ch.g.position.copy(w.pos); w.ch.g.rotation.y = Math.atan2((w.b.x-w.a.x)*dir,(w.b.z-w.a.z)*dir);
+    // and nobody walks through anybody: keep the player out of passers-by
+    if (!inShop && !riding && !flying){ const px = P.pos.x - w.pos.x, pz = P.pos.z - w.pos.z, pd = Math.hypot(px, pz); if (pd < 0.7 && pd > 1e-4){ P.pos.x = w.pos.x + px/pd*0.7; P.pos.z = w.pos.z + pz/pd*0.7; } }
     animatePerson(w.ch, w.walk, near?0:1, t);
   }
   // pigeons
