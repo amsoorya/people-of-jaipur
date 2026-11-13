@@ -478,6 +478,28 @@ const PigeonRig = (()=>{
   return {update};
 })();
 
+/* Nature MegaKit trees, one instanced mesh per tree shape so hundreds of trees cost a handful of draw calls */
+(function plantTrees(){
+  const fallback = () => { const g = new THREE.Group(); scene.add(g); TREE_SPOTS.forEach(t=>{ if (t.type !== 'scrub') treeSimple(t.x, t.z, t.type, t.s, g); }); g.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } }); };
+  if (!THREE.GLTFLoader){ fallback(); return; }
+  // what each Jaipur tree becomes, and how tall (metres) at scale 1
+  const KIND = {neem:[['CommonTree_1','CommonTree_2','CommonTree_3','CommonTree_4','CommonTree_5'], 7.5], peepal:[['CommonTree_2','CommonTree_4'], 10], ashoka:[['Pine_2'], 8], bougainvillea:[['Bush_Common_Flowers'], 3.2], scrub:[['Bush_Common'], 1.3]};
+  new THREE.GLTFLoader().load('models/nature/trees.glb', g=>{
+    const shapes = {}; g.scene.updateMatrixWorld(true);
+    g.scene.children.forEach(n=>{ const parts = []; n.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(n), inv = new THREE.Matrix4().copy(n.matrixWorld).invert();
+      n.traverse(o=>{ if (o.isMesh){ const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); parts.push({geo, mat:o.material}); } });
+      // stand every shape on the ground at its own centre (some sit off-origin in the file, which made bushes float)
+      const bb = new THREE.Box3(); parts.forEach(p=>{ p.geo.computeBoundingBox(); bb.union(p.geo.boundingBox); }); const c = bb.getCenter(new THREE.Vector3());
+      parts.forEach(p=>p.geo.translate(-c.x, -bb.min.y, -c.z));
+      shapes[n.name] = {parts, h: (bb.max.y - bb.min.y) || 1, list: []}; });
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0,1,0), sc = new THREE.Vector3();
+    TREE_SPOTS.forEach(t=>{ const [names, H] = KIND[t.type] || KIND.neem, nm = names[Math.floor(t.pick * names.length)], sh = shapes[nm]; if (!sh) return;
+      const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); sh.list.push(new THREE.Matrix4().compose(new THREE.Vector3(t.x, t.y || 0, t.z), q, sc)); });
+    for (const nm in shapes){ const sh = shapes[nm]; if (!sh.list.length) continue;
+      for (const p of sh.parts){ const im = new THREE.InstancedMesh(p.geo, p.mat, sh.list.length); sh.list.forEach((mx, i)=>im.setMatrixAt(i, mx)); im.castShadow = nm !== 'Bush_Common'; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); } }
+  }, undefined, fallback);
+})();
+
 /* Rideable scooters at the stands */
 let scooterCount = 0;
 function makeScooter(col){

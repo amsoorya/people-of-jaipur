@@ -34,7 +34,7 @@ const isCoarse = matchMedia('(pointer: coarse)').matches;
 const lowEnd = isCoarse || (navigator.hardwareConcurrency||8) <= 4;
 /* 3D model downloads: phones get the lighter .lite versions; every download is tracked so the
    loading screen can wait for the whole city before it opens. */
-const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/vehicles/scooter2.glb']);
+const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/vehicles/scooter2.glb','models/nature/trees.glb']);
 const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : u;
 const ModelLoad = {started:0, done:0, bytes:{}};
 if (THREE.GLTFLoader){

@@ -7,7 +7,14 @@ const BLOBS = [0,1,2].map(k=>{
   g.computeVertexNormals(); return g;
 });
 const LEAF = {neem:['#55702F','#4B6629','#62803A'], peepal:['#4E7A2C','#5D8A34'], bougainvillea:['#C2397A','#D24C8C','#5E7A34'], ashoka:['#3F5E26','#4A6B2C'], palm:['#5F7F35']};
+/* Trees: palms are built here; every other tree is a Stylized Nature MegaKit tree (Quaternius, CC0), drawn later
+   as instanced meshes at these spots. If the models can't load, the simple trees below are used instead. */
+const TREE_SPOTS = [];
 function tree(x,z,type='neem',s=1){
+  if (type !== 'palm'){ TREE_SPOTS.push({x, z, type, s, rot: rand()*6.283, pick: rand()}); circles.push({x,z,r:0.45*s}); return; }
+  treeSimple(x,z,type,s);
+}
+function treeSimple(x,z,type='neem',s=1,root){
   const g = new THREE.Group(), lc = LEAF[type];
   if (type==='palm'){
     const H = 9*s; let px = 0;
@@ -29,6 +36,7 @@ function tree(x,z,type='neem',s=1){
       add(g,BLOBS[i%3],mat(c,'foliage'),Math.cos(a)*r, trunkH + (i===0?2.0:rr(1.0,2.6))*s, Math.sin(a)*r, rr(1.7,2.5)*s,rr(1.4,2.0)*s,rr(1.7,2.5)*s,rand()*6);
     }
   }
+  if (root){ g.position.set(x,0,z); g.rotation.y = rand()*6; root.add(g); return; }
   place(g,x,z,rand()*6); circles.push({x,z,r:0.45*s});
 }
 

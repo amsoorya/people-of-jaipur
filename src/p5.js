@@ -220,13 +220,11 @@ for (let z=-70; z<105; z+=14) if (Math.abs(z)>16) { tree(141.5,z,'ashoka',0.9); 
   place(am,ax,az,0.6,ay);
 }
 { // scrub on the hills
-  const inst = new THREE.InstancedMesh(BLOBS[1], mat('#6E7440','foliage'), 350); let k = 0; const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-  for (let i=0;i<5000 && k<350;i++){
+  // spots only: the bushes themselves are Nature MegaKit bushes, planted with the trees
+  for (let i=0, k=0; i<5000 && k<350; i++){
     const a = rand()*Math.PI*2, R = rr(330,620), x = CX + Math.cos(a)*R, z = CZ + Math.sin(a)*R, y = terrainH(x,z);
-    if (y < 1 || y > 34) continue; const s = rr(0.9,2.0);
-    m4.compose(new THREE.Vector3(x,y+s*0.4,z), q.setFromEuler(e.set(0,rand()*6,0)), new THREE.Vector3(s,s*0.8,s)); inst.setMatrixAt(k++, m4);
+    if (y < 1 || y > 34) continue; k++; TREE_SPOTS.push({x, z, y, type:'scrub', s: rr(0.9,2.0), rot: rand()*6.283, pick: rand()});
   }
-  inst.count = k; inst.castShadow = false; inst.receiveShadow = true; scene.add(inst);
 }
 // trees outside the walls
 for (let i=0;i<220;i++){
