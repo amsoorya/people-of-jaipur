@@ -1,6 +1,81 @@
 # People of Jaipur
 
-A walkable 3D Pink City where people, shops and companies meet. The site is live at **peopleofjaipur.com**.
+**A walkable 3D Pink City where people, shops and companies meet.**
+
+Walk, ride an auto, hop on a camel or fly over a hand-built 3D Jaipur — then meet the designers, builders, shops and companies who've set up there.
+
+🌐 **Live:** [peopleofjaipur.com](https://peopleofjaipur.com)
+
+> **Inspired by [People of Bengaluru](https://peopleofbengaluru.com/).** That project showed how fun it is to meet a city's community by walking around a 3D version of it. People of Jaipur is our take on the idea for the Pink City. Full credit to the People of Bengaluru team for the original idea.
+
+---
+
+## Everything you can do here
+
+### 🚶 Move around
+| Action | Keyboard | Phone |
+|---|---|---|
+| Walk forward / back | `W` / `S` (or arrow keys) | Joystick |
+| Turn | `A` / `D` | Joystick |
+| Run | Hold `Shift` (or turn on *Always run* in the Menu) | Run button |
+| Look around | Drag the mouse | Drag |
+| Zoom | Scroll | Pinch |
+| Fly over the city | `F` | Fly button |
+| Open the map (tap anywhere to go there) | `M` | Map button |
+| Interact with whatever is nearby | `E` | Tap the button that appears |
+| Close a panel | `Esc` | Close button |
+
+### 🔑 The one key you need: `E`
+Walk up to something and a button appears at the bottom of the screen. Press `E` (or tap it) to:
+- enter shops and towers
+- call lifts and go up to office floors
+- sit at café tables and on steps
+- ride vehicles and animals
+- meet the people walking around
+
+### 🛺 Get around Jaipur
+- **Autos:** stop a passing auto-rickshaw and drive it yourself
+- **Scooters:** pick one up from a scooter stand
+- **Camels:** ride one at Jal Mahal
+- **Jeep:** take it up to Sunset Point, or walk the spiral road
+- **Horn:** press `H` to honk (it scatters the cows, camels and pigeons nearby)
+- **Seat view:** press `V` in a vehicle to see from the driver's seat
+
+### 🏰 Places to visit
+Hawa Mahal · Jantar Mantar · Jal Mahal · City Palace · Albert Hall · Patrika Gate · Sanganeri Gate · Badi Chaupar · Johari Bazaar · Central Park · Gaurav Tower · Sunset Point (Nahargarh) · Jagatpura Tech Park · Anokhi Café · Wind View Café, plus city streets, animals, traffic and chai stalls.
+
+### 🌅 Make it yours
+- **Time of day:** switch between Day, Dusk and Night from the Menu
+- **Music:** turn the background music on or off
+- **Outfit:** choose a kurta, shirt or lehenga, a turban, odhni or hairstyle, colours and skin tone. Everyone else walking the city sees your look too.
+
+### 🤝 Join the city
+From the Menu, pick **Register as an individual, business or company**:
+- **Individual:** a profile (name, what you do, what you're building, LinkedIn, X, Instagram, GitHub, website) and a spot in the city. You can say which company you work at and that company confirms you.
+- **Business:** take one of **205 shops**. The shutters go up, and visitors can browse your products, open your store link, get directions and message you.
+- **IT company:** take one of **18 floors** in the Jagatpura Tech Park. Add your logo and post open roles with apply links.
+
+Sign-in is passwordless: enter your email, get a 6-digit code, paste it in. LinkedIn sign-in can be turned on too.
+
+### 💬 Meet people
+- **See who's around:** Explore → People shows who is online and who has joined. Walk up to someone online to wave.
+- **Connect:** open a profile and tap *Connect*. When they accept, you're both told, **private messages unlock**, and you can see each other's social links.
+- **Meets:** organise one with a date, place, optional online link and number of spots, or join someone else's.
+- **Clubs:** start or join a club, each with its own chat.
+- **Community board:** in the Menu, or on notice boards at Badi Chaupar, Central Park and in the Tech Park lobbies.
+- **Chat:** sit at any café table to join that café's chat, use City chat from the Menu, or message a shop owner directly.
+- **Notifications:** connection requests, accepted connections and new messages, all in the Menu.
+
+### 🔒 Privacy
+Your social links and private messages are protected by the database itself (Supabase row-level security). Only you and people you've accepted can read them, not even other signed-in users. See [Who can see what](#who-can-see-what).
+
+---
+
+## Tech
+
+- **3D city:** plain JavaScript and WebGL, shipped as one static `index.html` with no build tools to install
+- **Backend:** [Supabase](https://supabase.com) for auth (email OTP + optional LinkedIn OIDC), Postgres with row-level security, realtime presence and chat, and storage for company logos
+- **Hosting:** [Netlify](https://netlify.com), auto-deployed on every push to `main`
 
 ## What's in this repository
 
@@ -14,9 +89,19 @@ A walkable 3D Pink City where people, shops and companies meet. The site is live
 | `schema.sql` | The database setup for Supabase. |
 | `netlify.toml` | Tells Netlify to publish this folder as it is. |
 
+## Running it locally
+
+```
+git clone https://github.com/amsoorya/people-of-jaipur.git
+cd people-of-jaipur
+python3 -m http.server 8000
+```
+
+Open http://localhost:8000. Without Supabase details in `config.js`, you can still walk, ride, fly and explore, just without signing in.
+
 ## Making changes
 
-1. Edit files in `src/`, or replace them with updated versions.
+1. Edit files in `src/`.
 2. Run `python3 build.py` to rebuild `index.html`.
 3. Commit and push:
    ```
@@ -26,22 +111,12 @@ A walkable 3D Pink City where people, shops and companies meet. The site is live
    ```
 4. Netlify publishes the update to peopleofjaipur.com within a minute or two.
 
-## Putting this on GitHub for the first time
+`config.js` only ever holds the public Supabase *anon* key, which is safe to publish. **Never commit the `service_role` key.**
 
-1. On github.com, signed in as **amsoorya**, click **New repository**. Name it `peopleofjaipur`, leave it empty with no README, and create it.
-2. In this folder, which already has its first commit, run:
-   ```
-   git remote add origin https://github.com/amsoorya/peopleofjaipur.git
-   git branch -M main
-   git push -u origin main
-   ```
-   If you'd rather not use the command line, GitHub Desktop works too. Use **File**, then **Add local repository**, pick this folder, then **Publish**.
-3. In Netlify, click **Add new site**, then **Import an existing project**, then **GitHub**. Pick `amsoorya/peopleofjaipur`. Leave the build command empty and the publish directory as `.`, then deploy.
-4. Add the custom domain in Netlify and point GoDaddy at it, as in Step 5 below.
+## Credits
 
-From then on, every push to `main` goes live automatically.
-
-**Public or private:** the repository can be either. `config.js` only ever holds the public Supabase *anon* key, which is safe to publish. Never commit the `service_role` key.
+- Inspired by **[People of Bengaluru](https://peopleofbengaluru.com/)**
+- Built for the people of Jaipur 🩷
 
 ---
 
@@ -108,7 +183,7 @@ The social side lives in **Supabase**, which is free to start: sign-in, profiles
 You keep your domain and its DNS at GoDaddy. You only change two records, and Netlify handles HTTPS for you.
 
 1. Create a free account at netlify.com.
-2. Open **Add new site**, then **Import an existing project**, then **GitHub**, and pick `amsoorya/peopleofjaipur`. Leave the build command empty and the publish directory as `.`. (You can also choose **Deploy manually** and drag in this folder.) Netlify gives you an address like `something.netlify.app`.
+2. Open **Add new site**, then **Import an existing project**, then **GitHub**, and pick `amsoorya/people-of-jaipur`. Leave the build command empty and the publish directory as `.`. (You can also choose **Deploy manually** and drag in this folder.) Netlify gives you an address like `something.netlify.app`.
 3. Open **Site configuration**, then **Change site name**, and set it to `peopleofjaipur`. Your address becomes `peopleofjaipur.netlify.app`.
 4. Open **Domain management**, then **Add a domain**. Type `peopleofjaipur.com` and confirm. Netlify adds `www.peopleofjaipur.com` too.
 
