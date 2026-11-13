@@ -156,16 +156,21 @@ function animatePerson(ch, walk, amt, tt){
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
 const Rig = (()=>{
-  // the same Quaternius outfits People of Bengaluru uses; costumes (SWAT, spacesuit, sci-fi) are only for people who pick them
-  const MALE = ['m_Casual_2','m_Casual_Hoodie','m_Suit','m_Worker','m_Punk','m_Adventurer'], MALE_ALL = [...MALE, 'm_Swat', 'm_Spacesuit'];   // full-length, single-layer outfits (the suit's shirt flickers through its jacket)
-  const FEMALE = ['f_Casual','f_Formal','f_Suit','f_Worker','f_Punk','f_Adventurer'], FEMALE_ALL = [...FEMALE, 'f_SciFi'];
+  // People of Bengaluru's own character files (Quaternius CC0 characters, each with its own animations)
+  const MALE = ['pm','developer','investor','rockstar','maker','worker_m'], MALE_ALL = [...MALE, 'swat_m', 'moonshot'];
+  const FEMALE = ['creative','founder','designer','formal_f','adventurer_f','worker_f'], FEMALE_ALL = [...FEMALE, 'hero'];
+  const OLD = {m_Casual_2:'pm', m_Casual_Hoodie:'developer', m_Suit:'investor', m_Punk:'rockstar', m_Adventurer:'maker', m_Worker:'worker_m', m_Swat:'swat_m', m_Spacesuit:'moonshot',
+    f_Casual:'creative', f_Suit:'founder', f_Punk:'designer', f_Formal:'formal_f', f_Adventurer:'adventurer_f', f_Worker:'worker_f', f_SciFi:'hero'};
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils);
-  const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, clipSets = {}, live = [];
-  const loadClips = k => clipSets[k] || (clipSets[k] = new Promise(res=>loader.load(`models/people/_anims_${k}.glb`, g=>res(g.animations), undefined, ()=>res(null))));
+  const loader = ok ? new THREE.GLTFLoader() : null, cache = {}, live = [];
+  if (loader && window.MeshoptDecoder) loader.setMeshoptDecoder(window.MeshoptDecoder);
+  const loadClips = () => Promise.resolve([]);   // animations come inside each character file
   const hashS = s => { let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
   const SKIN = /^Skin/, HAIR = /^Hair/, FIXED = /^(Eye|Eyebrows|Moustache|Gold|Earrings|Metal|Tie)/;
   function model(name){
-    if (!cache[name]) cache[name] = new Promise(res=>loader.load(`models/people/${name}.glb`, g=>{
+    // retry a couple of times: on a weak connection a download can drop, and a failed load leaves a blank body
+    const tryLoad = (url, ok, fail, n = 0) => loader.load(url, ok, undefined, e => n < 3 ? setTimeout(()=>tryLoad(url, ok, fail, n + 1), 800 * (n + 1)) : fail(e));
+    if (!cache[name]) cache[name] = new Promise(res=>tryLoad(`models/people/bng/${name}.glb`, g=>{
       const root = g.scene; root.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(root), h = (box.max.y - box.min.y) || 1, y0 = box.min.y;
       // which material is the shirt, which is the trousers: by where its vertices sit on the body
@@ -175,20 +180,22 @@ const Rig = (()=>{
         for (let k=0;k<pos.count;k+=3){ v.fromBufferAttribute(pos,k).applyMatrix4(o.matrixWorld); const r = (v.y - y0)/h; if (r > 0.5 && r < 0.8) st.top++; else if (r > 0.15 && r <= 0.5) st.bot++; } });
       const by = key => Object.entries(stats).sort((a,b)=>b[1][key]-a[1][key])[0];
       const tp = by('top'), bt = by('bot');
-      res({root, scale: 1.72 / h, top: tp && tp[0], bottom: bt && bt[0] !== (tp && tp[0]) ? bt[0] : null});
-    }, undefined, ()=>res(null)));
+      const clips = g.animations.map(c=>{ const k = c.clone(); k.name = c.name.replace(/^.*\|/, ''); return k; });   // 'CharacterArmature|Walk' -> 'Walk'
+      res({root, clips, scale: 1.72 / h, top: tp && tp[0], bottom: bt && bt[0] !== (tp && tp[0]) ? bt[0] : null});
+    }, ()=>res(null)));
     return cache[name];
   }
   function attach(ch, L){
     if (!ok || L.noRig) return;
-    const female = (L.model && L.model.startsWith('f_')) || (!(L.model && L.model.startsWith('m_')) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
+    const want0 = OLD[L.model] || L.model;
+    const female = FEMALE_ALL.includes(want0) || (!MALE_ALL.includes(want0) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
     const hv = hashS(JSON.stringify([L.top, L.bottom, L.skin, L.headColor, L.head]));
-    const KURTA = ['m_Casual_2','m_Casual_Hoodie','m_Punk'], SHIRT = ['m_Casual_2','m_Suit','m_Worker','m_Casual_Hoodie','m_Adventurer'], NOHAT = ['m_Casual_2','m_Suit','m_Casual_Hoodie','m_Punk'];   // turbans never go on top of a hat
-    const name = ((MALE_ALL.includes(L.model) || FEMALE_ALL.includes(L.model)) && L.model) || (L.style === 'lehenga' ? 'f_Formal' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
+    const KURTA = ['pm','developer','rockstar'], SHIRT = ['pm','investor','worker_m','developer','maker'], NOHAT = KURTA;   // turbans never go on top of a hat
+    const name = ((MALE_ALL.includes(want0) || FEMALE_ALL.includes(want0)) && want0) || (L.style === 'lehenga' ? 'formal_f' : female ? pool[hv % pool.length] : L.head === 'turban' ? NOHAT[hv % NOHAT.length] : L.style === 'shirt' ? SHIRT[hv % SHIRT.length] : KURTA[hv % KURTA.length]);
     ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
     const body = ch.g;   // if this character is rebuilt before the model arrives, the late model must not attach to the new body
-    Promise.all([model(name), loadClips(female ? 'f' : 'm')]).then(([m, cl])=>{
+    Promise.all([model(name), loadClips()]).then(([m])=>{ const cl = m && m.clips;
       if (!m || !cl || !ch.g || ch.g !== body || ch.rig.inst) return;
       const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(m.scale);
       const turban = false, odhni = false;   // characters are used exactly as designed, like People of Bengaluru: no added turbans
@@ -226,7 +233,7 @@ const Rig = (()=>{
     });
   }
   const SIT_HIP = -1.45, SIT_KNEE = 1.5;
-  const IDLE = r => r.acts.Idle_Neutral ? 'Idle_Neutral' : 'Idle';
+  const IDLE = r => r.acts.Idle ? 'Idle' : 'Idle_Neutral';
   function play(r, name, fade){
     if (name === 'Idle') name = IDLE(r);
     if (r.cur === name || !r.acts[name]) return;

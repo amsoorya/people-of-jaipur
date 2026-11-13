@@ -1460,7 +1460,7 @@ try { const sv = JSON.parse(localStorage.getItem('jp-look') || 'null'); if (sv &
 function lookFromCode(L){
   const st = ['kurta','shirt','lehenga'].includes(L.style) ? L.style : 'kurta', hd = ['turban','hair','longhair','odhni'].includes(L.head) ? L.head : 'hair';
   const ix = (arr,i) => arr[Math.max(0,Math.min(arr.length-1,(i|0)))];
-  const md = (typeof L.model === 'string' && /^[mf]_[A-Za-z_0-9]+$/.test(L.model)) ? L.model : undefined;
+  const md = (typeof L.model === 'string' && /^[a-z][A-Za-z_0-9]{1,24}$/.test(L.model)) ? L.model : undefined;
   return {model: md, style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
 }
 function rebuildPlayer(){
@@ -1478,12 +1478,13 @@ function swatchRow(id, arr, key){
 }
 function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook[key]))); }
 /* Characters: the 3D outfits people can pick (natural outfit colours; skin tone and headwear are yours to choose) */
-const CHARACTERS = [['m_Casual_2','PM'],['m_Casual_Hoodie','Developer'],['m_Suit','Investor'],['m_Punk','Rockstar'],['m_Adventurer','Maker'],['m_Worker','Worker'],['m_Swat','SWAT'],['m_Spacesuit','Moonshot'],
-  ['f_Casual','Creative'],['f_Suit','Founder'],['f_Punk','Designer'],['f_Formal','Formal'],['f_Adventurer','Adventurer'],['f_Worker','Worker (woman)'],['f_SciFi','Hero']];
+const CHARACTERS = [['pm','PM'],['developer','Developer'],['investor','Investor'],['rockstar','Rockstar'],['maker','Maker'],['worker_m','Worker'],['swat_m','SWAT'],['moonshot','Moonshot'],
+  ['creative','Creative'],['founder','Founder'],['designer','Designer'],['formal_f','Formal'],['adventurer_f','Adventurer'],['worker_f','Worker (woman)'],['hero','Hero']];
+const FEMALE_IDS = ['creative','founder','designer','formal_f','adventurer_f','worker_f','hero'];
 { const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
-  box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = v === 'f_Formal' ? 'lehenga' : v.startsWith('f_') ? 'lehenga' : 'kurta';
-    if (v.startsWith('f_') && myLook.head === 'turban') myLook.head = 'longhair'; if (!v.startsWith('f_') && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
-function renderOutfit(){ [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === (myLook.model || 'm_Casual_2')))); segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
+  box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = FEMALE_IDS.includes(v) ? 'lehenga' : 'kurta';
+    if (FEMALE_IDS.includes(v) && myLook.head === 'turban') myLook.head = 'longhair'; if (!FEMALE_IDS.includes(v) && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
+function renderOutfit(){ [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === (myLook.model || 'pm')))); segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
 function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); lastSent = ''; }
 $('oStyle').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.style = e.target.dataset.v; if (myLook.style==='lehenga' && myLook.head==='turban') myLook.head = 'odhni'; saveLook(); } });
 $('oHead').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.head = e.target.dataset.v; saveLook(); } });
