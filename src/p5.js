@@ -249,12 +249,13 @@ for (let i=0;i<220;i++){
    Street life (static)
    ========================================================= */
 const WHEEL = new THREE.CylinderGeometry(1,1,1,14); WHEEL.rotateZ(Math.PI/2);
+const CART_SPOTS = [];
 function cart(x,z,rot,kind){
   const g = new THREE.Group();
   box(g,2.6,0.12,1.4,'#7A5638',0,0.8,0,'stone');
   for (const sz of [-1,1]) add(g,WHEEL,M('#2A2A2A','stone'),0,0.45,sz*0.75,0.08,0.45,0.45,Math.PI/2);
   const fruit = kind==='fruit' ? ['#E8B33A','#D8342B','#6E9A2E','#F2C230'] : ['#E05A2B','#5E8F3A','#C23B3B','#E8D8B8'];
-  for (let i=0;i<14;i++) add(g,SPH,M(pick(fruit),'stone'),rr(-1.1,1.1),1.0+rr(0,0.15),rr(-0.5,0.5),0.17,0.15,0.17);
+  CART_SPOTS.push({x, z, rot, kind, fruit});   // the produce is real Kenney fruit and veg, piled on once the models load
   cyl(g,0.04,2.4,'#3A2A20',1.1,0.9,0.5,6,'stone'); cone(g,1.5,0.55,pick(['#E8B33A','#2E8C87','#B82B2B','#3B4B8C']),1.1,3.2,0.5,12,'stone');
   place(g,x,z,rot); circles.push({x,z,r:1.3});
 }

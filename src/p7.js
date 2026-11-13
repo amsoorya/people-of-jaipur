@@ -593,7 +593,7 @@ const KEEPERS = [
 const GREET = [['Aaiye, aaiye! Kya dikhaun?','Come in! What can I show you?'],['Nayi chudiyan aayi hain!','New bangles just arrived!'],['Garam jalebi le lijiye!','Have some hot jalebi!'],['Shuddh chandi, shuddh sona.','Pure silver, pure gold.'],['Haath ki bani juttiyan!','Hand-stitched juttis!'],['Taaza masale, seedhe mandi se.','Fresh spices, straight from the market.']];
 /* A shopkeeper behind the counter who turns to face you and greets you. */
 function addKeeper(sc, look, greet, z){
-  const ch = makePerson(look); ch.g.position.set(0.9, 0, z); sc.add(ch.g); sc.userData.keeper = ch;
+  const ch = makePerson(Object.assign({model:'pm'}, look)); ch.g.position.set(0.9, 0, z); sc.add(ch.g); sc.userData.keeper = ch;   // shopkeepers in everyday clothes
   fontReady.then(()=>{ const b = bubble(greet[0], greet[1]); b.position.set(0.9, 2.55, z); sc.add(b); });
 }
 function bubble(line1, line2){
@@ -656,7 +656,9 @@ function buildInterior(kind, stocked){
     sweets.forEach(([col,t2],i)=>{ const x = -2.4+i*0.97; box(sc,0.8,0.04,0.55,'#C9C2B5',x,0.92,cz,'stone');
       for (let k=0;k<9;k++){ const px = x-0.27+(k%3)*0.27, pz = cz-0.18+Math.floor(k/3)*0.18;
         if (t2==='ladoo') add(sc,SPH,M(col,'stone'),px,1.02,pz,0.07,0.07,0.07); else if (t2==='barfi') add(sc,UBOX,M(col,'stone'),px,1.0,pz,0.13,0.05,0.13,Math.PI/4); else add(sc,TOR,M(col,'stone',{roughness:0.3}),px,1.0,pz,0.07,0.07,0.07,0,Math.PI/2); } });
-    shelfWall(sc,-D/2+0.35,0,W-0.6,4,(y)=>{ for (let x=-W/2+0.6; x<W/2-0.5; x+=0.5){ box(sc,0.4,0.22,0.3,Math.random()<0.5?'#B82B2B':'#E8B33A',x,y,-D/2+0.4,'stone'); } });
+    // back shelves: mithai boxes with cakes, cupcakes, cookies, muffins and pies on display between them
+    const BAKE = ['cake','cupcake','cookie-chocolate','muffin','pie','donut-sprinkles','ginger-bread','cake-birthday','pudding','cookie'];
+    shelfWall(sc,-D/2+0.35,0,W-0.6,4,(y)=>{ let j = 0; for (let x=-W/2+0.6; x<W/2-0.5; x+=0.5, j++){ if (FoodKit.ready && j % 2) FoodKit.put(sc, BAKE[(j + Math.round(y*10)) % BAKE.length], x, -D/2+0.42, 0, y, 2.0); else box(sc,0.4,0.22,0.3,Math.random()<0.5?'#B82B2B':'#E8B33A',x,y,-D/2+0.4,'stone'); } });
     for (const sx of [-1,1]) for (let i=0;i<3;i++){ box(sc,0.6,0.75,0.6,'#6B4530',sx*(W/2-1),0,-0.5+i*1.6,'stone'); cyl(sc,0.25,0.3,'#9C9C9C',sx*(W/2-1),0.75,-0.5+i*1.6,14,'stone'); }
   } else if (kind===3){ // jewellery
     for (const sx of [-1,1]) for (let i=0;i<3;i++){ const z = -2.2+i*2.0; box(sc,0.8,1.0,1.5,'#4A2418',sx*(W/2-0.7),0,z,'stone'); box(sc,0.7,0.03,1.4,'#7A1020',sx*(W/2-0.7),1.0,z,'stone'); add(sc,UBOX,M_GLASS_SHOP,sx*(W/2-0.7),1.25,z,0.8,0.5,1.5);
@@ -1347,6 +1349,7 @@ function buildCafe(door){
   [[-1.8,-0.4],[1.8,-0.4],[-1.8,2.4],[1.8,2.4]].forEach(([tx,tz],ti)=>{
     cyl(sc,0.5,0.04,'#7A5638',tx,0.74,tz,24,'stone'); cyl(sc,0.05,0.74,'#2A2A2A',tx,0,tz,8,'stone'); cyl(sc,0.28,0.02,'#2A2A2A',tx,0,tz,16,'stone');
     add(sc,new THREE.CylinderGeometry(0.06,0.045,0.11,12),pmat('#A85A3A'),tx+0.15,0.83,tz);
+    if (FoodKit.ready){ const SNACK = ['croissant','muffin','cookie','donut','pie']; FoodKit.put(sc,'plate',tx-0.18,tz+0.1,0,0.77,0.45); FoodKit.put(sc,SNACK[ti % SNACK.length],tx-0.18,tz+0.1,ti,0.79,0.8); FoodKit.put(sc,ti % 2 ? 'cup-tea' : 'cup-coffee',tx+0.02,tz-0.2,ti,0.76,0.75); }
     for (const s of [-1,1]){ const chx = tx + s*0.78; box(sc,0.45,0.05,0.45,'#6B4530',chx,0.46,tz,'stone'); box(sc,0.05,0.5,0.45,'#6B4530',chx+s*0.22,0.48,tz,'stone'); for (const [a,b] of [[-0.18,-0.18],[0.18,-0.18],[-0.18,0.18],[0.18,0.18]]) box(sc,0.04,0.46,0.04,'#4A2E1C',chx+a,0,tz+b,'stone'); }
     circlesIn.push({x:tx, z:tz, r:1.15});
     const tbl = {x:tx, z:tz, seats:[{x:tx-0.74, z:tz, rot:Math.PI/2, npc:null},{x:tx+0.74, z:tz, rot:-Math.PI/2, npc:null}]}; (sc.userData.tables = sc.userData.tables || []).push(tbl);

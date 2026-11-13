@@ -525,9 +525,9 @@ const PigeonRig = (()=>{
 })();
 
 /* Office furniture (Kenney Furniture Kit, CC0): each piece centred on its footprint, standing on the floor, at real size */
-const OfficeKit = (()=>{
-  const K = 1.95, pieces = {}; let ready = false;
-  if (THREE.GLTFLoader) new THREE.GLTFLoader().load('models/office.glb', g=>{
+const makeKit = (url, K) => (()=>{
+  const pieces = {}; let ready = false;
+  if (THREE.GLTFLoader) new THREE.GLTFLoader().load(url, g=>{
     g.scene.children.slice().forEach(n=>{ n.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(n), c = b.getCenter(new THREE.Vector3());
       const holder = new THREE.Group(); n.position.sub(new THREE.Vector3(c.x, b.min.y, c.z)); holder.add(n); holder.scale.setScalar(K);
       holder.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } }); pieces[n.name] = holder; });
@@ -536,7 +536,23 @@ const OfficeKit = (()=>{
   // place a copy of a piece in a room: x, z on the floor, turned by rot, optionally raised (y) and resized (s)
   function put(sc, name, x, z, rot = 0, y = 0, s = 1){ const p = pieces[name]; if (!p) return null; const c = p.clone(); c.position.set(x, y, z); c.rotation.y = rot; if (s !== 1) c.scale.multiplyScalar(s); sc.add(c); return c; }
   function size(name){ const p = pieces[name]; return p ? new THREE.Box3().setFromObject(p).getSize(new THREE.Vector3()) : null; }
-  return {get ready(){ return ready; }, put, size};
+  return {get ready(){ return ready; }, put, size, names: () => Object.keys(pieces)};
+})();
+const OfficeKit = makeKit('models/office.glb', 1.95);
+const FoodKit = makeKit('models/food.glb', 0.5);   // Kenney Food Kit, CC0
+/* Street carts: a heaped mound of produce on each one */
+(function fillCarts(){
+  const FRUIT = ['apple','banana','orange','grapes','pear','pineapple','coconut','watermelon','strawberry','lemon'], VEG = ['tomato','carrot','eggplant','cabbage','cauliflower','onion','corn','paprika','pumpkin','mushroom'];
+  let tries = 0;
+  const go = () => {
+    if (!FoodKit.ready){ if (++tries < 80) return setTimeout(go, 250);   // fall back to simple produce if the models never arrive
+      CART_SPOTS.forEach(c=>{ for (let i=0;i<14;i++){ const m = new THREE.Mesh(SPH, M(pick(c.fruit),'stone')); m.scale.set(0.17,0.15,0.17); m.position.set(c.x + rr(-1,1), 1.0, c.z + rr(-0.4,0.4)); scene.add(m); } }); return; }
+    CART_SPOTS.forEach(c=>{ const g = new THREE.Group(); g.position.set(c.x, 0, c.z); g.rotation.y = c.rot; scene.add(g); const list = c.kind === 'fruit' ? FRUIT : VEG;
+      // rows of produce across the cart bed, each row one kind, second layer on top
+      for (let row = 0; row < 5; row++){ const name = list[(row + Math.abs(Math.round(c.x))) % list.length];
+        for (let layer = 0; layer < 2; layer++) for (let j = 0; j < 4; j++){ FoodKit.put(g, name, -1.05 + row * 0.52 + (layer ? 0.12 : 0), -0.45 + j * 0.3 + (layer ? 0.15 : 0), Math.random() * 6, 0.86 + layer * 0.14, 1.6); } } });
+  };
+  go();
 })();
 
 /* Rideable scooters at the stands */
