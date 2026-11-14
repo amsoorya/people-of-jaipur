@@ -232,6 +232,10 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #ghostBar kbd,#findBtn kbd{display:none}
 #findBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 236px);right:calc(env(safe-area-inset-right,0px) + 14px);z-index:9;box-shadow:var(--shadow);font-family:inherit}
 @media (max-width:720px){#ghostBar span{display:none}#ghostBar{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}#findBtn{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 200px)}}
+#tourCard{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);z-index:20;width:min(560px,calc(100vw - 24px));background:var(--surface);color:var(--ink);border-radius:18px;padding:16px 18px 14px;box-shadow:var(--shadow)}
+#tourCard .tk{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--pink)}#tourCard h3{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 4px}#tourCard p{margin:0 0 10px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
+#tourCard .tbar{height:4px;border-radius:9px;background:var(--line);overflow:hidden}#tourCard .tbar i{display:block;height:100%;width:0;background:var(--marigold)}
+#tourExit{position:absolute;top:12px;right:12px;border:0;border-radius:10px;padding:7px 12px;background:var(--surface-2);font-weight:700}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -288,6 +292,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
+<div id="tourCard" hidden><div class="tk">GUIDED TOUR · <span id="tourStep"></span></div><h3 id="tourTitle"></h3><p id="tourText"></p><div class="tbar"><i id="tourFill"></i></div><button id="tourExit">Exit tour</button></div>
 <div id="ghostBar" hidden><i class="gi">👤</i><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet.</span><button id="ghostVisible">Become visible</button><button id="ghostSign" class="alt">Sign in</button></div>
 <button id="findBtn" hidden>Find someone</button>
 
@@ -325,6 +330,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <button class="mitem" id="joinBtn" hidden>Add yourself to the city</button>
     <button class="mitem" id="timeBtn" hidden>Dusk</button>
     <button class="mitem" id="creatorBtn" hidden>Meet the creator</button>
+    <button class="mitem" id="tourBtn">Take the guided tour</button>
     <button class="mitem" id="guideBtn">What you can do here</button>
     <p class="mhelp" id="mhelp">W to walk, A and D to turn, Shift to run, drag to look. Walk up to people, shops, autos, scooters and camels, then press E.</p>
   </div>
@@ -406,6 +412,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <div class="card role-card" role="dialog" aria-modal="true" aria-labelledby="roleTitle">
     <div class="card-top"><div><h2 id="roleTitle">How are you joining?</h2><div class="role">Pick one and we’ll set you up in the city.</div></div></div>
     <div class="card-body">
+      <button class="choice" data-role="tour"><b>Take the guided tour</b><span>A guide shows you around the whole city: landmarks, bazaars, shops, cafés, the Tech Park and its offices.</span></button>
       <button class="choice" data-role="explore"><b>Just exploring</b><span>Walk around, ride, chat and visit shops.</span></button>
       <button class="choice" data-role="individual"><b>As an individual</b><span>Get your own character and spot in the city, with your LinkedIn.</span></button>
       <button class="choice" data-role="business"><b>As a business</b><span>Take a shop or stall in the bazaar, with your products, store link and address.</span></button>

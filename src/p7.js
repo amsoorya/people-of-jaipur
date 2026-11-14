@@ -691,7 +691,8 @@ function buildInterior(kind, stocked){
 }
 function enterShop(door){
   const key = door.kind === 6 ? 'cafe:'+door.name+(door.biz?':'+door.biz.name:'') : door.kind + (door.biz ? ':open' : door.landmark ? ':sample' : ':empty');
-  const okey = door.kind === 7 ? 'office:'+door.slot+':'+(door.co ? door.co.name + door.co.jobs.map(j=>j.title).join() : '') : key;
+  const kitTag = (OfficeKit.ready ? 'k' : '') + (FoodKit.ready ? 'f' : '');
+  const okey = kitTag + '|' + (door.kind === 7 ? 'office:'+door.slot+':'+(door.co ? door.co.name + door.co.jobs.map(j=>j.title).join() : '') : key);
   if (door.kind === 7){ enterFloor(door); return; }
   if (!interiorCache[okey]) interiorCache[okey] = door.kind === 8 ? buildLobby(door) : door.kind === 6 ? buildCafe(door) : buildInterior(door.kind, !!door.biz || !!door.landmark);
   const sc0 = interiorCache[okey];
@@ -707,7 +708,7 @@ function enterShop(door){
 const interiorCache = {};
 const interiorCacheReady = k => !!interiorCache[k];
 function enterFloor(f){
-  const key = 'floor:'+f.slot+':'+(f.co ? f.co.name + (f.co.logo||'') + f.co.jobs.map(j=>j.title).join() : '');
+  const key = 'floor:'+f.slot+':'+(f.co ? f.co.name + (f.co.logo||'') + f.co.jobs.map(j=>j.title).join() : '') + (OfficeKit.ready ? ':kit' : '');   // rebuild once the furniture has loaded
   if (!interiorCache[key]) interiorCache[key] = buildFloor(f);
   const sc = interiorCache[key]; sc.environment = envFor('day') || scene.environment;   // office lighting doesn't follow the sky
   if (!inShop) inShop = {saved:P.pos.clone()};
@@ -1652,7 +1653,7 @@ function liftDoors(sc, x, z, ry){ const g = new THREE.Group(); box(g,2.2,2.6,0.1
 function buildLobby(door){
   const sc = new THREE.Scene(), W = 14, D = 12, H = 5;
   sc.background = new THREE.Color('#1A1A1E'); sc.fog = new THREE.Fog(0x1a1a1e, 40, 80);
-  roomShell(sc,W,D,H,'#D6D2CC','#ECE8E2',true,[-2.2,2.2]);
+  roomShell(sc,W,D,H,'#C9B79C','#EADFCF',true,[-2.2,2.2]);   // lobby: warm stone floor, cream walls
   add(sc,arcadeGeo(W,1,H,2.8,3.6,0.25),M('#ECE8E2','stone'),0,0,D/2);
   sc.userData.outside = add(sc,UPLANE,new THREE.MeshBasicMaterial({color:'#F3DCC0'}),0,2,D/2+1.2,4,5);
   makeLift(sc,-2.2,-D/2,1,'G'); makeLift(sc,2.2,-D/2,1,'G');
@@ -1681,7 +1682,7 @@ function buildLobby(door){
 function buildFloor(f){
   const sc = new THREE.Scene(), W = 16, D = 12, H = 3.6, co = f.co, name = floorName(f);
   sc.background = new THREE.Color('#1A1A1E'); sc.fog = new THREE.Fog(0x1a1a1e, 40, 80);
-  roomShell(sc,W,D,H,'#BDB7AE','#EEEBE6',false,null,[0]);
+  roomShell(sc,W,D,H,'#A47A52','#E6D8C3',false,null,[0]);   // warm oak floor, soft sand walls (easier on the eyes than grey and white)
   // windows with the city outside
   plane(sc,M_VIEW,0,1.9,-D/2+0.12,W-1,2.0); plane(sc,M_VIEW,-W/2+0.12,1.9,-1,D-4,2.0,Math.PI/2); plane(sc,M_VIEW,W/2-0.12,1.9,-2.5,D-6,2.0,-Math.PI/2);
   for (let x=-W/2+1; x<W/2; x+=2.5) box(sc,0.08,2.0,0.06,'#6A6E74',x,0.9,-D/2+0.15,'stone');
@@ -1905,7 +1906,7 @@ function showRoles(){ $('roleNote').textContent = ''; $('roleWrap').hidden = fal
 $('roleBtn').addEventListener('click', ()=>{ toggleMenu(false); showRoles(); });
 $('roleWrap').addEventListener('click', async e=>{
   const btn = e.target.closest('.choice'); if (!btn) return; const role = btn.dataset.role;
-  if (role !== 'explore' && !(db && myId)){
+  if (role !== 'explore' && role !== 'tour' && !(db && myId)){
     if (window.JP_AUTH && window.JP_AUTH.signIn){ try { localStorage.setItem('jp-pending-role', role); } catch(err){} $('roleNote').textContent = role === 'company' ? 'Sign in with your work email to register your company…' : 'Taking you to sign in…'; window.JP_AUTH.signIn(); return; }
     $('roleNote').textContent = 'Registering needs you to be signed in with edit access to this page. You can still explore.'; return;
   }
@@ -1914,7 +1915,79 @@ $('roleWrap').addEventListener('click', async e=>{
   if (mode !== 'play') start();
   runRole(role);
 });
+/* =========================================================
+   Guided tour: the guide takes the camera from place to place; the visitor just watches (Exit tour leaves)
+   ========================================================= */
+const TOUR_STOPS = [
+  {t:'Welcome to the Pink City', d:'Jaipur’s old city was painted pink in 1876 to welcome the Prince of Wales, and it has stayed that way. Let’s look around.', at:[30,0], r:70, h:55},
+  {t:'Hawa Mahal', d:'The Palace of Winds, built in 1799: 953 small windows let royal women watch the street without being seen.', world:true, cam:[-18,2.2,5.5], look:[-25,9,-8]},
+  {t:'Bazaar life', d:'Bangle, textile, sweet and spice shops line the arcades. Walk up to any open shop and its glass doors slide open.', at:[-50,0], r:12, h:4},
+  {t:'Autos and tuk-tuks', d:'Black-and-yellow autos run the bazaars. Stop one with E and drive it yourself; press V for the view from the driver’s seat.', el:()=>autos[0] && autos[0].pos, r:7, h:3},
+  {t:'A thela on the corner', d:'Fruit and vegetable carts with a thelawala calling out. Walk up and press E to see what’s fresh today.', el:()=>CART_SPOTS[0] && {x:CART_SPOTS[0].x, z:CART_SPOTS[0].z}, r:6, h:3},
+  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when you come close.', at:[30,0], r:22, h:10},
+  {t:'Inside a sweet shop', d:'Every shop has a shopkeeper and real stock. At the counter, press E to see their best sellers one by one.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===2), cam:[0,2.2,4.2], look:[0,1.2,-2]},
+  {t:'Inside a bangle shop', d:'Lac and glass bangles in every colour, stacked on the walls. Sit on a stool and take your time.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===1), cam:[1.2,2.0,4.2], look:[0,1.2,-2]},
+  {t:'A café', d:'Sit at any table to join that café’s chat with the people there.', shop:()=>shopDoors.find(x=>x.kind===6), cam:[2.5,3.0,4.5], look:[0,0.8,0]},
+  {t:'Johari Bazaar', d:'The jewellers’ market, and home of LMB’s famous sweets.', at:[30,50], r:24, h:8},
+  {t:'Jantar Mantar', d:'An 18th-century observatory. Its Samrat Yantra is one of the largest stone sundials in the world.', at:[-14,-56], r:28, h:14},
+  {t:'City Palace', d:'Chandra Mahal rises seven storeys and is still home to Jaipur’s royal family.', at:[-68,-58], r:30, h:14},
+  {t:'Panna Meena ka Kund', d:'A 17th-century stepwell famous for its criss-cross stairs. Walk down to the water, or sit on the steps.', at:[-150,-10], r:24, h:16},
+  {t:'Camels', d:'Camels rest near Jal Mahal. Walk up and press E to ride one.', el:()=>camels[0] && camels[0].pos, r:8, h:4},
+  {t:'Cows on the road', d:'Cows wander, graze and take their time. Honk with H and they move along.', el:()=>cows[0] && cows[0].pos, r:7, h:3},
+  {t:'Jal Mahal', d:'A palace in the middle of Man Sagar Lake. Most of its floors sit under the water.', at:[30,-175], r:60, h:22},
+  {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city.', at:[-140,-150], r:40, h:30},
+  {t:'Albert Hall Museum', d:'Rajasthan’s oldest museum, built in the Indo-Saracenic style in Ram Niwas Garden.', at:[30,158], r:40, h:16},
+  {t:'C-Scheme and MI Road', d:'Cafés, roasters and Anokhi’s block-print store. Modern Jaipur hangs out here.', at:[150,0], r:30, h:14},
+  {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', at:[205,65], r:45, h:20},
+  {t:'Patrika Gate', d:'Every wall and ceiling painted in a different Rajasthani style.', at:[246,0], r:24, h:9},
+  {t:'Jagatpura Tech Park', d:'Two towers of offices. IT companies take a floor, post open roles, and their team shows up at the desks.', at:[207,132], r:45, h:22},
+  {t:'The lobby', d:'Reception, a waiting area and lifts to every floor. The directory shows which company is on which floor.', shop:()=>lobbyDoors[0], cam:[2.5,2.3,4.2], look:[-1,1.1,-2]},
+  {t:'A company floor', d:'Desks with screens, a glass meeting room, the manager’s cabin, a pantry and a lounge. Talk to the receptionist for the company’s website, email and phone, and read the jobs board.', floor:()=>officeDoors[MANTHHAN_SLOT], cam:[3.2,2.4,4.6], look:[-2,0.9,-2.5]},
+  {t:'Meet the people', d:'Everyone you see walking about is a real person who joined. Sign in to become visible, connect, message, and organise meets and clubs. Enjoy Jaipur!', at:[-25,-4], r:40, h:24},
+];
+const TOUR_HOLD = 9;   // seconds at each stop
+let tour = null;
+function startTour(){
+  toggleMenu(false); if (mode !== 'play') start();
+  for (const id of ['roleWrap','guideWrap','cardWrap','prodWrap','joinWrap','recWrap','jobsWrap']) { const el = $(id); if (el) el.hidden = true; }
+  if (riding) exitAuto(); if (flying) setFly(false); if (sitting) standUp();
+  tour = {i:-1, t:0, pos: camera.position.clone(), look: new THREE.Vector3(), fromPos: new THREE.Vector3(), fromLook: new THREE.Vector3()};
+  camera.getWorldDirection(tour.look); tour.look.multiplyScalar(10).add(camera.position);
+  cardOpen = true; player.g.visible = false; $('tourCard').hidden = false; tourNext();
+}
+function endTour(){
+  if (!tour) return; tour = null; $('tourCard').hidden = true; cardOpen = false; player.g.visible = true;
+  if (inShop) exitShop(); P.pos.set(-31,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.18; dist = 4.6; snapCam = true; canvas.focus();
+}
+function tourNext(){
+  const i = tour.i + 1; if (i >= TOUR_STOPS.length){ endTour(); return; }
+  const st = TOUR_STOPS[i]; tour.i = i; tour.t = 0; tour.fromPos.copy(camera.position); tour.fromLook.copy(tour.look);
+  // interiors: step inside (the camera jumps, since it can't glide through walls)
+  const door = st.shop ? st.shop() : st.floor ? st.floor() : null;
+  if (door){ if (inShop) exitShop(); if (st.floor){ enterFloor(door); if (typeof closeLift === 'function') closeLift(); } else enterShop(door); player.g.visible = false;
+    tour.fromPos.set(...st.cam); tour.fromLook.set(...st.look); }
+  else if (inShop){ exitShop(); player.g.visible = false; }
+  $('tourStep').textContent = `${i+1} of ${TOUR_STOPS.length}`; $('tourTitle').textContent = st.t; $('tourText').textContent = st.d;
+}
+function updateTour(dt){
+  const st = TOUR_STOPS[tour.i]; tour.t += dt; for (const k in keys) keys[k] = false;
+  const k = Math.min(1, tour.t / 3.2), e = k*k*(3 - 2*k);   // glide for the first 3 seconds
+  let wantPos, wantLook;
+  if (st.cam){ wantPos = new THREE.Vector3(...st.cam).add(new THREE.Vector3(Math.sin(tour.t*0.25)*(st.world ? 3 : 0.6), 0, 0)); wantLook = new THREE.Vector3(...st.look); }
+  else { const c = st.el ? st.el() : {x:st.at[0], z:st.at[1]}; const cx = c ? c.x : 0, cz = c ? c.z : 0, a = 0.6 + tour.t * 0.09;   // a slow orbit
+    wantPos = new THREE.Vector3(cx + Math.sin(a)*st.r, (typeof groundY === 'function' ? Math.max(0, groundY(cx, cz)) : 0) + st.h, cz + Math.cos(a)*st.r); wantLook = new THREE.Vector3(cx, (st.h > 20 ? 0 : 1.5), cz);
+    // never inside a building: if the orbit passes over one, rise above its roof
+    let roof = 0; for (const c of colliders){ if (c.h && wantPos.x > c.minX - 2 && wantPos.x < c.maxX + 2 && wantPos.z > c.minZ - 2 && wantPos.z < c.maxZ + 2) roof = Math.max(roof, c.h); }
+    tour.lift = (tour.lift || 0) + ((roof > wantPos.y - 1.5 ? roof + 3 - wantPos.y : 0) - (tour.lift || 0)) * Math.min(1, dt * 2); wantPos.y += tour.lift; }
+  camera.position.lerpVectors(tour.fromPos, wantPos, e); tour.look.lerpVectors(tour.fromLook, wantLook, e); camera.lookAt(tour.look);
+  $('tourFill').style.width = Math.min(100, tour.t / TOUR_HOLD * 100) + '%';
+  if (tour.t >= TOUR_HOLD) tourNext();
+}
+$('tourExit').addEventListener('click', endTour);
+$('tourBtn').addEventListener('click', startTour);
+addEventListener('keydown', e=>{ if (tour && e.key === 'Escape'){ e.stopImmediatePropagation(); endTour(); } }, true);
 function runRole(role){
+  if (role === 'tour'){ setTimeout(startTour, 300); return; }
   if (role === 'explore'){ let g = null; try { g = localStorage.getItem('jp-guided'); } catch(e){} if (!g) setTimeout(()=>$('guideBtn').click(), 900); }
   if (role === 'individual') setTimeout(openJoin, 300);
   else if (role === 'business'){
@@ -2484,7 +2557,8 @@ function frame(){
   }
 
   // camera
-  if (mode !== 'play'){
+  if (tour){ updateTour(dt); }
+  else if (mode !== 'play'){
     tourU = (tourU + dt*(reduceMotion?0.002:0.0085)) % 1;
     camera.position.copy(tourPos.getPointAt(tourU));
     camera.lookAt(tourLook.getPointAt(tourU));
