@@ -1956,7 +1956,10 @@ const TOUR_STOPS = [
     shots:[{from:[0,1.75,5.6], to:[0.8,1.75,3.2], look:[0,1.5,0], lookTo:[-3.6,1.3,0.2], dur:5}, {from:[-1.0,1.7,3.6], to:[1.0,1.7,3.6], look:[4.4,0.8,2.45], lookTo:[4.4,0.8,2.2], dur:4}, {from:[0,1.8,1.5], to:[0,1.8,-0.2], look:[0,1.8,-6], lookTo:[0,2.2,-6], dur:4}]},
   {t:'A company floor', d:'Desks with screens, a glass meeting room, the manager’s cabin, a pantry and a lounge. Talk to the receptionist for the company’s website, email and phone, and read the jobs board.', floor:()=>officeDoors[MANTHHAN_SLOT],
     shots:[{from:[-4.6,1.7,1.0], to:[-4.6,1.8,2.2], look:[-4.6,1.9,6], lookTo:[-3,2.1,6], dur:4}, {from:[3.2,2.4,4.6], to:[1.0,1.6,2.6], look:[-2,0.9,-2.5], lookTo:[0.6,1.0,-2.0], dur:5}, {from:[-2.4,1.6,-1.6], to:[-2.0,1.6,-2.4], look:[-5.4,1.0,-4.4], lookTo:[-5.4,1.0,-4.4], dur:4}, {from:[4.4,1.7,1.2], to:[4.4,1.7,-0.6], look:[6.9,1.0,-2.3], lookTo:[7.6,1.6,1.0], dur:4}]},
-  {t:'Meet the people', d:'Everyone you see walking about is a real person who joined. Sign in to become visible, connect, message, and organise meets and clubs. Enjoy Jaipur!', at:[-25,-4], r:40, h:24},
+  {t:'Meet the people', d:'Everyone you see walking about is a real person who joined. Sign in to become visible, connect, message, and organise meets and clubs.', at:[-25,-4], r:40, h:24},
+  {t:'Meet the creator', d:'People of Jaipur was built by Jaya Soorya, inspired by People of Bengaluru. Walk up and say hi, or tap Connect on the card to message. Enjoy the Pink City!',
+    el:()=>{ const lp = typeof livePeerOf === 'function' && livePeerOf(CREATOR_ID); if (lp) return lp.cur; const m = memberMap.get(CREATOR_ID); return m ? m.ch.g.position : {x:-22.7, z:0.2}; },
+    rkeys:{pos:[[8,3.2,3.2],[6.2,2.7,2.8],[4.8,2.4,2.4]], look:[[0,0.6,0],[0,0.5,0],[0,0.45,0]]}},
 ];
 /* Each stop is a short film: two to four shots (a wide establishing crane, a street-level dolly, a close detail),
    with fades between stops, slow camera moves, live moments (pigeons taking off, a horn, cows ambling off) and spoken narration. */

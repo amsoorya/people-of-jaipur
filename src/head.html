@@ -241,6 +241,7 @@ body.touring #topbar,body.touring #topright,body.touring #ghostBar,body.touring 
 #tourCard.in{animation:tourIn .6s ease}@keyframes tourIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
 #tourCard .tbtns{display:flex;gap:8px;margin-top:10px}#tourCard .tbtns button{border:0;border-radius:10px;padding:6px 12px;background:var(--surface-2);font-weight:700;font-size:13px}
 #tourExit{position:absolute;top:12px;right:12px;border:0;border-radius:10px;padding:7px 12px;background:var(--surface-2);font-weight:700}
+.inspired{margin-top:14px;font-size:14px;color:#FFF4EA;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.5)}.inspired a{color:#FFD58A;font-weight:700}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
@@ -294,6 +295,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="lede">Fly over the Pink City at dusk. Land anywhere, and meet the people who design and build it, live.</p>
   <button class="start" id="startBtn">Enter the city</button>
   <button class="linkbtn introsign" id="introSign" hidden>Already a member? Sign in</button>
+  <p class="inspired">Inspired by <a href="https://peopleofbengaluru.com/" target="_blank" rel="noopener">People of Bengaluru</a> · Built by Jaya Soorya</p>
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
@@ -338,6 +340,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <button class="mitem" id="creatorBtn" hidden>Meet the creator</button>
     <button class="mitem" id="tourBtn">Take the guided tour</button>
     <button class="mitem" id="guideBtn">What you can do here</button>
+    <p class="mhelp">Inspired by <a href="https://peopleofbengaluru.com/" target="_blank" rel="noopener">People of Bengaluru</a>. Built by Jaya Soorya.</p>
     <p class="mhelp" id="mhelp">W to walk, A and D to turn, Shift to run, drag to look. Walk up to people, shops, autos, scooters and camels, then press E.</p>
   </div>
 </div>
