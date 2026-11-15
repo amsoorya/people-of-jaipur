@@ -3,6 +3,11 @@
    ========================================================= */
 staticRoot.updateMatrixWorld(true);
 signQueue.forEach(s=>{ s.matrix = s.obj.matrixWorld.clone(); });
+/* Real heights for building colliders (they default to 40 m): the tallest piece of geometry standing on each footprint */
+{ const boxes = []; staticRoot.children.forEach(ch=>{ const b = new THREE.Box3().setFromObject(ch); if (isFinite(b.max.y) && b.max.x - b.min.x < 200 && b.max.z - b.min.z < 200) boxes.push(b); });
+  for (const c of colliders){ if (c.h !== 40) continue; let top = 0; const cx = (c.minX + c.maxX)/2, cz = (c.minZ + c.maxZ)/2;
+    for (const b of boxes){ if (b.max.x > c.minX + 0.3 && b.min.x < c.maxX - 0.3 && b.max.z > c.minZ + 0.3 && b.min.z < c.maxZ - 0.3 && cx > b.min.x - 2 && cx < b.max.x + 2 && cz > b.min.z - 2 && cz < b.max.z + 2) top = Math.max(top, b.max.y); }
+    if (top > 1) c.h = Math.min(40, top); } }
 (function bake(){
   if (!THREE.BufferGeometryUtils) { staticRoot.traverse(o=>{ if (o.isMesh){ o.castShadow = !o.userData.noCast; o.receiveShadow = true; } }); return; }
   const buckets = new Map();

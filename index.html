@@ -1991,6 +1991,11 @@ for (let x=170; x<=250; x+=18) tree(x,110.5,'ashoka',0.9);
    ========================================================= */
 staticRoot.updateMatrixWorld(true);
 signQueue.forEach(s=>{ s.matrix = s.obj.matrixWorld.clone(); });
+/* Real heights for building colliders (they default to 40 m): the tallest piece of geometry standing on each footprint */
+{ const boxes = []; staticRoot.children.forEach(ch=>{ const b = new THREE.Box3().setFromObject(ch); if (isFinite(b.max.y) && b.max.x - b.min.x < 200 && b.max.z - b.min.z < 200) boxes.push(b); });
+  for (const c of colliders){ if (c.h !== 40) continue; let top = 0; const cx = (c.minX + c.maxX)/2, cz = (c.minZ + c.maxZ)/2;
+    for (const b of boxes){ if (b.max.x > c.minX + 0.3 && b.min.x < c.maxX - 0.3 && b.max.z > c.minZ + 0.3 && b.min.z < c.maxZ - 0.3 && cx > b.min.x - 2 && cx < b.max.x + 2 && cz > b.min.z - 2 && cz < b.max.z + 2) top = Math.max(top, b.max.y); }
+    if (top > 1) c.h = Math.min(40, top); } }
 (function bake(){
   if (!THREE.BufferGeometryUtils) { staticRoot.traverse(o=>{ if (o.isMesh){ o.castShadow = !o.userData.noCast; o.receiveShadow = true; } }); return; }
   const buckets = new Map();
@@ -4657,33 +4662,34 @@ $('roleWrap').addEventListener('click', async e=>{
    Guided tour: the guide takes the camera from place to place; the visitor just watches (Exit tour leaves)
    ========================================================= */
 const TOUR_STOPS = [
-  {t:'Welcome to the Pink City', d:'Jaipur’s old city was painted pink in 1876 to welcome the Prince of Wales, and it has stayed that way. Let’s look around.', at:[30,0], r:70, h:55},
-  {t:'Hawa Mahal', d:'The Palace of Winds, built in 1799: 953 small windows let royal women watch the street without being seen.', world:true, cam:[-18,2.2,5.5], look:[-25,9,-8]},
-  {t:'Bazaar life', d:'Bangle, textile, sweet and spice shops line the arcades. Walk up to any open shop and its glass doors slide open.', at:[-50,0], r:12, h:4},
+  {t:'Welcome to the Pink City', d:'Jaipur’s old city was painted pink in 1876 to welcome the Prince of Wales, and it has stayed that way. Let’s look around.', keys:{pos:[[70,62,70],[52,44,44],[36,34,26]], look:[[10,0,-10],[20,0,-5],[28,0,0]]}},
+  {t:'Hawa Mahal', d:'The Palace of Winds, built in 1799: 953 small windows let royal women watch the street without being seen.', keys:{pos:[[-50,32,46],[-25,29,42],[0,32,46]], look:[[-25,12,-8],[-25,12,-8],[-25,13,-8]]}},
+  {t:'Bazaar life', d:'Bangle, textile, sweet and spice shops line the arcades. Walk up to any open shop and its glass doors slide open.', keys:{pos:[[-6,2.5,1.5],[4,2.4,1.5],[14,2.4,1.5]], look:[[30,2.2,0],[32,2.2,0],[34,2.4,0]]}},
   {t:'Autos and tuk-tuks', d:'Black-and-yellow autos run the bazaars, and the odd tuk-tuk too. Stop one with E and drive it yourself; press V for the view from the driver’s seat.', el:()=>autos[0] && autos[0].pos, r:7, h:3, live:(n)=>{ if (n === 0) horn('auto', 0.6); }},
-  {t:'A thela on the corner', d:'Fruit and vegetable carts heaped high, with the thelawala calling out to passers-by. Walk up and press E to see what’s fresh today.', el:()=>CART_SPOTS[0] && {x:CART_SPOTS[0].x, z:CART_SPOTS[0].z}, r:6, h:3},
-  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when anyone comes close.', at:[30,0], r:22, h:10, live:(n)=>{ if (n === 1) pigeons.forEach(q=>{ if (Math.hypot(q.hx-30, q.hz) < 20) q.fly = 8; }); }},
+  {t:'A thela on the corner', d:'Fruit and vegetable carts heaped high, with the thelawala calling out to passers-by. Walk up and press E to see what’s fresh today.', el:()=>CART_SPOTS[0] && {x:CART_SPOTS[0].x, z:CART_SPOTS[0].z}, rkeys:{pos:[[5,2.3,-4.5],[2.5,1.9,-3.6],[0,1.8,-3.2]], look:[[0,1,0],[-0.6,1.1,0],[-1.2,1.3,0]]}},
+  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when anyone comes close.', live:(n)=>{ if (n === 1) pigeons.forEach(q=>{ if (Math.hypot(q.hx-30, q.hz) < 20) q.fly = 8; }); }, keys:{pos:[[58,24,30],[46,12,18],[39,4.5,12]], look:[[30,0,0],[30,1,0],[30,2.5,0]]}},
+  {t:'Walking into a shop', d:'Open shops have glass doors that slide apart as you walk up. Kalyan Sweets is open, so let’s go in.', keysFn:()=>{ const d = shopDoors.find(x=>x.landmark && x.kind===2); const fx = Math.sin(d.rot), fz = Math.cos(d.rot); return {pos:[[d.x+fx*9-fz*3,2.2,d.z+fz*9+fx*3],[d.x+fx*4,1.8,d.z+fz*4],[d.x+fx*0.8,1.75,d.z+fz*0.8]], look:[[d.x-fx*2,1.6,d.z-fz*2],[d.x-fx*3,1.6,d.z-fz*3],[d.x-fx*5,1.6,d.z-fz*5]]}; }},
   {t:'Inside a sweet shop', d:'Every shop has a shopkeeper and real stock: ladoo, barfi and jalebi on the counter, cakes and mithai boxes on the shelves. At the counter, press E to see their best sellers.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===2),
-    shots:[{from:[0,2.6,4.6], to:[0,1.9,2.4], look:[0,1.3,-2.4], lookTo:[0,1.4,-3.2], dur:5}, {from:[-2.4,1.55,-0.7], to:[2.4,1.55,-0.7], look:[-1.2,1.2,-3], lookTo:[1.2,1.3,-3], dur:5}, {from:[1.6,1.7,0.4], to:[0.9,1.75,-0.4], look:[0.9,1.6,-3.3], lookTo:[0.9,1.7,-3.3], dur:4}]},
+    shots:[{from:[0,1.75,4.7], to:[0,1.85,2.4], look:[0,1.5,-2.4], lookTo:[0,1.4,-3.2], dur:5}, {from:[-2.4,1.55,-0.7], to:[2.4,1.55,-0.7], look:[-1.2,1.2,-3], lookTo:[1.2,1.3,-3], dur:5}, {from:[1.6,1.7,0.4], to:[0.9,1.75,-0.4], look:[0.9,1.6,-3.3], lookTo:[0.9,1.7,-3.3], dur:4}]},
   {t:'Inside a bangle shop', d:'Lac and glass bangles in every colour, stacked up the walls the way they are in Maniharon ka Rasta. Sit on a stool, and the shopkeeper brings out the new designs.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===1),
-    shots:[{from:[1.4,2.2,4.4], to:[0.4,1.8,2.6], look:[0,1.3,-2.4], lookTo:[0,1.5,-3], dur:5}, {from:[-1.2,1.6,3.2], to:[-1.2,1.7,-1.0], look:[-3.4,1.6,2.6], lookTo:[-3.4,1.8,-1.4], dur:5}, {from:[1.2,1.6,-0.4], to:[1.2,1.6,2.8], look:[3.4,1.7,-0.4], lookTo:[3.4,1.6,2.8], dur:4}]},
+    shots:[{from:[0,1.75,4.7], to:[0.4,1.8,2.6], look:[0,1.5,-2.4], lookTo:[0,1.5,-3], dur:5}, {from:[-1.2,1.6,3.2], to:[-1.2,1.7,-1.0], look:[-3.4,1.6,2.6], lookTo:[-3.4,1.8,-1.4], dur:5}, {from:[1.2,1.6,-0.4], to:[1.2,1.6,2.8], look:[3.4,1.7,-0.4], lookTo:[3.4,1.6,2.8], dur:4}]},
   {t:'A café', d:'Chai in a kulhad, pyaaz kachori and bun maska. Sit at any table to join that café’s chat with whoever is there.', shop:()=>shopDoors.find(x=>x.kind===6),
-    shots:[{from:[2.8,3.2,4.6], to:[2.2,1.9,3.2], look:[0,0.8,0], lookTo:[-1.8,0.8,-0.4], dur:5}, {from:[-0.6,1.15,0.8], to:[-1.2,1.05,0.4], look:[-1.8,0.85,-0.4], lookTo:[-1.8,0.8,-0.4], dur:4}, {from:[0,1.8,1.2], to:[0.6,1.7,0.2], look:[0.6,1.5,-3], lookTo:[0.9,1.6,-3.2], dur:4}]},
-  {t:'Johari Bazaar', d:'The jewellers’ market, and home of LMB’s famous sweets.', at:[30,50], r:24, h:8},
-  {t:'Jantar Mantar', d:'An 18th-century observatory. Its Samrat Yantra is one of the largest stone sundials in the world.', at:[-14,-56], r:28, h:14},
-  {t:'City Palace', d:'Chandra Mahal rises seven storeys and is still home to Jaipur’s royal family.', at:[-68,-58], r:30, h:14},
-  {t:'Panna Meena ka Kund', d:'A 17th-century stepwell famous for its criss-cross stairs. Walk down to the water, or sit on the steps.', at:[-150,-10], r:24, h:16},
+    shots:[{from:[0,1.75,4.6], to:[1.6,1.9,3.0], look:[0,1.2,0], lookTo:[-1.8,0.8,-0.4], dur:5}, {from:[-0.6,1.15,0.8], to:[-1.2,1.05,0.4], look:[-1.8,0.85,-0.4], lookTo:[-1.8,0.8,-0.4], dur:4}, {from:[0,1.8,1.2], to:[0.6,1.7,0.2], look:[0.6,1.5,-3], lookTo:[0.9,1.6,-3.2], dur:4}]},
+  {t:'Johari Bazaar', d:'The jewellers’ market, and home of LMB’s famous sweets.', keys:{pos:[[30,15,84],[31,6,64],[33,3,52]], look:[[30,3,36],[30,3,36],[30,3,36]]}},
+  {t:'Jantar Mantar', d:'An 18th-century observatory. Its Samrat Yantra is one of the largest stone sundials in the world.', keys:{pos:[[12,22,-24],[4,14,-34],[-2,9,-40]], look:[[-14,5,-60],[-14,6,-60],[-14,8,-62]]}},
+  {t:'City Palace', d:'Chandra Mahal rises seven storeys and is still home to Jaipur’s royal family.', keys:{pos:[[-48,26,-22],[-62,19,-30],[-76,15,-32]], look:[[-70,13,-74],[-70,14,-74],[-70,15,-74]]}},
+  {t:'Panna Meena ka Kund', d:'A 17th-century stepwell famous for its criss-cross stairs. Walk down to the water, or sit on the steps.', keys:{pos:[[-124,19,13],[-132,13,8],[-139,8,3]], look:[[-150,-4,-10],[-150,-4,-10],[-150,-3,-10]]}},
   {t:'Camels', d:'Camels rest near Jal Mahal. Walk up and press E to ride one.', el:()=>camels[0] && camels[0].pos, r:8, h:4},
   {t:'Cows on the road', d:'Cows wander, graze and take their time. Honk with H and they move along.', el:()=>cows[0] && cows[0].pos, r:7, h:3, live:(n)=>{ if (n === 2 && cows[0]){ horn('scooter', 0.5); scareAnimals(cows[0].pos.x, cows[0].pos.z, 6); } }},
-  {t:'Jal Mahal', d:'A palace in the middle of Man Sagar Lake. Most of its floors sit under the water.', at:[30,-175], r:60, h:22},
-  {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city.', at:[-140,-150], r:40, h:30},
-  {t:'Albert Hall Museum', d:'Rajasthan’s oldest museum, built in the Indo-Saracenic style in Ram Niwas Garden.', at:[30,158], r:40, h:16},
+  {t:'Jal Mahal', d:'A palace in the middle of Man Sagar Lake. Most of its floors sit under the water.', keys:{pos:[[82,22,-118],[66,12,-134],[56,7,-145]], look:[[30,5,-175],[30,5,-175],[30,6,-175]]}},
+  {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city.', keys:{pos:[[-88,46,-98],[-104,40,-114],[-116,36,-126]], look:[[-140,30,-150],[-140,30,-150],[-140,31,-150]]}},
+  {t:'Albert Hall Museum', d:'Rajasthan’s oldest museum, built in the Indo-Saracenic style in Ram Niwas Garden.', keys:{pos:[[16,10,112],[30,8,116],[44,10,122]], look:[[30,10,158],[30,10,158],[30,11,158]]}},
   {t:'C-Scheme and MI Road', d:'Cafés, roasters and Anokhi’s block-print store. Modern Jaipur hangs out here.', at:[150,0], r:30, h:14},
-  {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', at:[205,65], r:45, h:20},
-  {t:'Patrika Gate', d:'Every wall and ceiling painted in a different Rajasthani style.', at:[246,0], r:24, h:9},
-  {t:'Jagatpura Tech Park', d:'Two towers of offices. IT companies take a floor, post open roles, and their team shows up at the desks.', at:[207,132], r:45, h:22},
+  {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', keys:{pos:[[242,40,122],[228,28,106],[215,18,96]], look:[[205,4,65],[205,4,65],[205,6,65]]}},
+  {t:'Patrika Gate', d:'Every wall and ceiling painted in a different Rajasthani style.', keys:{pos:[[212,8,-10],[222,6,-4],[230,5,2]], look:[[246,8,0],[246,8,0],[246,9,0]]}},
+  {t:'Jagatpura Tech Park', d:'Two towers of offices. IT companies take a floor, post open roles, and their team shows up at the desks.', keys:{pos:[[170,9,104],[180,6,112],[188,4.5,118]], look:[[186,12,140],[186,9,140],[186,6,138]]}},
   {t:'The lobby', d:'Reception, a waiting area and lifts to every floor. The directory board shows which company is on which floor.', shop:()=>lobbyDoors[0],
-    shots:[{from:[3,2.6,4.6], to:[1.5,1.8,3.2], look:[-1,1.1,-2], lookTo:[-3.6,1.2,0.2], dur:5}, {from:[3.0,1.4,0.6], to:[3.6,1.3,2.8], look:[4.4,0.6,2.45], lookTo:[4.4,0.6,2.45], dur:4}, {from:[0,1.8,1.5], to:[0,1.8,-0.2], look:[0,1.8,-6], lookTo:[0,2.2,-6], dur:4}]},
+    shots:[{from:[0,1.75,5.6], to:[0.8,1.75,3.2], look:[0,1.5,0], lookTo:[-3.6,1.3,0.2], dur:5}, {from:[-1.0,1.7,3.6], to:[1.0,1.7,3.6], look:[4.4,0.8,2.45], lookTo:[4.4,0.8,2.2], dur:4}, {from:[0,1.8,1.5], to:[0,1.8,-0.2], look:[0,1.8,-6], lookTo:[0,2.2,-6], dur:4}]},
   {t:'A company floor', d:'Desks with screens, a glass meeting room, the manager’s cabin, a pantry and a lounge. Talk to the receptionist for the company’s website, email and phone, and read the jobs board.', floor:()=>officeDoors[MANTHHAN_SLOT],
     shots:[{from:[-4.6,1.7,1.0], to:[-4.6,1.8,2.2], look:[-4.6,1.9,6], lookTo:[-3,2.1,6], dur:4}, {from:[3.2,2.4,4.6], to:[1.0,1.6,2.6], look:[-2,0.9,-2.5], lookTo:[0.6,1.0,-2.0], dur:5}, {from:[-2.4,1.6,-1.6], to:[-2.0,1.6,-2.4], look:[-5.4,1.0,-4.4], lookTo:[-5.4,1.0,-4.4], dur:4}, {from:[4.4,1.7,1.2], to:[4.4,1.7,-0.6], look:[6.9,1.0,-2.3], lookTo:[7.6,1.6,1.0], dur:4}]},
   {t:'Meet the people', d:'Everyone you see walking about is a real person who joined. Sign in to become visible, connect, message, and organise meets and clubs. Enjoy Jaipur!', at:[-25,-4], r:40, h:24},
@@ -4705,6 +4711,9 @@ function outdoorKeys(st, i){
 }
 function interiorKeys(st){ const pos = [], look = []; st.shots.forEach(sh=>{ pos.push(sh.from, sh.to); look.push(sh.look, sh.lookTo); }); return {rel:false, pos, look}; }
 function keysOf(st, i){
+  if (st.keysFn) return Object.assign({rel:false}, st.keysFn());
+  if (st.keys) return {rel:false, pos:st.keys.pos, look:st.keys.look};
+  if (st.rkeys) return {rel:true, pos:st.rkeys.pos, look:st.rkeys.look};
   if (st.shots) return interiorKeys(st);
   if (st.world) return {rel:false, pos:[st.cam, [st.cam[0] + 3, st.cam[1] + 0.3, st.cam[2] - 0.5], [st.cam[0] + 6, st.cam[1] + 1.5, st.cam[2] - 1.5]], look:[st.look, [st.look[0] + 1.5, st.look[1] + 1, st.look[2]], [st.look[0] + 3, st.look[1] + 2, st.look[2]]]};
   return outdoorKeys(st, i);
@@ -4726,7 +4735,7 @@ function endTour(){
 function tourGo(i){
   if (i >= TOUR_STOPS.length){ endTour(); return; }
   const st = TOUR_STOPS[i]; tour.i = i; tour.t = 0; tour.lift = 0; const K = keysOf(st, i); tour.rel = K.rel; tour.path = curveOf(K.pos); tour.lookPath = curveOf(K.look);
-  tour.total = Math.max(st.shots ? st.shots.reduce((a,b)=>a + b.dur, 0) : 13, st.d.split(' ').length / 2.6 + 2.5);   // long enough for the narration
+  tour.total = Math.max(st.shots ? st.shots.reduce((a,b)=>a + b.dur, 0) : (st.keysFn ? 8 : 12), st.d.split(' ').length / 2.6 + 2.5);   // long enough for the narration
   tour.liveAt = st.live ? [0, tour.total * 0.35, tour.total * 0.65] : []; tour.liveDone = 0;
   const door = st.shop ? st.shop() : st.floor ? st.floor() : null;
   if (door){ if (inShop) exitShop(); if (st.floor){ enterFloor(door); if (typeof closeLift === 'function') closeLift(); } else enterShop(door); }
@@ -4751,6 +4760,7 @@ function updateTour(dt){
   // a little extra smoothing so nothing ever snaps
   if (!tour.cam || tour.t < 0.05){ tour.cam = pos.clone(); tour.lk = look.clone(); } else { tour.cam.lerp(pos, Math.min(1, dt * 4)); tour.lk.lerp(look, Math.min(1, dt * 4)); }
   camera.position.copy(tour.cam); camera.lookAt(tour.lk);
+  if (!inShop){ P.pos.set(tour.cam.x, 0, tour.cam.z); }
   camera.fov = tour.fov - 3 * k; camera.updateProjectionMatrix();
   const left = tour.total - tour.t; $('tourFade').style.opacity = tour.t < 0.7 ? 1 - tour.t/0.7 : left < 0.7 ? 1 - left/0.7 : 0;
   $('tourFill').style.width = Math.min(100, k * 100) + '%';
