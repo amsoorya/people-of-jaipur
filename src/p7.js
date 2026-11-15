@@ -25,7 +25,7 @@ function resolve(p, r=0.4){
     else { const l = p.x-c.minX, rt = c.maxX-p.x, t = p.z-c.minZ, b = c.maxZ-p.z, m = Math.min(l,rt,t,b);
       if (m===l) p.x = c.minX-r; else if (m===rt) p.x = c.maxX+r; else if (m===t) p.z = c.minZ-r; else p.z = c.maxZ+r; }
   }
-  for (const c of circles){ const dx = p.x-c.x, dz = p.z-c.z, d = Math.hypot(dx,dz), m = c.r + r; if (d < m && d > 1e-6){ p.x = c.x + dx/d*m; p.z = c.z + dz/d*m; } }
+  for (const c of circles){ if (!(c.r > 0)) continue; const dx = p.x-c.x, dz = p.z-c.z, d = Math.hypot(dx,dz), m = c.r + r; if (d < m && d > 1e-6){ p.x = c.x + dx/d*m; p.z = c.z + dz/d*m; } }   // switched-off circles (the vehicle you're riding) don't push
   const dc = Math.hypot(p.x-CX, p.z-CZ); if (dc > 300){ p.x = CX + (p.x-CX)/dc*300; p.z = CZ + (p.z-CZ)/dc*300; }
 }
 resolve(P.pos);
@@ -461,6 +461,7 @@ function enterAuto(a){
     showHint('On the camel. W to walk, A and D to steer. Press E to get off.'); return;
   }
   if (a.type === 'scooter'){
+    if (a.circle) a.circle.r = 0;   // the scooter you're on must not collide with itself
     const ahead = V3(a.pos.x + Math.sin(a.heading)*1.6, 0, a.pos.z + Math.cos(a.heading)*1.6), ax = ahead.x, az = ahead.z; resolve(ahead, 0.5);
     if (Math.hypot(ahead.x-ax, ahead.z-az) > 0.05){ a.heading += Math.PI; a.g.rotation.y = a.heading; }
     a.g.add(player.g); player.g.position.set(0,-0.02,-0.3); player.g.rotation.set(0,0,0); seat(player); player.b.lHip.rotation.x = player.b.rHip.rotation.x = -1.05; player.b.lKnee.rotation.x = player.b.rKnee.rotation.x = 1.3; player.b.lSh.rotation.x = player.b.rSh.rotation.x = -1.0;
@@ -566,7 +567,8 @@ function updateAutos(dt){
       a.heading += st * dt * (a.type==='scooter'?2.2:a.type==='camel'?1.3:1.6) * (a.type==='camel' ? (Math.abs(a.v)>0.1?1:0.7) : Math.max(-1, Math.min(1, a.v/5)));
       if (a.type==='scooter') a.lean = THREE.MathUtils.lerp(a.lean||0, -st*Math.min(1,Math.abs(a.v)/12)*0.32, Math.min(1,dt*5));
       const np = tmpV.set(a.pos.x + Math.sin(a.heading)*a.v*dt, 0, a.pos.z + Math.cos(a.heading)*a.v*dt);
-      const bx = np.x, bz = np.z; resolve(np, a.type==='scooter' ? 0.55 : a.type==='camel' ? 1.2 : 1.05);
+      if (a.circle) a.circle.r = 0;
+      const bx = np.x, bz = np.z; resolve(np, a.type==='scooter' ? 0.45 : a.type==='camel' ? 1.2 : 1.05);
       if (Math.hypot(np.x-bx, np.z-bz) > 0.02) a.v *= 0.5;
       a.pos.copy(np); P.pos.set(a.pos.x, 0, a.pos.z); P.rot = a.heading;
       if (!drag) yaw = angLerp(yaw, a.heading - Math.PI, Math.min(1, dt*2.5));
@@ -2483,7 +2485,7 @@ function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
   if (window.__fountainJets) window.__fountainJets.children.forEach((j,i)=>{ j.scale.y = 0.85 + Math.sin(t*6 + i)*0.15; });
   Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t); updateShopDoors(dt);
-  for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : 0.8; }
+  for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : (riding && riding.type === 'scooter' ? 0.35 : 0.8); }   // ride out of a crowded stand without getting stuck
   Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
