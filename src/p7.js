@@ -85,7 +85,7 @@ $('roleSignIn').addEventListener('click', signInReturning);
 function pickCharacterThen(next){
   let done = false; try { done = !!localStorage.getItem('jp-picked-character'); } catch(e){}
   if (done || myDoc){ next(); return; }
-  $('outTitle').textContent = 'Choose your character'; cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false;
+  $('outTitle').textContent = 'Choose your character'; cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false; Preview.show();
   const fin = () => { $('oDone').removeEventListener('click', fin); try { localStorage.setItem('jp-picked-character', '1'); } catch(e){} $('outTitle').textContent = 'Your outfit'; setTimeout(next, 50); };
   $('oDone').addEventListener('click', fin);
 }
@@ -100,7 +100,7 @@ function start(){
   mode = 'play'; intro.classList.add('leaving'); setTimeout(()=>intro.hidden = true, 750);
   $('topbar').hidden = false; if (isCoarse){ stick.hidden = false; runBtn.hidden = false; }
   P.pos.set(-31,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.14; dist = 4.6; snapCam = true; canvas.focus(); Music.start();
-  if (!isCoarse){ showHint('W to walk, A and D to turn, drag to look around. Walk up to shops and autos, then press E.'); setTimeout(()=>{ if (!flying && !riding) showHint(null); }, 9000); }
+  if (!isCoarse){ showHint('W to walk, hold Shift to run, A and D to turn, drag to look around. Walk up to shops and autos, then press E.'); setTimeout(()=>{ if (!flying && !riding) showHint(null); }, 9000); }
 }
 const initials = n => n.split(' ').map(s=>s[0]).join('').slice(0,2);
 const lookColor = l => (l.headColor==='#1E1512'||l.headColor==='#2A1B17') ? l.top : l.headColor;
@@ -450,7 +450,7 @@ function enterAuto(a){
     a.g.add(player.g); player.g.position.set(0,1.72,-0.1); player.g.rotation.set(0,0,0); seat(player);
     player.b.lHip.rotation.set(-0.7,0,0.5); player.b.rHip.rotation.set(-0.7,0,-0.5); player.b.lKnee.rotation.x = player.b.rKnee.rotation.x = 1.1;
     yaw = a.heading - Math.PI; pitch = 0.25; dist = 8; snapCam = true;
-    showHint('On the camel. W to walk, A and D to steer. Press E to get off.'); return;
+    showHint('On the camel. W to walk, hold Shift to run, A and D to steer. Press E to get off.'); return;
   }
   if (a.type === 'scooter'){
     if (a.circle) a.circle.r = 0;   // the scooter you're on must not collide with itself
@@ -1772,11 +1772,17 @@ function lookFromCode(L){
   const st = ['kurta','shirt','lehenga'].includes(L.style) ? L.style : 'kurta', hd = ['turban','hair','longhair','odhni'].includes(L.head) ? L.head : 'hair';
   const ix = (arr,i) => arr[Math.max(0,Math.min(arr.length-1,(i|0)))];
   const md = (typeof L.model === 'string' && /^[a-z][A-Za-z_0-9]{1,24}$/.test(L.model)) ? L.model : undefined;
-  return {model: md, style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
+  // build-your-own: body type, hairstyle, top, bottoms, shoes and colours, all checked against what exists
+  let kit = null; const K = L.kit;
+  if (md === 'custom' && K && typeof K === 'object' && KIT_PARTS[K.g]){ const PP = KIT_PARTS[K.g], n = (v, len) => Math.max(0, Math.min(len - 1, v | 0));
+    kit = {g:K.g, head:n(K.head, PP.head.length), body:n(K.body, PP.body.length), legs:n(K.legs, PP.legs.length), feet:n(K.feet, PP.feet.length)}; }
+  const opt = (arr, i) => (i | 0) >= 0 && (i | 0) < arr.length ? arr[i | 0] : null;
+  return {model: kit ? undefined : md, kit, style:st, dress: kit ? kit.g === 'f' : st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), skinOn: !!L.skinOn || !!kit,
+    hairCol: HAIR_COLS[Math.max(0, Math.min(HAIR_COLS.length - 1, (L.hcol | 0)))], topCol: kit ? opt(PAL.top, L.tcol) : null, botCol: kit ? opt(PAL.bot, L.bcol) : null, moustache: st!=='lehenga' && hd==='turban'};
 }
 function rebuildPlayer(){
   const parent = player.g.parent, pos = player.g.position.clone(), rot = player.g.rotation.clone();
-  parent.remove(player.g);
+  parent.remove(player.g); Rig.drop(player);
   const np = makePerson(lookFromCode(myLook));
   player.g = np.g; player.mesh = np.mesh; player.b = np.b; player.dress = np.dress; player.lL = np.lL; player.lR = np.lR; player.aL = np.aL; player.aR = np.aR;
   player.rig = np.rig;   // animate the new body's model, not the old one
@@ -1792,14 +1798,63 @@ function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-p
 const CHARACTERS = [['pm','PM'],['developer','Developer'],['investor','Investor'],['rockstar','Rockstar'],['maker','Maker'],['worker_m','Worker'],['swat_m','SWAT'],['moonshot','Moonshot'],
   ['creative','Creative'],['founder','Founder'],['designer','Designer'],['formal_f','Formal'],['adventurer_f','Adventurer'],['worker_f','Worker (woman)'],['hero','Hero']];
 const FEMALE_IDS = ['creative','founder','designer','formal_f','adventurer_f','worker_f','hero'];
+/* Character creator: a live 3D preview, the ready-made characters, or build your own */
+const KIT_LABEL = {head:'Hairstyle', body:'Top', legs:'Bottoms', feet:'Shoes'};
+if (!myLook.kit) myLook.kit = {g:'m', head:0, body:0, legs:0, feet:0};
+const Preview = (()=>{
+  let r = null, sc = null, cam = null, ch = null, ang = 0.5, drag = null, raf = 0;
+  function ensure(){
+    if (r) return true; const cvs = $('oPreview');
+    try { r = new THREE.WebGLRenderer({canvas:cvs, antialias:true, alpha:true}); } catch(e){ return false; }
+    r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05; r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xFFF1E0, 0x8A6A55, 1.15)); const d = new THREE.DirectionalLight(0xFFFFFF, 1.5); d.position.set(2, 4, 3); sc.add(d);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.62, 48), new THREE.MeshStandardMaterial({color:new THREE.Color('#E6CDB4').convertSRGBToLinear(), roughness:1})); disc.rotation.x = -Math.PI/2; sc.add(disc);
+    cam = new THREE.PerspectiveCamera(28, 1, 0.1, 50); cam.position.set(0, 1.12, 4.4); cam.lookAt(0, 0.9, 0);
+    cvs.addEventListener('pointerdown', e=>{ drag = {x:e.clientX}; cvs.setPointerCapture(e.pointerId); });
+    cvs.addEventListener('pointermove', e=>{ if (drag){ ang += (e.clientX - drag.x) * 0.012; drag.x = e.clientX; } });
+    const up = ()=>{ drag = null; }; cvs.addEventListener('pointerup', up); cvs.addEventListener('pointercancel', up);
+    return true;
+  }
+  function rebuild(){ if (!ensure()) return; if (ch){ sc.remove(ch.g); Rig.drop(ch); } ch = makePerson(lookFromCode(myLook)); sc.add(ch.g); Rig.wave(ch); }
+  function loop(){
+    if ($('outfitWrap').hidden || !r){ raf = 0; return; }
+    const cvs = $('oPreview'), w = cvs.clientWidth || 300, h = cvs.clientHeight || 260; if (cvs.width !== Math.round(w * r.getPixelRatio())) r.setSize(w, h, false);
+    cam.aspect = w / h; cam.updateProjectionMatrix(); if (!drag) ang += 0.005; if (ch){ ch.g.rotation.y = ang; if (ch.rig && ch.rig.want === 'Wave' && ch.rig.acts && ch.rig.cur === 'Wave' && ch.rig.acts.Wave.time > ch.rig.acts.Wave.getClip().duration * 0.95) ch.rig.want = 'Idle'; }
+    r.render(sc, cam); raf = requestAnimationFrame(loop);
+  }
+  return {show(){ rebuild(); if (!raf) loop(); }, rebuild};
+})();
+function chipRow(id, n, key, sub){
+  const el = $(id); el.innerHTML = '';
+  for (let i = 0; i < n; i++){ const b = document.createElement('button'); b.type = 'button'; b.textContent = String(i + 1); b.setAttribute('aria-label', `${KIT_LABEL[key] || key} ${i + 1}`);
+    b.setAttribute('aria-pressed', String((sub ? myLook.kit[key] : myLook[key]) === i)); b.addEventListener('click', ()=>{ if (sub) myLook.kit[key] = i; else myLook[key] = i; myLook.model = 'custom'; saveLook(); }); el.appendChild(b); }
+}
+function colourRow(id, arr, key, withOriginal){
+  const el = $(id); el.innerHTML = ''; const cur = myLook[key] == null ? -1 : myLook[key];
+  const add = (i, bg, label) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = bg; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', String(cur === i));
+    if (i < 0) b.className = 'orig'; b.addEventListener('click', ()=>{ myLook[key] = i; if (key === 'skin') myLook.skinOn = true; saveLook(); }); el.appendChild(b); };
+  if (withOriginal) add(-1, 'var(--surface-2)', 'As designed');
+  arr.forEach((c, i) => add(i, c, `Colour ${i + 1}`));
+}
+let outfitTab = 'chars';
 { const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
   box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = FEMALE_IDS.includes(v) ? 'lehenga' : 'kurta';
     if (FEMALE_IDS.includes(v) && myLook.head === 'turban') myLook.head = 'longhair'; if (!FEMALE_IDS.includes(v) && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
-function renderOutfit(){ [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === (myLook.model || 'pm')))); segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
-function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); lastSent = ''; }
-$('oStyle').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.style = e.target.dataset.v; if (myLook.style==='lehenga' && myLook.head==='turban') myLook.head = 'odhni'; saveLook(); } });
-$('oHead').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.head = e.target.dataset.v; saveLook(); } });
-$('outfitBtn').addEventListener('click', ()=>{ toggleMenu(false); cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false; });
+$('oTabs').addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; outfitTab = v; if (v === 'build'){ myLook.model = 'custom'; saveLook(); } else renderOutfit(); });
+$('oGender').addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.kit = {g:v, head:0, body:0, legs:0, feet:0}; myLook.model = 'custom'; saveLook(); });
+function renderOutfit(){
+  const custom = myLook.model === 'custom'; if (custom) outfitTab = 'build';
+  [...$('oTabs').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === outfitTab)));
+  $('oCharsPane').hidden = outfitTab !== 'chars'; $('oBuildPane').hidden = outfitTab !== 'build';
+  [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(!custom && b.dataset.v === (myLook.model || 'pm'))));
+  colourRow('oSkinC', PAL.skin, 'skin', false); colourRow('oSkinB', PAL.skin, 'skin', false);
+  if (!myLook.skinOn) [...$('oSkinC').children].forEach(b=>b.setAttribute('aria-pressed', 'false'));
+  [...$('oGender').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook.kit.g)));
+  const PP = KIT_PARTS[myLook.kit.g]; for (const k of ['head','body','legs','feet']) chipRow('oK_' + k, PP[k].length, k, true);
+  colourRow('oHairC', HAIR_COLS, 'hcol', false); colourRow('oTopC', PAL.top, 'tcol', true); colourRow('oBotC', PAL.bot, 'bcol', true);
+}
+function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); Preview.rebuild(); lastSent = ''; }
+$('outfitBtn').addEventListener('click', ()=>{ toggleMenu(false); cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false; Preview.show(); });
 $('oDone').addEventListener('click', ()=>{ $('outfitWrap').hidden = true; cardOpen = false; canvas.focus(); });
 rebuildPlayer();
 

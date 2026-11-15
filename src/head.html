@@ -256,7 +256,13 @@ body.touring #topbar,body.touring #topright,body.touring #ghostBar,body.touring 
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
-#outfitWrap .card{width:min(360px,100%)}
+#outfitWrap .card{width:min(400px,100%);max-height:calc(100vh - 80px);overflow:auto}
+.oPrevBox{position:relative;height:250px;border-radius:14px;background:radial-gradient(circle at 50% 40%,#FBF1E4,#EBD7C2);margin-bottom:12px;overflow:hidden}
+#oPreview{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.oPrevTip{position:absolute;right:10px;bottom:8px;font-size:12px;color:#7A5A48}
+.seg.chips{flex-wrap:wrap}.seg.chips button{min-width:40px;flex:0 0 auto}
+.swatches button.orig{background:linear-gradient(135deg,transparent 45%,var(--ink) 46%,var(--ink) 54%,transparent 55%),var(--surface-2)!important}
+#oTabs{margin-bottom:12px}
 #jobsWrap,#recWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(400px,calc(100vw - 28px))}
 .jt{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:23px;margin:2px 0 8px}
 .job{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
@@ -358,15 +364,25 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 </div>
 <div id="outfitWrap" hidden>
   <div class="card join" role="dialog" aria-modal="true" aria-labelledby="outTitle">
-    <div class="card-top"><div><h2 id="outTitle">Your outfit</h2><div class="role">Others walking the city see this too.</div></div></div>
+    <div class="card-top"><div><h2 id="outTitle">Your character</h2><div class="role">Others walking the city see this too.</div></div></div>
     <div class="card-body">
-      <div class="fld"><span>Character</span><div class="seg wide chars" id="oModel"></div></div>
-      <div class="fld" hidden><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
-      <div class="fld" hidden><span>On your head</span><div class="seg wide" id="oHead"><button data-v="turban">Turban</button><button data-v="hair">Short hair</button><button data-v="longhair">Long hair</button><button data-v="odhni">Odhni</button></div></div>
-      <div class="fld" hidden><span>Top</span><div class="swatches" id="oTop"></div></div>
-      <div class="fld" hidden><span>Bottom</span><div class="swatches" id="oBot"></div></div>
-      <div class="fld" hidden><span>Turban, odhni or hair</span><div class="swatches" id="oHc"></div></div>
-      <div class="fld" hidden><span>Skin tone</span><div class="swatches" id="oSkin"></div></div>
+      <div class="oPrevBox"><canvas id="oPreview" aria-label="Preview of your character. Drag to turn."></canvas><span class="oPrevTip">Drag to turn</span></div>
+      <div class="seg wide" id="oTabs"><button data-v="chars">Characters</button><button data-v="build">Build your own</button></div>
+      <div id="oCharsPane">
+        <div class="fld"><span>Pick a character</span><div class="seg wide chars" id="oModel"></div></div>
+        <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkinC"></div></div>
+      </div>
+      <div id="oBuildPane" hidden>
+        <div class="fld"><span>Body</span><div class="seg wide" id="oGender"><button data-v="m">Man</button><button data-v="f">Woman</button></div></div>
+        <div class="fld"><span>Hairstyle</span><div class="seg wide chips" id="oK_head"></div></div>
+        <div class="fld"><span>Hair colour</span><div class="swatches" id="oHairC"></div></div>
+        <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkinB"></div></div>
+        <div class="fld"><span>Top</span><div class="seg wide chips" id="oK_body"></div></div>
+        <div class="fld"><span>Top colour</span><div class="swatches" id="oTopC"></div></div>
+        <div class="fld"><span>Bottoms</span><div class="seg wide chips" id="oK_legs"></div></div>
+        <div class="fld"><span>Bottoms colour</span><div class="swatches" id="oBotC"></div></div>
+        <div class="fld"><span>Shoes</span><div class="seg wide chips" id="oK_feet"></div></div>
+      </div>
       <div class="actions"><button class="btn primary" id="oDone">Done</button></div>
     </div>
   </div>

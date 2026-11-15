@@ -260,7 +260,13 @@ body.touring #topbar,body.touring #topright,body.touring #ghostBar,body.touring 
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
 #outfitWrap{background:transparent;justify-content:flex-end;align-items:flex-start;padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
-#outfitWrap .card{width:min(360px,100%)}
+#outfitWrap .card{width:min(400px,100%);max-height:calc(100vh - 80px);overflow:auto}
+.oPrevBox{position:relative;height:250px;border-radius:14px;background:radial-gradient(circle at 50% 40%,#FBF1E4,#EBD7C2);margin-bottom:12px;overflow:hidden}
+#oPreview{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.oPrevTip{position:absolute;right:10px;bottom:8px;font-size:12px;color:#7A5A48}
+.seg.chips{flex-wrap:wrap}.seg.chips button{min-width:40px;flex:0 0 auto}
+.swatches button.orig{background:linear-gradient(135deg,transparent 45%,var(--ink) 46%,var(--ink) 54%,transparent 55%),var(--surface-2)!important}
+#oTabs{margin-bottom:12px}
 #jobsWrap,#recWrap{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;width:min(400px,calc(100vw - 28px))}
 .jt{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:23px;margin:2px 0 8px}
 .job{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
@@ -362,15 +368,25 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 </div>
 <div id="outfitWrap" hidden>
   <div class="card join" role="dialog" aria-modal="true" aria-labelledby="outTitle">
-    <div class="card-top"><div><h2 id="outTitle">Your outfit</h2><div class="role">Others walking the city see this too.</div></div></div>
+    <div class="card-top"><div><h2 id="outTitle">Your character</h2><div class="role">Others walking the city see this too.</div></div></div>
     <div class="card-body">
-      <div class="fld"><span>Character</span><div class="seg wide chars" id="oModel"></div></div>
-      <div class="fld" hidden><span>Style</span><div class="seg wide" id="oStyle"><button data-v="kurta">Kurta</button><button data-v="shirt">Shirt</button><button data-v="lehenga">Lehenga</button></div></div>
-      <div class="fld" hidden><span>On your head</span><div class="seg wide" id="oHead"><button data-v="turban">Turban</button><button data-v="hair">Short hair</button><button data-v="longhair">Long hair</button><button data-v="odhni">Odhni</button></div></div>
-      <div class="fld" hidden><span>Top</span><div class="swatches" id="oTop"></div></div>
-      <div class="fld" hidden><span>Bottom</span><div class="swatches" id="oBot"></div></div>
-      <div class="fld" hidden><span>Turban, odhni or hair</span><div class="swatches" id="oHc"></div></div>
-      <div class="fld" hidden><span>Skin tone</span><div class="swatches" id="oSkin"></div></div>
+      <div class="oPrevBox"><canvas id="oPreview" aria-label="Preview of your character. Drag to turn."></canvas><span class="oPrevTip">Drag to turn</span></div>
+      <div class="seg wide" id="oTabs"><button data-v="chars">Characters</button><button data-v="build">Build your own</button></div>
+      <div id="oCharsPane">
+        <div class="fld"><span>Pick a character</span><div class="seg wide chars" id="oModel"></div></div>
+        <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkinC"></div></div>
+      </div>
+      <div id="oBuildPane" hidden>
+        <div class="fld"><span>Body</span><div class="seg wide" id="oGender"><button data-v="m">Man</button><button data-v="f">Woman</button></div></div>
+        <div class="fld"><span>Hairstyle</span><div class="seg wide chips" id="oK_head"></div></div>
+        <div class="fld"><span>Hair colour</span><div class="swatches" id="oHairC"></div></div>
+        <div class="fld"><span>Skin tone</span><div class="swatches" id="oSkinB"></div></div>
+        <div class="fld"><span>Top</span><div class="seg wide chips" id="oK_body"></div></div>
+        <div class="fld"><span>Top colour</span><div class="swatches" id="oTopC"></div></div>
+        <div class="fld"><span>Bottoms</span><div class="seg wide chips" id="oK_legs"></div></div>
+        <div class="fld"><span>Bottoms colour</span><div class="swatches" id="oBotC"></div></div>
+        <div class="fld"><span>Shoes</span><div class="seg wide chips" id="oK_feet"></div></div>
+      </div>
       <div class="actions"><button class="btn primary" id="oDone">Done</button></div>
     </div>
   </div>
@@ -2195,6 +2211,13 @@ function animatePerson(ch, walk, amt, tt){
    Animated 3D people (Quaternius, CC0). Each character gets its own copy of a model
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
+// Build-your-own people: Quaternius Ultimate Modular Men / Women (CC0). Every part shares one skeleton,
+// so a person is one rig with only the chosen head (hairstyle), top, bottoms and shoes switched on.
+const KIT_PARTS = {
+  m:{head:['Casual','Casual2','Suit','Beach','Punk','Adventurer'], body:['Casual','Casual2','Suit','Beach','Punk','Farmer','Adventurer'], legs:['Casual','Casual2','Suit','Beach','Punk','Farmer','Adventurer'], feet:['Casual','Casual2','Suit','Beach','Punk','Farmer','Adventurer']},
+  f:{head:['Casual','Suit','Formal','Punk','Soldier','Adventurer'], body:['Casual','Suit','Formal','Punk','Soldier','Adventurer'], legs:['Casual','Suit','Formal','Punk','Soldier','Adventurer'], feet:['Casual','Suit','Formal','Punk','Soldier','Adventurer']}};
+const KIT_NODE = (g, slot, name) => g === 'm' && slot === 'legs' && name === 'Farmer' ? 'Farmer_Pants' : g === 'f' && slot === 'head' && name === 'Formal' ? 'Formad_Head' : `${name}_${{head:'Head', body:'Body', legs:'Legs', feet:'Feet'}[slot]}`;
+const HAIR_COLS = ['#1A1412','#3B2A20','#5E3B26','#8A5A32','#B98A4E','#8C8C8C'];
 const Rig = (()=>{
   // People of Bengaluru's own character files (Quaternius CC0 characters, each with its own animations)
   const MALE = ['pm','developer','investor','rockstar','maker','worker_m'], MALE_ALL = [...MALE, 'swat_m', 'moonshot'];
@@ -2228,8 +2251,47 @@ const Rig = (()=>{
     }, ()=>res(null)));
     return cache[name];
   }
+  // the modular packs: one file per body type, loaded once
+  const kitCache = {};
+  function kitModel(g){
+    if (!kitCache[g]) kitCache[g] = new Promise(res=>loader.load(`models/people/modular/${g === 'f' ? 'women' : 'men'}.glb`, gl=>{
+      const root = gl.scene; root.updateMatrixWorld(true);
+      let blo = Infinity, bhi = -Infinity; const bv = new THREE.Vector3(); root.traverse(o=>{ if (o.isBone){ o.getWorldPosition(bv); blo = Math.min(blo, bv.y); bhi = Math.max(bhi, bv.y); } });
+      const clips = gl.animations.map(c=>{ const k = c.clone(); k.name = c.name.replace(/^.*\|/, ''); return k; });
+      res({root, clips, scale: 1.72 / ((bhi - blo) / 0.88 || 1)});
+    }, undefined, ()=>res(null)));
+    return kitCache[g];
+  }
+  const partOf = o => { for (let p = o; p; p = p.parent) if (/_(Head|Body|Legs|Pants|Feet)$/.test(p.name)) return p.name; return null; };
+  function attachKit(ch, L){
+    const K = L.kit, P = KIT_PARTS[K.g], body = ch.g;
+    ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
+    kitModel(K.g).then(m=>{
+      if (!m || !ch.g || ch.g !== body || ch.rig.inst) return;
+      const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(m.scale);
+      const want = {}; for (const slot of ['head','body','legs','feet']) want[KIT_NODE(K.g, slot, P[slot][K[slot]])] = slot;
+      const cloth = {};   // the biggest clothing piece of each part gets the chosen colour
+      inst.traverse(o=>{
+        if (!o.isMesh) return; const part = partOf(o); o.visible = !!(part && want[part]); if (!o.visible) return;
+        o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+        const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
+        if (SKIN.test(nm)) o.material.color.set(L.skin).convertSRGBToLinear();
+        else if (HAIR.test(nm)) o.material.color.set(L.hairCol).convertSRGBToLinear();
+        else if (!FIXED.test(nm) && !/^(Eye|Eyebrows|Black)$/.test(nm)){ const slot = want[part], n = o.geometry.attributes.position.count; if (!cloth[slot] || n > cloth[slot].n) cloth[slot] = {o, n}; }
+      });
+      if (L.topCol && cloth.body) cloth.body.o.material.color.set(L.topCol).convertSRGBToLinear();
+      if (L.botCol && cloth.legs) cloth.legs.o.material.color.set(L.botCol).convertSRGBToLinear();
+      ch.g.add(inst); ch.mesh.visible = false;
+      const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
+      const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const c of m.clips) acts[c.name] = mixer.clipAction(c);
+      const rig = ch.rig = Object.assign(ch.rig || {}, {inst, mixer, acts, bones, cur:null, pending:false}); rig.want = rig.want || 'Idle';
+      if (acts.Idle) acts.Idle.time = Math.random() * acts.Idle.getClip().duration;
+      live.push(ch);
+    });
+  }
   function attach(ch, L){
     if (!ok || L.noRig) return;
+    if (L.kit && KIT_PARTS[L.kit.g]) return attachKit(ch, L);
     const want0 = OLD[L.model] || L.model;
     const female = FEMALE_ALL.includes(want0) || (!MALE_ALL.includes(want0) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
@@ -2246,7 +2308,8 @@ const Rig = (()=>{
       inst.traverse(o=>{
         if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
         const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
-        // every outfit keeps its own designed colours, skin and hair
+        // every outfit keeps its own designed colours; skin tone is yours if you picked one
+        if (L.skinOn && SKIN.test(nm)) o.material.color.set(L.skin).convertSRGBToLinear();
       });
       ch.g.add(inst); ch.mesh.visible = false;
       const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
@@ -2301,7 +2364,8 @@ const Rig = (()=>{
       const ts = want === 'Walk' ? THREE.MathUtils.clamp(r.speed / 1.45, 0.6, 1.5) : want === 'Run' ? THREE.MathUtils.clamp(r.speed / 4.6, 0.7, 1.4) : 1;
       if (r.acts[want]) r.acts[want].timeScale = ts; r.mixer.update(dt); }
   }
-  return {attach, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
+  function drop(ch){ const i = live.indexOf(ch); if (i >= 0) live.splice(i, 1); }   // forget a body that's been replaced
+  return {attach, drop, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
 })();
 const M_SCREEN = new THREE.MeshStandardMaterial({color:new THREE.Color('#BFD6DE').convertSRGBToLinear(), transparent:true, opacity:0.18, roughness:0.05, metalness:0.1, depthWrite:false, side:THREE.DoubleSide});
 /* Player */
@@ -2875,7 +2939,7 @@ $('roleSignIn').addEventListener('click', signInReturning);
 function pickCharacterThen(next){
   let done = false; try { done = !!localStorage.getItem('jp-picked-character'); } catch(e){}
   if (done || myDoc){ next(); return; }
-  $('outTitle').textContent = 'Choose your character'; cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false;
+  $('outTitle').textContent = 'Choose your character'; cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false; Preview.show();
   const fin = () => { $('oDone').removeEventListener('click', fin); try { localStorage.setItem('jp-picked-character', '1'); } catch(e){} $('outTitle').textContent = 'Your outfit'; setTimeout(next, 50); };
   $('oDone').addEventListener('click', fin);
 }
@@ -2890,7 +2954,7 @@ function start(){
   mode = 'play'; intro.classList.add('leaving'); setTimeout(()=>intro.hidden = true, 750);
   $('topbar').hidden = false; if (isCoarse){ stick.hidden = false; runBtn.hidden = false; }
   P.pos.set(-31,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.14; dist = 4.6; snapCam = true; canvas.focus(); Music.start();
-  if (!isCoarse){ showHint('W to walk, A and D to turn, drag to look around. Walk up to shops and autos, then press E.'); setTimeout(()=>{ if (!flying && !riding) showHint(null); }, 9000); }
+  if (!isCoarse){ showHint('W to walk, hold Shift to run, A and D to turn, drag to look around. Walk up to shops and autos, then press E.'); setTimeout(()=>{ if (!flying && !riding) showHint(null); }, 9000); }
 }
 const initials = n => n.split(' ').map(s=>s[0]).join('').slice(0,2);
 const lookColor = l => (l.headColor==='#1E1512'||l.headColor==='#2A1B17') ? l.top : l.headColor;
@@ -3240,7 +3304,7 @@ function enterAuto(a){
     a.g.add(player.g); player.g.position.set(0,1.72,-0.1); player.g.rotation.set(0,0,0); seat(player);
     player.b.lHip.rotation.set(-0.7,0,0.5); player.b.rHip.rotation.set(-0.7,0,-0.5); player.b.lKnee.rotation.x = player.b.rKnee.rotation.x = 1.1;
     yaw = a.heading - Math.PI; pitch = 0.25; dist = 8; snapCam = true;
-    showHint('On the camel. W to walk, A and D to steer. Press E to get off.'); return;
+    showHint('On the camel. W to walk, hold Shift to run, A and D to steer. Press E to get off.'); return;
   }
   if (a.type === 'scooter'){
     if (a.circle) a.circle.r = 0;   // the scooter you're on must not collide with itself
@@ -4562,11 +4626,17 @@ function lookFromCode(L){
   const st = ['kurta','shirt','lehenga'].includes(L.style) ? L.style : 'kurta', hd = ['turban','hair','longhair','odhni'].includes(L.head) ? L.head : 'hair';
   const ix = (arr,i) => arr[Math.max(0,Math.min(arr.length-1,(i|0)))];
   const md = (typeof L.model === 'string' && /^[a-z][A-Za-z_0-9]{1,24}$/.test(L.model)) ? L.model : undefined;
-  return {model: md, style:st, dress: st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), moustache: st!=='lehenga' && hd==='turban'};
+  // build-your-own: body type, hairstyle, top, bottoms, shoes and colours, all checked against what exists
+  let kit = null; const K = L.kit;
+  if (md === 'custom' && K && typeof K === 'object' && KIT_PARTS[K.g]){ const PP = KIT_PARTS[K.g], n = (v, len) => Math.max(0, Math.min(len - 1, v | 0));
+    kit = {g:K.g, head:n(K.head, PP.head.length), body:n(K.body, PP.body.length), legs:n(K.legs, PP.legs.length), feet:n(K.feet, PP.feet.length)}; }
+  const opt = (arr, i) => (i | 0) >= 0 && (i | 0) < arr.length ? arr[i | 0] : null;
+  return {model: kit ? undefined : md, kit, style:st, dress: kit ? kit.g === 'f' : st==='lehenga', head:hd, top:ix(PAL.top,L.top), bottom:ix(PAL.bot,L.bot), headColor:ix(PAL.hc,L.hc), hair:'#1E1512', skin:ix(PAL.skin,L.skin), skinOn: !!L.skinOn || !!kit,
+    hairCol: HAIR_COLS[Math.max(0, Math.min(HAIR_COLS.length - 1, (L.hcol | 0)))], topCol: kit ? opt(PAL.top, L.tcol) : null, botCol: kit ? opt(PAL.bot, L.bcol) : null, moustache: st!=='lehenga' && hd==='turban'};
 }
 function rebuildPlayer(){
   const parent = player.g.parent, pos = player.g.position.clone(), rot = player.g.rotation.clone();
-  parent.remove(player.g);
+  parent.remove(player.g); Rig.drop(player);
   const np = makePerson(lookFromCode(myLook));
   player.g = np.g; player.mesh = np.mesh; player.b = np.b; player.dress = np.dress; player.lL = np.lL; player.lR = np.lR; player.aL = np.aL; player.aR = np.aR;
   player.rig = np.rig;   // animate the new body's model, not the old one
@@ -4582,14 +4652,63 @@ function segSync(id, key){ [...$(id).children].forEach(b=>b.setAttribute('aria-p
 const CHARACTERS = [['pm','PM'],['developer','Developer'],['investor','Investor'],['rockstar','Rockstar'],['maker','Maker'],['worker_m','Worker'],['swat_m','SWAT'],['moonshot','Moonshot'],
   ['creative','Creative'],['founder','Founder'],['designer','Designer'],['formal_f','Formal'],['adventurer_f','Adventurer'],['worker_f','Worker (woman)'],['hero','Hero']];
 const FEMALE_IDS = ['creative','founder','designer','formal_f','adventurer_f','worker_f','hero'];
+/* Character creator: a live 3D preview, the ready-made characters, or build your own */
+const KIT_LABEL = {head:'Hairstyle', body:'Top', legs:'Bottoms', feet:'Shoes'};
+if (!myLook.kit) myLook.kit = {g:'m', head:0, body:0, legs:0, feet:0};
+const Preview = (()=>{
+  let r = null, sc = null, cam = null, ch = null, ang = 0.5, drag = null, raf = 0;
+  function ensure(){
+    if (r) return true; const cvs = $('oPreview');
+    try { r = new THREE.WebGLRenderer({canvas:cvs, antialias:true, alpha:true}); } catch(e){ return false; }
+    r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05; r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xFFF1E0, 0x8A6A55, 1.15)); const d = new THREE.DirectionalLight(0xFFFFFF, 1.5); d.position.set(2, 4, 3); sc.add(d);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.62, 48), new THREE.MeshStandardMaterial({color:new THREE.Color('#E6CDB4').convertSRGBToLinear(), roughness:1})); disc.rotation.x = -Math.PI/2; sc.add(disc);
+    cam = new THREE.PerspectiveCamera(28, 1, 0.1, 50); cam.position.set(0, 1.12, 4.4); cam.lookAt(0, 0.9, 0);
+    cvs.addEventListener('pointerdown', e=>{ drag = {x:e.clientX}; cvs.setPointerCapture(e.pointerId); });
+    cvs.addEventListener('pointermove', e=>{ if (drag){ ang += (e.clientX - drag.x) * 0.012; drag.x = e.clientX; } });
+    const up = ()=>{ drag = null; }; cvs.addEventListener('pointerup', up); cvs.addEventListener('pointercancel', up);
+    return true;
+  }
+  function rebuild(){ if (!ensure()) return; if (ch){ sc.remove(ch.g); Rig.drop(ch); } ch = makePerson(lookFromCode(myLook)); sc.add(ch.g); Rig.wave(ch); }
+  function loop(){
+    if ($('outfitWrap').hidden || !r){ raf = 0; return; }
+    const cvs = $('oPreview'), w = cvs.clientWidth || 300, h = cvs.clientHeight || 260; if (cvs.width !== Math.round(w * r.getPixelRatio())) r.setSize(w, h, false);
+    cam.aspect = w / h; cam.updateProjectionMatrix(); if (!drag) ang += 0.005; if (ch){ ch.g.rotation.y = ang; if (ch.rig && ch.rig.want === 'Wave' && ch.rig.acts && ch.rig.cur === 'Wave' && ch.rig.acts.Wave.time > ch.rig.acts.Wave.getClip().duration * 0.95) ch.rig.want = 'Idle'; }
+    r.render(sc, cam); raf = requestAnimationFrame(loop);
+  }
+  return {show(){ rebuild(); if (!raf) loop(); }, rebuild};
+})();
+function chipRow(id, n, key, sub){
+  const el = $(id); el.innerHTML = '';
+  for (let i = 0; i < n; i++){ const b = document.createElement('button'); b.type = 'button'; b.textContent = String(i + 1); b.setAttribute('aria-label', `${KIT_LABEL[key] || key} ${i + 1}`);
+    b.setAttribute('aria-pressed', String((sub ? myLook.kit[key] : myLook[key]) === i)); b.addEventListener('click', ()=>{ if (sub) myLook.kit[key] = i; else myLook[key] = i; myLook.model = 'custom'; saveLook(); }); el.appendChild(b); }
+}
+function colourRow(id, arr, key, withOriginal){
+  const el = $(id); el.innerHTML = ''; const cur = myLook[key] == null ? -1 : myLook[key];
+  const add = (i, bg, label) => { const b = document.createElement('button'); b.type = 'button'; b.style.background = bg; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', String(cur === i));
+    if (i < 0) b.className = 'orig'; b.addEventListener('click', ()=>{ myLook[key] = i; if (key === 'skin') myLook.skinOn = true; saveLook(); }); el.appendChild(b); };
+  if (withOriginal) add(-1, 'var(--surface-2)', 'As designed');
+  arr.forEach((c, i) => add(i, c, `Colour ${i + 1}`));
+}
+let outfitTab = 'chars';
 { const box = $('oModel'); CHARACTERS.forEach(([id, label])=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = id; b.textContent = label; box.appendChild(b); });
   box.addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.model = v; myLook.style = FEMALE_IDS.includes(v) ? 'lehenga' : 'kurta';
     if (FEMALE_IDS.includes(v) && myLook.head === 'turban') myLook.head = 'longhair'; if (!FEMALE_IDS.includes(v) && (myLook.head === 'longhair' || myLook.head === 'odhni')) myLook.head = 'hair'; saveLook(); }); }
-function renderOutfit(){ [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === (myLook.model || 'pm')))); segSync('oStyle','style'); segSync('oHead','head'); swatchRow('oTop',PAL.top,'top'); swatchRow('oBot',PAL.bot,'bot'); swatchRow('oHc',PAL.hc,'hc'); swatchRow('oSkin',PAL.skin,'skin'); }
-function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); lastSent = ''; }
-$('oStyle').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.style = e.target.dataset.v; if (myLook.style==='lehenga' && myLook.head==='turban') myLook.head = 'odhni'; saveLook(); } });
-$('oHead').addEventListener('click', e=>{ if (e.target.dataset.v){ myLook.head = e.target.dataset.v; saveLook(); } });
-$('outfitBtn').addEventListener('click', ()=>{ toggleMenu(false); cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false; });
+$('oTabs').addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; outfitTab = v; if (v === 'build'){ myLook.model = 'custom'; saveLook(); } else renderOutfit(); });
+$('oGender').addEventListener('click', e=>{ const v = e.target.dataset.v; if (!v) return; myLook.kit = {g:v, head:0, body:0, legs:0, feet:0}; myLook.model = 'custom'; saveLook(); });
+function renderOutfit(){
+  const custom = myLook.model === 'custom'; if (custom) outfitTab = 'build';
+  [...$('oTabs').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === outfitTab)));
+  $('oCharsPane').hidden = outfitTab !== 'chars'; $('oBuildPane').hidden = outfitTab !== 'build';
+  [...$('oModel').children].forEach(b=>b.setAttribute('aria-pressed', String(!custom && b.dataset.v === (myLook.model || 'pm'))));
+  colourRow('oSkinC', PAL.skin, 'skin', false); colourRow('oSkinB', PAL.skin, 'skin', false);
+  if (!myLook.skinOn) [...$('oSkinC').children].forEach(b=>b.setAttribute('aria-pressed', 'false'));
+  [...$('oGender').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v === myLook.kit.g)));
+  const PP = KIT_PARTS[myLook.kit.g]; for (const k of ['head','body','legs','feet']) chipRow('oK_' + k, PP[k].length, k, true);
+  colourRow('oHairC', HAIR_COLS, 'hcol', false); colourRow('oTopC', PAL.top, 'tcol', true); colourRow('oBotC', PAL.bot, 'bcol', true);
+}
+function saveLook(){ try { localStorage.setItem('jp-look', JSON.stringify(myLook)); } catch(e){} rebuildPlayer(); renderOutfit(); Preview.rebuild(); lastSent = ''; }
+$('outfitBtn').addEventListener('click', ()=>{ toggleMenu(false); cardOpen = true; renderOutfit(); $('outfitWrap').hidden = false; Preview.show(); });
 $('oDone').addEventListener('click', ()=>{ $('outfitWrap').hidden = true; cardOpen = false; canvas.focus(); });
 rebuildPlayer();
 

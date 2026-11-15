@@ -160,6 +160,13 @@ function animatePerson(ch, walk, amt, tt){
    Animated 3D people (Quaternius, CC0). Each character gets its own copy of a model
    with its own animation mixer; outfits are applied as colours on the model's materials.
    ========================================================= */
+// Build-your-own people: Quaternius Ultimate Modular Men / Women (CC0). Every part shares one skeleton,
+// so a person is one rig with only the chosen head (hairstyle), top, bottoms and shoes switched on.
+const KIT_PARTS = {
+  m:{head:['Casual','Casual2','Suit','Beach','Punk','Adventurer'], body:['Casual','Casual2','Suit','Beach','Punk','Farmer','Adventurer'], legs:['Casual','Casual2','Suit','Beach','Punk','Farmer','Adventurer'], feet:['Casual','Casual2','Suit','Beach','Punk','Farmer','Adventurer']},
+  f:{head:['Casual','Suit','Formal','Punk','Soldier','Adventurer'], body:['Casual','Suit','Formal','Punk','Soldier','Adventurer'], legs:['Casual','Suit','Formal','Punk','Soldier','Adventurer'], feet:['Casual','Suit','Formal','Punk','Soldier','Adventurer']}};
+const KIT_NODE = (g, slot, name) => g === 'm' && slot === 'legs' && name === 'Farmer' ? 'Farmer_Pants' : g === 'f' && slot === 'head' && name === 'Formal' ? 'Formad_Head' : `${name}_${{head:'Head', body:'Body', legs:'Legs', feet:'Feet'}[slot]}`;
+const HAIR_COLS = ['#1A1412','#3B2A20','#5E3B26','#8A5A32','#B98A4E','#8C8C8C'];
 const Rig = (()=>{
   // People of Bengaluru's own character files (Quaternius CC0 characters, each with its own animations)
   const MALE = ['pm','developer','investor','rockstar','maker','worker_m'], MALE_ALL = [...MALE, 'swat_m', 'moonshot'];
@@ -193,8 +200,47 @@ const Rig = (()=>{
     }, ()=>res(null)));
     return cache[name];
   }
+  // the modular packs: one file per body type, loaded once
+  const kitCache = {};
+  function kitModel(g){
+    if (!kitCache[g]) kitCache[g] = new Promise(res=>loader.load(`models/people/modular/${g === 'f' ? 'women' : 'men'}.glb`, gl=>{
+      const root = gl.scene; root.updateMatrixWorld(true);
+      let blo = Infinity, bhi = -Infinity; const bv = new THREE.Vector3(); root.traverse(o=>{ if (o.isBone){ o.getWorldPosition(bv); blo = Math.min(blo, bv.y); bhi = Math.max(bhi, bv.y); } });
+      const clips = gl.animations.map(c=>{ const k = c.clone(); k.name = c.name.replace(/^.*\|/, ''); return k; });
+      res({root, clips, scale: 1.72 / ((bhi - blo) / 0.88 || 1)});
+    }, undefined, ()=>res(null)));
+    return kitCache[g];
+  }
+  const partOf = o => { for (let p = o; p; p = p.parent) if (/_(Head|Body|Legs|Pants|Feet)$/.test(p.name)) return p.name; return null; };
+  function attachKit(ch, L){
+    const K = L.kit, P = KIT_PARTS[K.g], body = ch.g;
+    ch.rig = ch.rig || {want:'Idle', sit:false, pending:true};
+    kitModel(K.g).then(m=>{
+      if (!m || !ch.g || ch.g !== body || ch.rig.inst) return;
+      const inst = THREE.SkeletonUtils.clone(m.root); inst.scale.setScalar(m.scale);
+      const want = {}; for (const slot of ['head','body','legs','feet']) want[KIT_NODE(K.g, slot, P[slot][K[slot]])] = slot;
+      const cloth = {};   // the biggest clothing piece of each part gets the chosen colour
+      inst.traverse(o=>{
+        if (!o.isMesh) return; const part = partOf(o); o.visible = !!(part && want[part]); if (!o.visible) return;
+        o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+        const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
+        if (SKIN.test(nm)) o.material.color.set(L.skin).convertSRGBToLinear();
+        else if (HAIR.test(nm)) o.material.color.set(L.hairCol).convertSRGBToLinear();
+        else if (!FIXED.test(nm) && !/^(Eye|Eyebrows|Black)$/.test(nm)){ const slot = want[part], n = o.geometry.attributes.position.count; if (!cloth[slot] || n > cloth[slot].n) cloth[slot] = {o, n}; }
+      });
+      if (L.topCol && cloth.body) cloth.body.o.material.color.set(L.topCol).convertSRGBToLinear();
+      if (L.botCol && cloth.legs) cloth.legs.o.material.color.set(L.botCol).convertSRGBToLinear();
+      ch.g.add(inst); ch.mesh.visible = false;
+      const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
+      const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const c of m.clips) acts[c.name] = mixer.clipAction(c);
+      const rig = ch.rig = Object.assign(ch.rig || {}, {inst, mixer, acts, bones, cur:null, pending:false}); rig.want = rig.want || 'Idle';
+      if (acts.Idle) acts.Idle.time = Math.random() * acts.Idle.getClip().duration;
+      live.push(ch);
+    });
+  }
   function attach(ch, L){
     if (!ok || L.noRig) return;
+    if (L.kit && KIT_PARTS[L.kit.g]) return attachKit(ch, L);
     const want0 = OLD[L.model] || L.model;
     const female = FEMALE_ALL.includes(want0) || (!MALE_ALL.includes(want0) && (L.dress || L.style === 'lehenga' || L.head === 'longhair' || L.head === 'odhni'));
     const pool = female ? FEMALE : MALE;
@@ -211,7 +257,8 @@ const Rig = (()=>{
       inst.traverse(o=>{
         if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
         const nm = o.material.name || ''; o.material = o.material.clone(); o.material.roughness = 0.8; o.material.metalness = 0;
-        // every outfit keeps its own designed colours, skin and hair
+        // every outfit keeps its own designed colours; skin tone is yours if you picked one
+        if (L.skinOn && SKIN.test(nm)) o.material.color.set(L.skin).convertSRGBToLinear();
       });
       ch.g.add(inst); ch.mesh.visible = false;
       const bones = {}; inst.traverse(o=>{ if (o.isBone) bones[o.name] = o; });
@@ -266,7 +313,8 @@ const Rig = (()=>{
       const ts = want === 'Walk' ? THREE.MathUtils.clamp(r.speed / 1.45, 0.6, 1.5) : want === 'Run' ? THREE.MathUtils.clamp(r.speed / 4.6, 0.7, 1.4) : 1;
       if (r.acts[want]) r.acts[want].timeScale = ts; r.mixer.update(dt); }
   }
-  return {attach, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
+  function drop(ch){ const i = live.indexOf(ch); if (i >= 0) live.splice(i, 1); }   // forget a body that's been replaced
+  return {attach, drop, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
 })();
 const M_SCREEN = new THREE.MeshStandardMaterial({color:new THREE.Color('#BFD6DE').convertSRGBToLinear(), transparent:true, opacity:0.18, roughness:0.05, metalness:0.1, depthWrite:false, side:THREE.DoubleSide});
 /* Player */
