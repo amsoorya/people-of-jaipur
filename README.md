@@ -128,6 +128,8 @@ Open http://localhost:8000. Without Supabase details in `config.js`, you can sti
 - "Bactrian Camel (Low Poly)" by [Nyilonelycompany](https://sketchfab.com/Nyilonelycompany), [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/) (non-commercial use only)
 - "[Telescope](https://poly.pizza/m/RjyTCQvA8b)" by CreativeTrio, CC0
 - Moon surface: NASA Scientific Visualization Studio, [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (LRO colour map), public domain
+- Night sky: star catalogue and constellation figures from [d3-celestial](https://github.com/ofrohn/d3-celestial), Copyright (c) 2015 Olaf Frohn, BSD 3-Clause licence (data from Hipparcos and the Yale Bright Star Catalogue). Planet positions from JPL's "Approximate Positions of the Planets" (E. M. Standish); Jupiter's moons from Jean Meeus, *Astronomical Algorithms*
+- Planet surfaces: [Solar System Scope](https://www.solarsystemscope.com/textures/) textures, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/), based on NASA imagery
 - Sounds, all real recordings from [Freesound](https://freesound.org), trimmed and cleaned for the web (`audio/`):
   - Auto horn: "[Cng auto rickshaw](https://freesound.org/people/Balaram_Mahalder/sounds/723808/)" by Balaram_Mahalder, CC0
   - Auto engine: "[29_tuktuk_jodhpur](https://freesound.org/people/LukeIRL/sounds/176114/)" by LukeIRL, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)

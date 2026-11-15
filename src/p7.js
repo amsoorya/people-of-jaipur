@@ -1274,6 +1274,138 @@ function sitFree(x, z, rot, y, back){
   showHint('Enjoy the view. Press E, or start walking, to stand up.');
 }
 /* =========================================================
+   The real night sky over Jaipur: ~5,000 catalogued stars, the 88 constellations, the planets and
+   Jupiter's four big moons, each where it actually is right now (or tonight at 10 pm in Night mode).
+   Stars: d3-celestial (Hipparcos). Planets: JPL approximate Keplerian elements. Jupiter's moons: Meeus, ch. 44.
+   ========================================================= */
+const Sky = (()=>{
+  const grp = new THREE.Group(); grp.matrixAutoUpdate = false; grp.visible = false; scene.add(grp);   // equatorial frame, turned to Jaipur's horizon
+  const RS = 1490, RP = 1380, KM_AU = 1.495978707e8, dg = D2R;
+  const eqVec = (ra, dec, r) => new THREE.Vector3(Math.cos(dec)*Math.cos(ra)*r, Math.cos(dec)*Math.sin(ra)*r, Math.sin(dec)*r);
+  const bvCol = bv => { const k = Math.max(0, Math.min(1, (bv + 0.3) / 2.0)); return new THREE.Color().setRGB(0.72 + 0.28*Math.min(1, k*1.6), 0.8 + 0.12*(1 - Math.abs(k - 0.35)*2), 1.0 - 0.55*k); };
+  const starMat = new THREE.ShaderMaterial({uniforms:{gain:{value:0}, limit:{value:5}, boost:{value:1}}, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader:'attribute float mag; attribute vec3 col; uniform float gain; uniform float limit; uniform float boost; varying vec3 vC; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; float b = clamp((limit - mag) / (limit + 1.6), 0.0, 1.0); gl_PointSize = (1.8 + 4.5 * b + 3.0 * b * b) * boost; vA = gain * clamp((limit - mag + 1.2) / 1.6, 0.0, 1.0); vC = col; }',
+    fragmentShader:'varying vec3 vC; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.08, d) * vA; if (a < 0.01) discard; gl_FragColor = vec4(vC * a, a); }'});
+  const lineMat = new THREE.LineBasicMaterial({color:'#7F9CE8', transparent:true, opacity:0, depthWrite:false, fog:false});
+  let data = null, stars = null, lines = null, planets = [], ppts = null, jmoons = [], frame = new THREE.Matrix4(), lastCalc = -1, night = 0, nowD = null;
+  const POLE = {mercury:[281.01,61.42], venus:[272.76,67.16], mars:[317.68,52.89], jupiter:[268.06,64.50], saturn:[40.59,83.54], uranus:[257.31,-15.18], neptune:[299.36,43.46]};
+  const RAD = {mercury:2440, venus:6052, mars:3390, jupiter:71492, saturn:60268, uranus:25559, neptune:24764}, HMAG = {mercury:-0.42, venus:-4.4, mars:-1.52, jupiter:-9.4, saturn:-8.88, uranus:-7.19, neptune:-6.87};
+  // JPL "Approximate Positions of the Planets" (valid 1800-2050): a, e, I, L, long. perihelion, long. node, then rates per century
+  const EL = {mercury:[0.38709927,0.20563593,7.00497902,252.25032350,77.45779628,48.33076593, 0.00000037,0.00001906,-0.00594749,149472.67411175,0.16047689,-0.12534081],
+    venus:[0.72333566,0.00677672,3.39467605,181.97909950,131.60246718,76.67984255, 0.00000390,-0.00004107,-0.00078890,58517.81538729,0.00268329,-0.27769418],
+    earth:[1.00000261,0.01671123,-0.00001531,100.46457166,102.93768193,0, 0.00000562,-0.00004392,-0.01294668,35999.37244981,0.32327364,0],
+    mars:[1.52371034,0.09339410,1.84969142,-4.55343205,-23.94362959,49.55953891, 0.00001847,0.00007882,-0.00813131,19140.30268499,0.44441088,-0.29257343],
+    jupiter:[5.20288700,0.04838624,1.30439695,34.39644051,14.72847983,100.47390909, -0.00011607,-0.00013253,-0.00183714,3034.74612775,0.21252668,0.20469106],
+    saturn:[9.53667594,0.05386179,2.48599187,49.95424423,92.59887831,113.66242448, -0.00125060,-0.00050991,0.00193609,1222.49362201,-0.41897216,-0.28867794],
+    uranus:[19.18916464,0.04725744,0.77263783,313.23810451,170.95427630,74.01692503, -0.00196176,-0.00004397,-0.00242939,428.48202785,0.40805281,0.04240589],
+    neptune:[30.06992276,0.00859048,1.77004347,-55.12002969,44.96476227,131.78422574, 0.00026291,0.00005105,0.00035372,218.45945325,-0.32241464,-0.00508664]};
+  function helio(k, T){   // heliocentric ecliptic position (AU)
+    const E0 = EL[k], a = E0[0] + E0[6]*T, e = E0[1] + E0[7]*T, I = (E0[2] + E0[8]*T)*dg, L = E0[3] + E0[9]*T, wb = E0[4] + E0[10]*T, Om = (E0[5] + E0[11]*T)*dg;
+    const w = wb*dg - Om; let M = ((L - wb) % 360 + 540) % 360 - 180; M *= dg; let E = M + e*Math.sin(M); for (let i = 0; i < 6; i++) E -= (E - e*Math.sin(E) - M) / (1 - e*Math.cos(E));
+    const xp = a*(Math.cos(E) - e), yp = a*Math.sqrt(1 - e*e)*Math.sin(E), cw = Math.cos(w), sw = Math.sin(w), cO = Math.cos(Om), sO = Math.sin(Om), cI = Math.cos(I), sI = Math.sin(I);
+    return new THREE.Vector3((cw*cO - sw*sO*cI)*xp + (-sw*cO - cw*sO*cI)*yp, (cw*sO + sw*cO*cI)*xp + (-sw*sO + cw*cO*cI)*yp, sw*sI*xp + cw*sI*yp);
+  }
+  const OBL = 23.43928*dg, toEq = v => new THREE.Vector3(v.x, v.y*Math.cos(OBL) - v.z*Math.sin(OBL), v.y*Math.sin(OBL) + v.z*Math.cos(OBL));
+  function planetMat(url){ const m = new THREE.ShaderMaterial({uniforms:{map:{value:null}, has:{value:0}, sunDir:{value:new THREE.Vector3(1,0,0)}, gain:{value:1}}, transparent:true, depthWrite:false,
+      vertexShader:'varying vec3 vN; varying vec2 vUv; void main(){ vUv = uv; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader:'uniform sampler2D map; uniform float has; uniform vec3 sunDir; uniform float gain; varying vec3 vN; varying vec2 vUv; void main(){ vec3 c = has > 0.5 ? texture2D(map, vUv).rgb : vec3(0.8); float l = smoothstep(-0.05, 0.15, dot(normalize(vN), sunDir)); gl_FragColor = vec4(c * (0.02 + 0.72 * l), gain); }'});
+    new THREE.TextureLoader().load(url, t => { m.uniforms.map.value = t; m.uniforms.has.value = 1; }); return m; }
+  function build(){
+    // stars
+    const n = data.stars.length, pos = new Float32Array(n*3), mag = new Float32Array(n), col = new Float32Array(n*3);
+    data.stars.forEach(([ra, dec, m, bv], i)=>{ const v = eqVec(ra*dg, dec*dg, RS); pos.set([v.x, v.y, v.z], i*3); mag[i] = m; const c = bvCol(bv); col.set([c.r, c.g, c.b], i*3); });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('mag', new THREE.BufferAttribute(mag, 1)); g.setAttribute('col', new THREE.BufferAttribute(col, 3));
+    stars = new THREE.Points(g, starMat); stars.renderOrder = -1; stars.frustumCulled = false; grp.add(stars);
+    // constellation figures
+    const lp = []; data.lines.forEach(l => { for (let i = 1; i + 3 < l.length; i += 2){ const a = eqVec(l[i]*dg, l[i+1]*dg, RS - 2), b = eqVec(l[i+2]*dg, l[i+3]*dg, RS - 2); lp.push(a.x, a.y, a.z, b.x, b.y, b.z); } });
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lines = new THREE.LineSegments(lg, lineMat); lines.frustumCulled = false; lines.visible = false; grp.add(lines);
+    data.consV = Object.entries(data.cons).map(([id, c]) => ({id, name: id === 'UMa' ? 'Ursa Major · Saptarishi' : c.n, v:eqVec(c.p[0]*dg, c.p[1]*dg, 1)}));
+    data.namesV = data.names.map(([nm, ra, dec, c]) => ({name: nm === 'Polaris' ? 'Polaris · Dhruv Tara' : nm, c, v:eqVec(ra*dg, dec*dg, 1), mag: 0}));
+    data.lineV = []; data.lines.forEach(l => { for (let i = 1; i + 1 < l.length; i += 2) data.lineV.push({id:l[0], v:eqVec(l[i]*dg, l[i+1]*dg, 1)}); });
+    // planets: textured globes turned on their real axes, plus a bright point for each (and Jupiter's moons)
+    for (const k of Object.keys(POLE)){
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), planetMat('models/planets/' + k + '.jpg')); m.frustumCulled = false; m.renderOrder = -1;
+      const pole = eqVec(POLE[k][0]*dg, POLE[k][1]*dg, 1); m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), pole);
+      if (k === 'saturn'){ const rg = new THREE.RingGeometry(1.24, 2.27, 96, 1), uv = rg.attributes.uv, p = rg.attributes.position;
+        for (let i = 0; i < p.count; i++){ const r = Math.hypot(p.getX(i), p.getY(i)); uv.setXY(i, (r - 1.24) / 1.03, 0.5); } rg.rotateX(-Math.PI/2);
+        const rm = new THREE.MeshBasicMaterial({transparent:true, side:THREE.DoubleSide, depthWrite:false, fog:false, toneMapped:false, color:'#D8CDB8'}); new THREE.TextureLoader().load('models/planets/saturn_ring.png', t => { rm.map = t; rm.needsUpdate = true; });
+        const ring = new THREE.Mesh(rg, rm); ring.renderOrder = -1; m.add(ring); m.userData.ring = ring; }
+      grp.add(m); planets.push({k, m, name: k[0].toUpperCase() + k.slice(1), v:new THREE.Vector3(), mag:0, delta:1, lit:1, pole});
+    }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(11*3), 3)); pg.setAttribute('mag', new THREE.BufferAttribute(new Float32Array(11), 1));
+    const pc = new Float32Array(11*3); ['#E8E2D8','#FFF6DE','#FF9A6A','#FFE6C2','#F2DDAA','#C8F0F2','#9FB8FF','#F4EFE4','#F4EFE4','#F4EFE4','#F4EFE4'].forEach((h, i) => { const c = new THREE.Color(h); pc.set([c.r, c.g, c.b], i*3); });
+    pg.setAttribute('col', new THREE.BufferAttribute(pc, 3)); ppts = new THREE.Points(pg, starMat); ppts.frustumCulled = false; ppts.renderOrder = -1; grp.add(ppts);
+    ['Io','Europa','Ganymede','Callisto'].forEach(n => jmoons.push({name:n, v:new THREE.Vector3()}));
+  }
+  fetch('models/sky.json').then(r => r.json()).then(d => { data = d; build(); }).catch(()=>{});
+  function compute(date){
+    const jd = date.getTime() / 864e5 + 2440587.5, T = (jd - 2451545) / 36525, d = jd - 2451545;
+    // turn the equatorial sky to Jaipur's horizon: x east, y up, -z north
+    const lat = JAIPUR.lat*dg, lst = ((18.697374558 + 24.06570982441908*d) + JAIPUR.lon/15) * 15 * dg;
+    const hz = (ra, dec) => { const ha = lst - ra, el = Math.asin(Math.sin(lat)*Math.sin(dec) + Math.cos(lat)*Math.cos(dec)*Math.cos(ha)), az = Math.atan2(-Math.sin(ha), Math.tan(dec)*Math.cos(lat) - Math.sin(lat)*Math.cos(ha)); return new THREE.Vector3(Math.cos(el)*Math.sin(az), Math.sin(el), -Math.cos(el)*Math.cos(az)); };
+    frame.makeBasis(hz(0, 0), hz(Math.PI/2, 0), new THREE.Vector3(0, Math.sin(lat), -Math.cos(lat)));
+    const earth = helio('earth', T), pp = ppts.geometry.attributes.position, pm = ppts.geometry.attributes.mag;
+    planets.forEach((P, i) => {
+      const h = helio(P.k, T), geo = toEq(h.clone().sub(earth)), delta = geo.length(), r = h.length(); P.delta = delta; P.v.copy(geo).normalize();
+      const rad = RAD[P.k] / (delta * KM_AU) * RP; P.m.position.copy(P.v).multiplyScalar(RP); P.m.scale.setScalar(rad);
+      P.light = toEq(h.clone().negate()).normalize();   // sunlight arrives from the sun's side of the planet, so Venus and Mercury show phases
+      const ci = (r*r + delta*delta - earth.lengthSq()) / (2*r*delta); P.lit = (1 + ci) / 2; P.mag = HMAG[P.k] + 5*Math.log10(r*delta);
+      pp.setXYZ(i, P.m.position.x, P.m.position.y, P.m.position.z); pm.setX(i, P.mag);
+      if (P.k === 'jupiter'){   // Galilean moons
+        const V = (172.74 + 0.00111588*d)*dg, M = (357.529 + 0.9856003*d)*dg, N = (20.020 + 0.0830853*d + 0.329*Math.sin(V))*dg, J = (66.115 + 0.9025179*d - 0.329*Math.sin(V))*dg;
+        const A = (1.915*Math.sin(M) + 0.020*Math.sin(2*M))*dg, B = (5.555*Math.sin(N) + 0.168*Math.sin(2*N))*dg, K = J + A - B;
+        const Rr = 1.00014 - 0.01671*Math.cos(M) - 0.00014*Math.cos(2*M), rr = 5.20872 - 0.25208*Math.cos(N) - 0.00611*Math.cos(2*N), Dl = Math.sqrt(rr*rr + Rr*Rr - 2*rr*Rr*Math.cos(K)), psi = Math.asin(Rr / Dl * Math.sin(K));
+        const dd = d - Dl / 173, U = [163.8069 + 203.4058646*dd, 358.4140 + 101.2916335*dd, 5.7176 + 50.2345180*dd, 224.8092 + 21.4879800*dd].map(u => u*dg + psi - B), RR = [5.9054, 9.3976, 14.9887, 26.3627];
+        const east = new THREE.Vector3(0,0,1).cross(P.v).normalize();
+        jmoons.forEach((mo, j) => { const X = RR[j] * Math.sin(U[j]); mo.v.copy(P.m.position).addScaledVector(east, -X * rad); pp.setXYZ(7 + j, mo.v.x, mo.v.y, mo.v.z); pm.setX(7 + j, 5.3); });
+      }
+    });
+    pp.needsUpdate = true; pm.needsUpdate = true;
+  }
+  const world = (v, out) => out.copy(v).applyMatrix4(frame);   // equatorial direction -> world direction
+  const tmpW = new THREE.Vector3(), tmpL = new THREE.Vector3();
+  function update(cam, sc){
+    if (!data || !stars) return;
+    night = skyNight; grp.visible = night > 0.01 || (sc && sc.p > 0.02);
+    if (!grp.visible) return;
+    const date = skyDate(); if (!nowD || Math.abs(date - nowD) > 20000){ nowD = date; compute(date); }
+    grp.matrix.copy(frame).setPosition(cam.position); grp.matrixWorldNeedsUpdate = true;
+    const zoom = sc ? 52 / cam.fov : 1;
+    starMat.uniforms.gain.value = night; starMat.uniforms.limit.value = Math.min(7.5, 4.6 + (zoom > 1 ? 2.2*Math.log10(zoom) : 0)); starMat.uniforms.boost.value = innerHeight > 900 ? 1.3 : 1;
+    lines.visible = !!sc && night > 0.25; lineMat.opacity = 0.32 * night;
+    planets.forEach(P => { P.m.visible = night > 0.05 || P.k === 'venus'; const u = P.m.material.uniforms; u.gain.value = Math.max(night, P.k === 'venus' ? 0.6 : 0); world(P.light, u.sunDir.value).normalize(); });
+  }
+  // for the telescope: what's in the middle, and tags for what's around it
+  function look(dir, fov){
+    if (!data || !stars || night < 0.25) return null;
+    const half = fov * dg / 2; let best = null;
+    const consider = (v, size, text, pri) => { world(v, tmpW); if (tmpW.y < 0.01) return; const a = dir.angleTo(tmpW); const lim = Math.max(size, half*0.25) * pri; if (a < lim && (!best || a / lim < best.k)) best = {k: a / lim, text}; };
+    planets.forEach(P => { if (!P.m.visible) return; const ang = RAD[P.k] / (P.delta * KM_AU), km = Math.round(P.delta * KM_AU / 1e6);
+      let tx = `${P.name} · ${km.toLocaleString()} million km away`;
+      if (P.k === 'jupiter') tx = `Jupiter · with Io, Europa, Ganymede and Callisto · ${km.toLocaleString()} million km`;
+      else if (P.k === 'saturn'){ const B = Math.abs(Math.asin(P.pole.dot(P.v))) / dg; tx = `Saturn · rings ${B < 4 ? 'almost edge-on this year' : 'tilted ' + Math.round(B) + '°'} · ${km.toLocaleString()} million km`; }
+      else if (P.k === 'venus' || P.k === 'mercury') tx = `${P.name} · ${Math.round(P.lit*100)}% lit, like a little moon · ${km.toLocaleString()} million km`;
+      else if (P.k === 'mars') tx = `Mars, the red planet · ${km.toLocaleString()} million km away`;
+      consider(P.v, ang * 3, tx, 3); });
+    if (best) return best.text;
+    data.namesV.forEach(s => { const c = data.cons[s.c]; consider(s.v, 0.004, `${s.name}${c ? ' · a star in ' + c.n : ''}`, 1.5); });
+    if (best) return best.text;
+    let bc = null, ba = 0.22; for (const l of data.lineV){ world(l.v, tmpW); const a = dir.angleTo(tmpW); if (a < ba){ ba = a; bc = l.id; } }
+    if (bc){ const c = data.consV.find(x => x.id === bc); return c ? `${c.name} · constellation` : null; }
+    return null;
+  }
+  function tags(){   // name tags in the eyepiece: planets, bright named stars and constellations
+    if (!data || !stars || night < 0.25) return [];
+    const out = [], push = (v, text, cls) => { world(v, tmpW); if (tmpW.y < 0.02) return; out.push({p:tmpL.copy(tmpW).multiplyScalar(1000).add(camera.position).clone(), text, cls}); };
+    planets.forEach(P => { if (P.m.visible) push(P.v, P.name, 'pl'); });
+    jmoons.forEach(m => { out.push({p:tmpW.copy(m.v).applyMatrix4(grp.matrix).clone(), text:m.name, cls:'mo', moon:true}); });
+    data.namesV.forEach(s => push(s.v, s.name.split(' · ')[0], 'st'));
+    data.consV.forEach(c => push(c.v, c.name, 'cn'));
+    return out;
+  }
+  return {update, look, tags, get ready(){ return !!stars; }};
+})();
+/* =========================================================
    Telescopes ("Telescope" by CreativeTrio, CC0): look through one, aim it and zoom across the city,
    or up at the real moon at night. Two at Sunset Point so friends can look together, one at Jantar Mantar.
    ========================================================= */
@@ -1301,11 +1433,14 @@ function useScope(T){
 function leaveScope(){
   if (!scope) return; const s = scope.save; scope.T.g.rotation.y = scope.T.aim; scope = null;
   yaw = P.rot - Math.PI; pitch = s.pitch; dist = s.dist; camera.fov = s.fov; camera.updateProjectionMatrix(); snapCam = true;
-  document.body.classList.remove('scoping'); $('scopeView').hidden = true;
+  if (sky) sky.visible = true; scene.background.copy(scene.fog.color);
+  document.body.classList.remove('scoping'); $('scopeView').hidden = true; tagPool.forEach(el => el.hidden = true);
 }
-const scopeZoom = k => { if (scope) scope.fov = Math.max(1.3, Math.min(30, scope.fov * k)); };
+const scopeMin = () => scope && scope.p > 0.03 ? 0.06 : 1.3;   // up to ~870x on the sky, ~40x on the city
+const scopeZoom = k => { if (scope) scope.fov = Math.max(scopeMin(), Math.min(30, scope.fov * k)); };
 // what's in the middle of the view: the moon, or the nearest Jaipur place the telescope points at
 function scopeLabel(){
+  if (scope.p > 0.02){ const sl = Sky.look(scDir, camera.fov); if (sl) return sl; }
   const cp = camera.position; let best = null, bestA = Math.max(0.02, scope.fov * Math.PI / 180 * 0.35);
   if (moonMesh.visible){ const a = scDir.angleTo(scTmp.copy(moonMesh.position).sub(cp)); if (a < Math.max(bestA, 0.04)){ const ph = liveBodies ? liveBodies.moon.phase : 1; return `The Moon · ${Math.round(ph * 100)}% lit tonight`; } }
   for (const pl of PLACES){ const d = Math.hypot(pl.x - cp.x, pl.z - cp.z); if (d < 12) continue; const a = scDir.angleTo(scTmp.set(pl.x - cp.x, 6 - cp.y, pl.z - cp.z)); const lim = Math.max(bestA, Math.atan(pl.r * 0.6 / d)); if (a < lim && (!best || a / lim < best.k)) best = {pl, d, k:a / lim}; }
@@ -1321,10 +1456,26 @@ function updateScope(dt){
   if (T.inst) T.inst.localToWorld(scEye.copy(SCOPE_OBJ)); else scEye.set(T.x, T.y + 1.4, T.z);
   camera.position.copy(scEye).addScaledVector(scDir, 0.35);
   camera.lookAt(camera.position.x + scDir.x, camera.position.y + scDir.y, camera.position.z + scDir.z);
+  if (scope.fov < scopeMin()) scope.fov = Math.min(scopeMin(), scope.fov * Math.exp(dt * 3));
   camera.fov += (scope.fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix();
+  scopeTags();
+  const dark = skyNight > 0.3 && scope.p > -0.05; if (sky) sky.visible = !dark; if (dark) scene.background.setRGB(0.003, 0.005, 0.011); else scene.background.copy(scene.fog.color);   // a properly dark sky in the eyepiece
   P.rot = scope.a; player.g.rotation.y = P.rot;
   const z = $('scopeZoom'), lb = $('scopeWhat'), txt = Math.round(52 / camera.fov) + '×', what = scopeLabel();
   if (z.textContent !== txt) z.textContent = txt; if (lb.textContent !== what) lb.textContent = what;
+}
+// name tags inside the eyepiece for planets, stars and constellations
+const tagPool = [], tagV = new THREE.Vector3();
+function scopeTags(){
+  const host = $('scopeTags'), list = scope.p > -0.1 ? Sky.tags() : [], R = Math.min(innerWidth, innerHeight) * 0.41, cx = innerWidth / 2, cy = innerHeight / 2; let n = 0;
+  const zoom = 52 / camera.fov;
+  for (const tg of list){
+    if (n >= 16) break; if (tg.cls === 'mo' && zoom < 60) continue; if (tg.cls === 'st' && zoom < 3) continue;
+    tagV.copy(tg.p).project(camera); if (tagV.z > 1) continue; const x = (tagV.x + 1) / 2 * innerWidth, y = (1 - tagV.y) / 2 * innerHeight; if (Math.hypot(x - cx, y - cy) > R - 20) continue;
+    let el = tagPool[n]; if (!el){ el = document.createElement('span'); host.appendChild(el); tagPool.push(el); }
+    el.className = 'skyTag ' + tg.cls; if (el.textContent !== tg.text) el.textContent = tg.text; el.style.transform = `translate(${x.toFixed(0)}px, ${y.toFixed(0)}px)`; el.hidden = false; n++;
+  }
+  for (let i = n; i < tagPool.length; i++) tagPool[i].hidden = true;
 }
 canvas.addEventListener('wheel', e=>{ if (scope) scopeZoom(Math.exp(e.deltaY * 0.0015)); }, {passive:true});
 addEventListener('keydown', e=>{ if (scope && (e.key === 'Escape' || e.key === 'e' || e.key === 'E')){ e.stopImmediatePropagation(); leaveScope(); } }, true);
@@ -2060,7 +2211,7 @@ const TOUR_STOPS = [
   {t:'A café', d:'Chai in a kulhad, pyaaz kachori and bun maska. Sit at any table to join that café’s chat with whoever is there.', shop:()=>shopDoors.find(x=>x.kind===6),
     shots:[{from:[0,1.75,4.6], to:[1.6,1.9,3.0], look:[0,1.2,0], lookTo:[-1.8,0.8,-0.4], dur:5}, {from:[-0.6,1.15,0.8], to:[-1.2,1.05,0.4], look:[-1.8,0.85,-0.4], lookTo:[-1.8,0.8,-0.4], dur:4}, {from:[0,1.8,1.2], to:[0.6,1.7,0.2], look:[0.6,1.5,-3], lookTo:[0.9,1.6,-3.2], dur:4}]},
   {t:'Johari Bazaar', d:'The jewellers’ market, and home of LMB’s famous sweets.', keys:{pos:[[30,15,84],[31,6,64],[33,3,52]], look:[[30,3,36],[30,3,36],[30,3,36]]}},
-  {t:'Jantar Mantar', d:'An 18th-century observatory. Its Samrat Yantra is one of the largest stone sundials in the world.', keys:{pos:[[12,22,-24],[4,14,-34],[-2,9,-40]], look:[[-14,5,-60],[-14,6,-60],[-14,8,-62]]}},
+  {t:'Jantar Mantar', d:'An 18th-century observatory. Its Samrat Yantra is one of the largest stone sundials in the world. At night, the telescope here shows the real sky over Jaipur: constellations, planets, even Jupiter’s moons.', keys:{pos:[[12,22,-24],[4,14,-34],[-2,9,-40]], look:[[-14,5,-60],[-14,6,-60],[-14,8,-62]]}},
   {t:'City Palace', d:'Chandra Mahal rises seven storeys and is still home to Jaipur’s royal family.', keys:{pos:[[-48,26,-22],[-62,19,-30],[-76,15,-32]], look:[[-70,13,-74],[-70,14,-74],[-70,15,-74]]}},
   {t:'Panna Meena ka Kund', d:'A 17th-century stepwell famous for its criss-cross stairs. Walk down to the water, or sit on the steps.', keys:{pos:[[-124,19,13],[-132,13,8],[-139,8,3]], look:[[-150,-4,-10],[-150,-4,-10],[-150,-3,-10]]}},
   {t:'Camels', d:'Camels rest near Jal Mahal. Walk up and press E to ride one.', el:()=>camels[0] && camels[0].pos, r:8, h:4},
@@ -2783,7 +2934,7 @@ function frame(){
   sunLight.position.set(focus.x + sunDir.x*300, sunDir.y*300, focus.z + sunDir.z*300);
   sunLight.shadow.camera.updateProjectionMatrix();
 
-  updateSkyBodies(camera);
+  updateSkyBodies(camera); Sky.update(camera, scope);
   // indoors: normal exposure and almost no bloom, whatever the time outside (night settings over-brighten white rooms)
   renderer.toneMappingExposure = inShop ? 0.95 : curLook.exp; if (bloomPass) bloomPass.strength = inShop ? 0.08 : curLook.bloom;
   if (composer) composer.render(); else renderer.render(activeScene, camera);

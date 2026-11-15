@@ -151,11 +151,15 @@ const starField = (()=>{ const n = 1400, pos = new Float32Array(n*3); for (let i
     pos.set([Math.sin(ph)*Math.cos(th)*1500, Math.cos(ph)*1500, Math.sin(ph)*Math.sin(th)*1500], i*3); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const p = new THREE.Points(g, new THREE.PointsMaterial({color:'#FFFFFF', size:2.2, sizeAttenuation:false, transparent:true, opacity:0, fog:false, depthWrite:false})); scene.add(p); return p; })();
+// the sky's clock: real time when live; tonight at 10 pm (or 7 pm at dusk) IST when Night/Dusk is picked
+function skyDate(){ if (timeMode === 'live') return new Date(); const h = timeMode === 'night' ? 22 : timeMode === 'dusk' ? 19 : 12, ist = new Date(Date.now() + 5.5*36e5); ist.setUTCHours(h, 0, 0, 0); return new Date(ist.getTime() - 5.5*36e5); }
+let skyNight = 0, nightB = null, nightBT = 0;
 function updateSkyBodies(cam){
   moonMesh.position.copy(cam.position); starField.position.copy(cam.position);
-  const b = liveBodies || (timeMode === 'night' ? {sun:{el:-0.5}, moon:{el:0.6, phase:1, v:new THREE.Vector3(0.4,0.6,-0.7).normalize()}} : null);
+  if (!liveBodies && timeMode === 'night' && Date.now() - nightBT > 30000){ nightB = skyBodies(skyDate()); nightBT = Date.now(); }
+  const b = liveBodies || (timeMode === 'night' ? nightB : null);
   const sunEl = b ? b.sun.el / D2R : (timeMode === 'dusk' ? 2 : 40);
-  starField.material.opacity = Math.max(0, Math.min(0.9, (-sunEl - 4) / 10)); starField.visible = starField.material.opacity > 0.01;
+  skyNight = Math.max(0, Math.min(1, (-sunEl - 4) / 10)); starField.visible = false;   // the real catalogue stars (Sky, p7) replace these
   if (b && b.moon.el > -0.02){ moonMesh.visible = true; moonMesh.position.addScaledVector(b.moon.v, 1400); moonMesh.lookAt(cam.position);
     const sd = moonMat.uniforms.sunDir.value; if (b.sun && b.sun.v) sd.copy(b.sun.v).normalize(); else sd.copy(b.moon.v).negate(); }
   else moonMesh.visible = false;
