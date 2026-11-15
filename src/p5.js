@@ -176,25 +176,43 @@ fillRow(-75,-14,(cz,w)=>modern(166,cz,w,12,-Math.PI/2), 9, 13);
   place(fm,205,65,0); circles.push({x:205,z:65,r:3});
 }
 const flagMesh = (()=>{ const g = new THREE.PlaneGeometry(15,10,24,12); g.translate(7.5,0,0); const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({map:flagTex, side:THREE.DoubleSide, roughness:0.8})); m.position.set(205.3,57.5,65); m.castShadow = true; dynamicRoot.add(m); return m; })();
-{ // Patrika Gate
-  const g = new THREE.Group(), C = '#E59C7E', Y = '#E8B33A', D = 12, W = 46;
-  const s = new THREE.Shape(); const arches = [[-15,3.5,8],[0,8,13],[15,3.5,8]];
-  s.moveTo(-W/2,0);
-  arches.forEach(([cx,r,oh])=>{ const hs = oh-r; s.lineTo(cx-r,0); s.lineTo(cx-r,hs); s.absarc(cx,hs,r,Math.PI,0,true); s.lineTo(cx+r,0); });
-  s.lineTo(W/2,0); s.lineTo(W/2,17); s.lineTo(-W/2,17); s.lineTo(-W/2,0);
-  const eg = new THREE.ExtrudeGeometry(s,{depth:D,bevelEnabled:false,curveSegments:20}); eg.translate(0,0,-D/2);
+{ // Patrika Gate: a pink Rajput gateway with three arches, painted pillars, jharokha balconies,
+  // a raised central pavilion with a big dome, a crest of chhatris, and every passage wall painted
+  const g = new THREE.Group(), C = '#E3867C', C2 = '#F0A99A', Y = '#E8B33A', B = '#2F6FB0', D = 12, W = 46;
+  const s2 = new THREE.Shape(); const arches = [[-15,3.5,8],[0,7,12.5],[15,3.5,8]];
+  s2.moveTo(-W/2,0);
+  arches.forEach(([cx,r,oh])=>{ const hs = oh-r; s2.lineTo(cx-r,0); s2.lineTo(cx-r,hs); s2.absarc(cx,hs,r,Math.PI,0,true); s2.lineTo(cx+r,0); });
+  s2.lineTo(W/2,0); s2.lineTo(W/2,17); s2.lineTo(-W/2,17); s2.lineTo(-W/2,0);
+  const eg = new THREE.ExtrudeGeometry(s2,{depth:D,bevelEnabled:false,curveSegments:24}); eg.translate(0,0,-D/2);
   g.add(new THREE.Mesh(eg, M(C)));
   for (const zz of [D/2+0.03,-D/2-0.03]){
-    const ry = zz>0?0:Math.PI;
-    arches.forEach(([cx,r,oh],i)=>{ const ring = new THREE.Mesh(archRingGeo(r+0.9,r,oh-r,0.25),M(i===1?Y:'#2F6FB0')); ring.position.set(cx,0,zz); g.add(ring); });
-    for (const px of [-21,-7.5,7.5,21]) for (const yy of [2,6.5,11]) plane(g,M_PAINT[Math.abs(Math.round(px+yy))%4],px+(zz>0?0:0),yy+1.8,zz+(zz>0?0.01:-0.01),Math.abs(px)>20?2.8:2.4,3.8,ry);
-    plane(g,M_PAINT[1],0,15.2,zz+(zz>0?0.01:-0.01),14,2.4,ry);
+    const ry = zz>0?0:Math.PI, f = zz>0?1:-1;
+    arches.forEach(([cx,r,oh],i)=>{
+      const ring = new THREE.Mesh(archRingGeo(r+1.1,r,oh-r,0.3),M(WHITE)); ring.position.set(cx,0,zz); g.add(ring);
+      const ring2 = new THREE.Mesh(archRingGeo(r+0.45,r,oh-r,0.36),M(i===1?Y:B)); ring2.position.set(cx,0,zz); g.add(ring2);
+      for (const sd of [-1,1]){ const px = cx + sd*(r+1.6);   // painted pillars either side of each arch
+        cyl(g,0.42,oh,'#F4EDE2',px,0,zz+f*0.35,14,'stone');
+        for (let k=0;k<5;k++) cyl(g,0.46,0.35,[Y,B,'#D8342B','#2E8C3A','#B83A6B'][k],px,0.6+k*(oh-1.2)/4,zz+f*0.35,14,'stone');
+        cyl(g,0.6,0.35,WHITE,px,oh,zz+f*0.35,14,'stone'); }
+    });
+    // jharokha balconies above the side arches and on the outer bays
+    for (const jx of [-20.5,-15,15,20.5]) for (const jy of [10.2,13.6]){
+      box(g,2.2,0.14,1.1,WHITE,jx,jy,zz+f*0.55,'stone'); add(g,BAY,M_JAALI,jx,jy+1.0,zz+f*0.55,0.9,1.8,0.85,ry); onion(g,0.7,C2,jx,jy+2.05,zz+f*0.6,'plaster',0.75); }
+    plane(g,M_PAINT[1],0,15.0,zz+f*0.012,12,2.6,ry); for (const px of [-8.9,8.9]) plane(g,M_PAINT[Math.abs(px)>8?0:2],px,6.5,zz+f*0.012,1.6,9,ry);
   }
+  // the painted passages: every inner wall covered in Rajasthani motifs
+  arches.forEach(([cx,r,oh],i)=>{ const hs = oh-r; for (const sd of [-1,1]) for (let k=0;k<3;k++) plane(g,M_PAINT[(i+k+(sd>0?1:0))%4],cx+sd*(r-0.02),hs/2,-D/3+k*D/3,D/3-0.1,hs,sd>0?-Math.PI/2:Math.PI/2); });
   box(g,W+1,0.45,D+1,WHITE,0,17,0); box(g,W,0.6,D,Y,0,16.4,0);
-  for (let i=0;i<5;i++) chhatri(g,-18+i*9,17.45,0,i===2?3.0:1.9,C,i%2?Y:'#D84F7A');
-  for (const zz of [D/2-0.3,-D/2+0.3]) for (let i=0;i<30;i++) kangura(g,-22+i*44/29,17.45,zz,1.2,Y);
+  for (const zz of [D/2-0.3,-D/2+0.3]) for (let i=0;i<30;i++) if (Math.abs(-22+i*44/29) > 9.5) kangura(g,-22+i*44/29,17.45,zz,1.2,WHITE);
+  // raised central pavilion: arcade of jharokhas, cornice, big dome flanked by two smaller ones
+  box(g,18,6,D-2,C,0,17.45,0);
+  for (const zz of [(D-2)/2+0.02,-(D-2)/2-0.02]){ const f = zz>0?1:-1, ry = zz>0?0:Math.PI;
+    for (let k=0;k<5;k++){ const jx = -6.4+k*3.2; box(g,2.4,0.14,1.0,WHITE,jx,18.3,zz+f*0.5,'stone'); add(g,BAY,M_JAALI,jx,19.6,zz+f*0.5,1.0,2.4,0.9,ry); if (k%2===0) onion(g,0.8,C2,jx,20.95,zz+f*0.55,'plaster',0.75); } }
+  box(g,19,0.4,D-1,WHITE,0,23.45,0); for (let i=0;i<16;i++) kangura(g,-8.6+i*17.2/15,23.85,(D-2)/2-0.2,1.0,WHITE);
+  chhatri(g,0,23.85,0,3.4,C2,'#F4EDE2'); chhatri(g,-6.5,23.85,0,1.6,C2,Y); chhatri(g,6.5,23.85,0,1.6,C2,Y);
+  for (const x of [-20,-14,14,20]) chhatri(g,x,17.45,0,1.7,C2,x%2===0?Y:'#D84F7A');
   place(g,246,0,Math.PI/2);
-  colliderLocal(246,0,Math.PI/2,-23,-18.5,-D/2,D/2); colliderLocal(246,0,Math.PI/2,-11.5,-8,-D/2,D/2); colliderLocal(246,0,Math.PI/2,8,11.5,-D/2,D/2); colliderLocal(246,0,Math.PI/2,18.5,23,-D/2,D/2);
+  colliderLocal(246,0,Math.PI/2,-23,-18.5,-D/2,D/2); colliderLocal(246,0,Math.PI/2,-11.5,-7,-D/2,D/2); colliderLocal(246,0,Math.PI/2,7,11.5,-D/2,D/2); colliderLocal(246,0,Math.PI/2,18.5,23,-D/2,D/2);
 }
 // street trees on MI Road
 for (let x=104; x<240; x+=13){ if (Math.abs(x-150)>12){ tree(x,-11.8,'neem',0.85); if (x<140) tree(x+6,11.8,'neem',0.85); } }

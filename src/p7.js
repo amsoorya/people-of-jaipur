@@ -1103,17 +1103,24 @@ const Sound = (()=>{
     return true;
   }
   const now = () => ctx.currentTime;
-  // electric two-tone horns: auto "pee-peeep", scooter higher and thinner, jeep lower and fuller
-  const HORN = {auto:[410, 512, 0.13, 0.32], scooter:[560, 700, 0.1, 0.22], jeep:[300, 378, 0.18, 0.42], camel:[410, 512, 0.13, 0.32]};
+  // Indian horns: small disc horns with a harsh, buzzy, nasal tone, honked in quick bursts ("pee-peep", "peep peep peeeep").
+  // auto: high and nasal; scooter: thin and higher; jeep: lower dual-tone car horn
+  const HORN = {auto:{f:[490], bursts:[[0,0.09],[0.15,0.09],[0.3,0.34]]}, camel:{f:[490], bursts:[[0,0.1],[0.17,0.3]]},
+                scooter:{f:[610], bursts:[[0,0.08],[0.13,0.08]]}, jeep:{f:[360,450], bursts:[[0,0.16],[0.26,0.45]]}};
   function horn(kind, gain){
     if (!on || gain <= 0.01 || !init()) return; ctx.resume();
-    const [f1, f2, a, b2] = HORN[kind] || HORN.auto, t0 = now();
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 0.9;
-    const shaper = ctx.createWaveShaper(); const curve = new Float32Array(256); for (let i = 0; i < 256; i++){ const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); } shaper.curve = curve;
-    const g = ctx.createGain(); g.gain.value = 0; shaper.connect(bp).connect(g).connect(out);
-    for (const f of [f1, f2]){ for (const det of [-4, 4]){ const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det; o.connect(shaper); o.start(t0); o.stop(t0 + a + b2 + 0.25); } }
-    const v = 0.22 * gain, env = (s, len) => { g.gain.setTargetAtTime(v, t0 + s, 0.006); g.gain.setTargetAtTime(0.0001, t0 + s + len, 0.02); };
-    env(0, a); env(a + 0.09, b2);
+    const H = HORN[kind] || HORN.auto, t0 = now(), vary = 0.97 + Math.random()*0.06;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 320;
+    const pk = ctx.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2400; pk.Q.value = 1.4; pk.gain.value = 9;   // the nasal honk
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
+    const shaper = ctx.createWaveShaper(); const curve = new Float32Array(512); for (let k = 0; k < 512; k++){ const x = k/256 - 1; curve[k] = Math.max(-0.6, Math.min(0.6, x*4)); } shaper.curve = curve;   // hard clip = buzz
+    const g = ctx.createGain(); g.gain.value = 0; shaper.connect(hp).connect(pk).connect(lp).connect(g).connect(out);
+    const end = t0 + H.bursts[H.bursts.length-1][0] + H.bursts[H.bursts.length-1][1] + 0.1;
+    for (const f of H.f){ const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f*vary;
+      const wob = ctx.createOscillator(), wg = ctx.createGain(); wob.frequency.value = 28; wg.gain.value = f*0.012; wob.connect(wg).connect(o.frequency);   // the rattling diaphragm
+      o.connect(shaper); o.start(t0); o.stop(end); wob.start(t0); wob.stop(end); }
+    const v = 0.16 * gain;
+    for (const [st, len] of H.bursts){ g.gain.setValueAtTime(0.0001, t0+st); g.gain.linearRampToValueAtTime(v, t0+st+0.008); g.gain.setValueAtTime(v, t0+st+len-0.012); g.gain.linearRampToValueAtTime(0.0001, t0+st+len); }
   }
   // a footstep: a short, soft scuff with a little thud
   function stepSound(run, inside){
@@ -1924,7 +1931,7 @@ const TOUR_STOPS = [
   {t:'Bazaar life', d:'Bangle, textile, sweet and spice shops line the arcades. Walk up to any open shop and its glass doors slide open.', keys:{pos:[[-6,2.5,1.5],[4,2.4,1.5],[14,2.4,1.5]], look:[[30,2.2,0],[32,2.2,0],[34,2.4,0]]}},
   {t:'Autos and tuk-tuks', d:'Black-and-yellow autos run the bazaars, and the odd tuk-tuk too. Stop one with E and drive it yourself; press V for the view from the driver’s seat.', el:()=>autos[0] && autos[0].pos, r:7, h:3, live:(n)=>{ if (n === 0) horn('auto', 0.6); }},
   {t:'A thela on the corner', d:'Fruit and vegetable carts heaped high, with the thelawala calling out to passers-by. Walk up and press E to see what’s fresh today.', el:()=>CART_SPOTS[0] && {x:CART_SPOTS[0].x, z:CART_SPOTS[0].z}, rkeys:{pos:[[5,2.3,-4.5],[2.5,1.9,-3.6],[0,1.8,-3.2]], look:[[0,1,0],[-0.6,1.1,0],[-1.2,1.3,0]]}},
-  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when anyone comes close.', live:(n)=>{ if (n === 1) pigeons.forEach(q=>{ if (Math.hypot(q.hx-30, q.hz) < 20) q.fly = 8; }); }, keys:{pos:[[58,24,30],[46,12,18],[39,4.5,12]], look:[[30,0,0],[30,1,0],[30,2.5,0]]}},
+  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when anyone comes close.', live:(n)=>{ if (n === 1) pigeons.forEach(q=>{ if (Math.hypot(q.hx-30, q.hz) < 20) q.fly = 8; }); }, keys:{pos:[[14,4.2,1.5],[19,4.0,-9],[30,3.8,-15],[41,4.0,-9]], look:[[30,2.2,0],[30,2.4,0],[30,2.6,0],[30,2.4,0]]}},
   {t:'Walking into a shop', d:'Open shops have glass doors that slide apart as you walk up. Kalyan Sweets is open, so let’s go in.', keysFn:()=>{ const d = shopDoors.find(x=>x.landmark && x.kind===2); const fx = Math.sin(d.rot), fz = Math.cos(d.rot); return {pos:[[d.x+fx*9-fz*3,2.2,d.z+fz*9+fx*3],[d.x+fx*4,1.8,d.z+fz*4],[d.x+fx*0.8,1.75,d.z+fz*0.8]], look:[[d.x-fx*2,1.6,d.z-fz*2],[d.x-fx*3,1.6,d.z-fz*3],[d.x-fx*5,1.6,d.z-fz*5]]}; }},
   {t:'Inside a sweet shop', d:'Every shop has a shopkeeper and real stock: ladoo, barfi and jalebi on the counter, cakes and mithai boxes on the shelves. At the counter, press E to see their best sellers.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===2),
     shots:[{from:[0,1.75,4.7], to:[0,1.85,2.4], look:[0,1.5,-2.4], lookTo:[0,1.4,-3.2], dur:5}, {from:[-2.4,1.55,-0.7], to:[2.4,1.55,-0.7], look:[-1.2,1.2,-3], lookTo:[1.2,1.3,-3], dur:5}, {from:[1.6,1.7,0.4], to:[0.9,1.75,-0.4], look:[0.9,1.6,-3.3], lookTo:[0.9,1.7,-3.3], dur:4}]},
@@ -1942,8 +1949,8 @@ const TOUR_STOPS = [
   {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city.', keys:{pos:[[-88,46,-98],[-104,40,-114],[-116,36,-126]], look:[[-140,30,-150],[-140,30,-150],[-140,31,-150]]}},
   {t:'Albert Hall Museum', d:'Rajasthan’s oldest museum, built in the Indo-Saracenic style in Ram Niwas Garden.', keys:{pos:[[16,10,112],[30,8,116],[44,10,122]], look:[[30,10,158],[30,10,158],[30,11,158]]}},
   {t:'C-Scheme and MI Road', d:'Cafés, roasters and Anokhi’s block-print store. Modern Jaipur hangs out here.', at:[150,0], r:30, h:14},
-  {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', keys:{pos:[[242,40,122],[228,28,106],[215,18,96]], look:[[205,4,65],[205,4,65],[205,6,65]]}},
-  {t:'Patrika Gate', d:'Every wall and ceiling painted in a different Rajasthani style.', keys:{pos:[[212,8,-10],[222,6,-4],[230,5,2]], look:[[246,8,0],[246,8,0],[246,9,0]]}},
+  {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', keys:{pos:[[246.9, 22, 8.9], [227.8, 23, 0.9], [207.7, 24, 0.1], [192.2, 24, 4.3]], look:[[205,24,65],[205,28,65],[205,33,65],[205,37,65]]}},
+  {t:'Patrika Gate', d:'Every wall and ceiling painted in a different Rajasthani style.', keys:{pos:[[214,9,6],[222,6,1.5],[230,3.2,0],[238,2.2,0]], look:[[246,13,0],[246,12,0],[246,9,0],[252,4,0]]}},
   {t:'Jagatpura Tech Park', d:'Two towers of offices. IT companies take a floor, post open roles, and their team shows up at the desks.', keys:{pos:[[170,9,104],[180,6,112],[188,4.5,118]], look:[[186,12,140],[186,9,140],[186,6,138]]}},
   {t:'The lobby', d:'Reception, a waiting area and lifts to every floor. The directory board shows which company is on which floor.', shop:()=>lobbyDoors[0],
     shots:[{from:[0,1.75,5.6], to:[0.8,1.75,3.2], look:[0,1.5,0], lookTo:[-3.6,1.3,0.2], dur:5}, {from:[-1.0,1.7,3.6], to:[1.0,1.7,3.6], look:[4.4,0.8,2.45], lookTo:[4.4,0.8,2.2], dur:4}, {from:[0,1.8,1.5], to:[0,1.8,-0.2], look:[0,1.8,-6], lookTo:[0,2.2,-6], dur:4}]},
@@ -2014,6 +2021,7 @@ function updateTour(dt){
     let roof = 0; for (const cl of colliders){ if (cl.h && pos.x > cl.minX - 1.5 && pos.x < cl.maxX + 1.5 && pos.z > cl.minZ - 1.5 && pos.z < cl.maxZ + 1.5) roof = Math.max(roof, cl.h); }
     const need = roof > pos.y - 1.2 ? roof + 2.5 - pos.y : 0; tour.lift += (need - tour.lift) * Math.min(1, dt * 1.2); pos.y += tour.lift;
   }
+  if (!inShop) for (const tr of TREE_SPOTS){ if (tr.type === 'scrub') continue; const dx = pos.x - tr.x, dz = pos.z - tr.z, d = Math.hypot(dx, dz), R = 3.2 * (tr.s || 1); if (d < R && pos.y < 9 * (tr.s || 1)){ pos.x = tr.x + dx/(d||1)*R; pos.z = tr.z + dz/(d||1)*R; } }
   // a little extra smoothing so nothing ever snaps
   if (!tour.cam || tour.t < 0.05){ tour.cam = pos.clone(); tour.lk = look.clone(); } else { tour.cam.lerp(pos, Math.min(1, dt * 4)); tour.lk.lerp(look, Math.min(1, dt * 4)); }
   camera.position.copy(tour.cam); camera.lookAt(tour.lk);
