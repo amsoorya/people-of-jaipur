@@ -1475,12 +1475,23 @@ gate(30,-S,0,'Ganga Pol'); gate(30,S,0,'Sanganeri Gate'); gate(S,0,Math.PI/2,'Su
    ========================================================= */
 {
   const g = new THREE.Group();
-  cyl(g,8.5,0.25,'#D6BE98',0,0,0,40,'paving');
-  cyl(g,6.5,0.7,'#E6D7BE',0,0,0,40,'stone');
-  add(g,new THREE.CylinderGeometry(6.0,6.0,0.1,40),M_WATER,0,0.62,0);
-  cyl(g,1.2,1.4,'#E6D7BE',0,0.6,0,16,'stone');
-  chhatri(g,0,2.0,0,1.5,'#D27E66',WHITE);
-  place(g,30,0,0); circles.push({x:30,z:0,r:7});
+  // roundabout: kerb, garden ring with a low white railing, then a sandstone basin with a three-tier fountain
+  cyl(g,10.5,0.22,'#CDB48C',0,0,0,48,'paving');
+  cyl(g,10.0,0.32,'#5E8A3A',0,0,0,48,'grass');
+  for (let i=0;i<48;i++){ const a = i/48*Math.PI*2; box(g,0.08,0.55,0.08,'#F2EEE6',Math.cos(a)*9.8,0.3,Math.sin(a)*9.8,'stone'); }
+  { const rail = new THREE.Mesh(new THREE.TorusGeometry(9.8,0.035,6,64), M('#F2EEE6','stone')); rail.rotation.x = Math.PI/2; rail.position.y = 0.58; g.add(rail); }
+  for (let i=0;i<12;i++){ const a = i/12*Math.PI*2; TREE_SPOTS.push({x:30+Math.cos(a)*8.4, z:Math.sin(a)*8.4, y:0.32, type:'bougainvillea', s:0.45, rot:a, pick:0}); }   // flowering bushes around the garden ring
+  cyl(g,6.8,0.75,'#E6D2B0',0,0,0,40,'stone'); { const rim = new THREE.Mesh(new THREE.TorusGeometry(6.75,0.16,8,64), M('#F2EEE6','stone')); rim.rotation.x = Math.PI/2; rim.position.y = 0.78; g.add(rim); }
+  add(g,new THREE.CylinderGeometry(6.55,6.55,0.1,40),M_WATER,0,0.72,0);
+  cyl(g,2.6,0.5,'#E6D2B0',0,0.6,0,24,'stone'); cyl(g,2.4,0.08,'#F2EEE6',0,1.1,0,24,'stone');
+  cyl(g,0.45,1.3,'#E6D2B0',0,1.1,0,12,'stone'); cyl(g,1.5,0.18,'#F2EEE6',0,2.4,0,20,'stone');
+  cyl(g,0.25,0.9,'#E6D2B0',0,2.55,0,10,'stone'); cyl(g,0.8,0.12,'#F2EEE6',0,3.45,0,16,'stone');
+  { const jet = new THREE.MeshStandardMaterial({color:lin('#DCEFF5'), transparent:true, opacity:0.55, roughness:0.1, depthWrite:false});
+    const jets = new THREE.Group(); jets.position.set(30, 0, 0); scene.add(jets);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.16,2.2,8), jet); c.position.y = 4.6; jets.add(c);
+    for (let i=0;i<12;i++){ const a = i/12*Math.PI*2, j2 = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.1,1.4,6), jet); j2.position.set(Math.cos(a)*2.2,1.6,Math.sin(a)*2.2); j2.rotation.set(Math.sin(a)*0.5,0,-Math.cos(a)*0.5); jets.add(j2); }
+    window.__fountainJets = jets; }
+  place(g,30,0,0); circles.push({x:30,z:0,r:10.6});
   for (const [cx,cz,alongX] of [[13.5,0,false],[46.5,0,false],[30,-17,true],[30,17,true]])
     for (let k=-3;k<=3;k++) flat(M_LINE, alongX ? cx + k*1.6 : cx, alongX ? cz : cz + k*1.6, alongX ? 0.8 : 3.0, alongX ? 3.0 : 0.8, 0.095);
   for (let i=0;i<28;i++){ const a0 = i/28*Math.PI*2; if (i%2) continue; const m = add(staticRoot,new THREE.RingGeometry(14.2,14.45,6,1,a0,Math.PI*2/28),M_LINE,30,0.096,0,1,1,1,0,-Math.PI/2); m.userData.noCast = true; }
@@ -2458,7 +2469,7 @@ const PigeonRig = (()=>{
       for (const side of [-1, 1]){ const x = alongX ? r.x + u : r.x + side * (half + 0.12), z = alongX ? r.z + side * (half + 0.12) : r.z + u;
         if (!inRoad(x, z, r, 0.4)) K.push({x, z, alongX, yellow: i % 2 === 0}); }
       const cx = alongX ? r.x + u : r.x, cz = alongX ? r.z : r.z + u;
-      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5)) L.push({x: cx, z: cz, alongX});
+      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5) && Math.hypot(cx - 30, cz) > 12) L.push({x: cx, z: cz, alongX});   // none through the Badi Chaupar roundabout
     }
   }
   const box = new THREE.BoxGeometry(1, 1, 1), m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
@@ -5181,6 +5192,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
+  if (window.__fountainJets) window.__fountainJets.children.forEach((j,i)=>{ j.scale.y = 0.85 + Math.sin(t*6 + i)*0.15; });
   Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t); updateShopDoors(dt);
   for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : 0.8; }
   Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));

@@ -492,7 +492,7 @@ const PigeonRig = (()=>{
       for (const side of [-1, 1]){ const x = alongX ? r.x + u : r.x + side * (half + 0.12), z = alongX ? r.z + side * (half + 0.12) : r.z + u;
         if (!inRoad(x, z, r, 0.4)) K.push({x, z, alongX, yellow: i % 2 === 0}); }
       const cx = alongX ? r.x + u : r.x, cz = alongX ? r.z : r.z + u;
-      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5)) L.push({x: cx, z: cz, alongX});
+      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5) && Math.hypot(cx - 30, cz) > 12) L.push({x: cx, z: cz, alongX});   // none through the Badi Chaupar roundabout
     }
   }
   const box = new THREE.BoxGeometry(1, 1, 1), m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);

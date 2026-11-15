@@ -2465,6 +2465,7 @@ const camRay = new THREE.Vector3();
 
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
+  if (window.__fountainJets) window.__fountainJets.children.forEach((j,i)=>{ j.scale.y = 0.85 + Math.sin(t*6 + i)*0.15; });
   Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t); updateShopDoors(dt);
   for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : 0.8; }
   Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));
