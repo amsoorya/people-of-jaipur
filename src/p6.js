@@ -590,7 +590,7 @@ function makeScooter(col){
   scene.add(g); return g;
 }
 const SCOOTER_COLS = ['#1F3B6E','#B82B2B','#2A2A2A','#E8E2D6','#2E8C87','#E05A2B','#5E8F3A'];
-const scooters = scooterSpots.map(([x,z,r],i)=>{ const g = makeScooter(SCOOTER_COLS[i%SCOOTER_COLS.length]); return {type:'scooter', g, pos:V3(x,0,z), heading:r, v:0, state:'parked', lean:0}; });
+const scooters = scooterSpots.map(([x,z,r],i)=>{ const g = makeScooter(SCOOTER_COLS[i%SCOOTER_COLS.length]); return {type:'scooter', g, pos:V3(x,0,z), heading:r, v:0, state:'parked', lean:0, origin:{x, z, h:r}}; });
 scooters.forEach(s=>{ s.g.position.copy(s.pos); s.g.rotation.y = s.heading; });
 
 /* Camels you can ride */
@@ -627,7 +627,7 @@ function makeCamel(){
   const legs = [[-0.27, 0.7], [0.27, 0.7], [-0.27, -0.72], [0.27, -0.72]].map(([x, z])=>{ const l = new THREE.Mesh(legGeo, PM); l.position.set(x, 1.45, z); l.castShadow = true; g.add(l); return l; });
   scene.add(g); return {g, legs, body:bm};
 }
-const camels = camelSpots.map(([x,z,r])=>{ const c = makeCamel(); return {type:'camel', g:c.g, legs:c.legs, body:c.body, pos:V3(x,0,z), home:V3(x,0,z), heading:r, v:0, state:'parked', walk:0, beh:'idle', bt:3+Math.random()*6, sit:0, legH:1.45, sitDrop:1.05, range:4, circle:null}; });
+const camels = camelSpots.map(([x,z,r])=>{ const c = makeCamel(); return {type:'camel', g:c.g, legs:c.legs, body:c.body, pos:V3(x,0,z), home:V3(x,0,z), origin:{x, z, h:r}, heading:r, v:0, state:'parked', walk:0, beh:'idle', bt:3+Math.random()*6, sit:0, legH:1.45, sitDrop:1.05, range:4, circle:null}; });
 /* Cows that wander, lie down, get up, and move when someone honks */
 function makeCow(col){
   const g = new THREE.Group(), C = col, D = '#2A1E16';
@@ -640,7 +640,7 @@ function makeCow(col){
   scene.add(g); return {g, legs, body:bm, head};
 }
 const COW_COLS = ['#F1ECE3','#E8E1D4','#8C7A6A','#D9CDB8'];
-const cows = cowSpots.map(([x,z,r],i)=>{ const c = makeCow(COW_COLS[i%COW_COLS.length]); return {type:'cow', g:c.g, legs:c.legs, body:c.body, head:c.head, pos:V3(x,0,z), home:V3(x,0,z), heading:r||0, v:0, walk:0, beh: i%2 ? 'sitting' : 'idle', bt:4+Math.random()*8, sit: i%2 ? 1 : 0, legH:0.85, sitDrop:0.55, range:7, circle:null}; });
+const cows = cowSpots.map(([x,z,r],i)=>{ const c = makeCow(COW_COLS[i%COW_COLS.length]); return {type:'cow', g:c.g, legs:c.legs, body:c.body, head:c.head, pos:V3(x,0,z), home:V3(x,0,z), origin:{x, z, h:r||0}, heading:r||0, v:0, walk:0, beh: i%2 ? 'sitting' : 'idle', bt:4+Math.random()*8, sit: i%2 ? 1 : 0, legH:0.85, sitDrop:0.55, range:7, circle:null}; });
 /* Animated cows and bulls (Quaternius, CC0) replace the simple ones once they load */
 const AnimalRig = (()=>{
   const ok = !!(THREE.GLTFLoader && THREE.SkeletonUtils), loader = ok ? new THREE.GLTFLoader() : null, cache = {}, live = [];

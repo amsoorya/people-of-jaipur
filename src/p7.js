@@ -52,10 +52,10 @@ addEventListener('keyup', e=>{ keys[e.code] = false; });
 addEventListener('blur', ()=>{ for (const k in keys) keys[k] = false; });
 let drag = null;
 canvas.addEventListener('pointerdown', e=>{ if (mode!=='play') return; drag = {id:e.pointerId,x:e.clientX,y:e.clientY}; canvas.setPointerCapture(e.pointerId); togglePanel(false); });
-canvas.addEventListener('pointermove', e=>{ if (!drag || e.pointerId!==drag.id) return; yaw -= (e.clientX-drag.x)*0.005; if (flying) flyPitch = Math.max(-0.6, Math.min(1.35, flyPitch + (e.clientY-drag.y)*0.004)); else pitch = Math.max(-0.05, Math.min(1.2, pitch + (e.clientY-drag.y)*0.004)); drag.x = e.clientX; drag.y = e.clientY; });
+canvas.addEventListener('pointermove', e=>{ if (!drag || e.pointerId!==drag.id) return; if (scope){ const k = camera.fov / 52; scope.a += (e.clientX-drag.x)*0.004*k; scope.p = Math.max(-0.35, Math.min(1.45, scope.p + (e.clientY-drag.y)*0.004*k)); drag.x = e.clientX; drag.y = e.clientY; return; } yaw -= (e.clientX-drag.x)*0.005; if (flying) flyPitch = Math.max(-0.6, Math.min(1.35, flyPitch + (e.clientY-drag.y)*0.004)); else pitch = Math.max(-0.05, Math.min(1.2, pitch + (e.clientY-drag.y)*0.004)); drag.x = e.clientX; drag.y = e.clientY; });
 const endDrag = e=>{ if (drag && e.pointerId===drag.id) drag = null; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
-canvas.addEventListener('wheel', e=>{ dist = Math.max(3.2, Math.min(18, dist + e.deltaY*0.008)); }, {passive:true});
+canvas.addEventListener('wheel', e=>{ if (scope) return; dist = Math.max(3.2, Math.min(18, dist + e.deltaY*0.008)); }, {passive:true});
 const $ = id => document.getElementById(id);
 const stick = $('stick'), knob = $('knob'); let stickId = null;
 stick.addEventListener('pointerdown', e=>{ stickId = e.pointerId; stick.setPointerCapture(e.pointerId); moveStick(e); e.stopPropagation(); });
@@ -224,16 +224,7 @@ const haloTex = (()=>{ const [c,x] = cv(64,64); const g = x.createRadialGradient
 const halos = new THREE.Group(); scene.add(halos);
 lampSpots.forEach(([x,y,z])=>{ const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex, blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, toneMapped:false, fog:true})); sp.position.set(x,y,z); sp.scale.set(3.2,3.2,1); halos.add(sp); });
 const nightGroup = new THREE.Group(); scene.add(nightGroup);
-{ // stars
-  const n = 1400, pos = new Float32Array(n*3), col = new Float32Array(n*3);
-  for (let i=0;i<n;i++){ const u = Math.random(), v = Math.random()*0.9+0.08, th = u*Math.PI*2, ph = Math.acos(1-v); const r = 1500;
-    pos[i*3] = Math.sin(ph)*Math.cos(th)*r; pos[i*3+1] = Math.cos(ph)*r; pos[i*3+2] = Math.sin(ph)*Math.sin(th)*r; const b = 0.6+Math.random()*0.4; col[i*3]=b; col[i*3+1]=b; col[i*3+2]=b*1.05; }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3)); g.setAttribute('color', new THREE.BufferAttribute(col,3));
-  const stars = new THREE.Points(g, new THREE.PointsMaterial({size:2.2, sizeAttenuation:false, vertexColors:true, fog:false, depthWrite:false, transparent:true, opacity:0.9, toneMapped:false}));
-  stars.renderOrder = -1; nightGroup.add(stars); nightGroup.userData.stars = stars;
-  const [c,x] = cv(128,128); const rg = x.createRadialGradient(64,64,0,64,64,64); rg.addColorStop(0,'rgba(255,252,240,1)'); rg.addColorStop(0.28,'rgba(250,246,230,1)'); rg.addColorStop(0.34,'rgba(200,215,255,.35)'); rg.addColorStop(1,'rgba(160,180,255,0)'); x.fillStyle = rg; x.fillRect(0,0,128,128);
-  const moon = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), fog:false, depthWrite:false, transparent:true, toneMapped:false})); moon.scale.set(150,150,1); nightGroup.add(moon); nightGroup.userData.moon = moon;
-}
+// (stars and the moon live in the real-time sky, p1)
 const fairy = new THREE.InstancedMesh(new THREE.SphereGeometry(0.095,8,6), M_FAIRY, fairySpots.length);
 { const cols = ['#FFE7B0','#FFD27A','#FFC2D6','#FFE7B0','#B8E2FF','#FFE7B0']; const m4b = new THREE.Matrix4(), c = new THREE.Color();
   fairySpots.forEach((p,i)=>{ m4b.makeTranslation(p[0],p[1],p[2]); fairy.setMatrixAt(i,m4b); fairy.setColorAt(i, c.set(cols[i%cols.length]).convertSRGBToLinear()); });
@@ -350,7 +341,7 @@ function syncPeers(list){
     }
     e.by = p.by;
     e.tgt.set(Math.max(-700,Math.min(700,num(pr.x))), Math.max(-12,Math.min(400,num(pr.y))), Math.max(-700,Math.min(700,num(pr.z))));
-    e.tr = num(pr.r); e.moving = !!pr.m; e.fly = !!pr.f; e.sit = !!pr.st; e.wv = num(pr.wv); e.place = typeof pr.place === 'string' ? pr.place.slice(0,60) : '';
+    e.tr = num(pr.r); e.moving = !!pr.m; e.fly = !!pr.f; e.sit = !!pr.st; e.sc = !!pr.sc; e.wv = num(pr.wv); e.place = typeof pr.place === 'string' ? pr.place.slice(0,60) : '';
   }
   for (const [k,e] of live.peers) if (!seen.has(k)){ scene.remove(e.ch.g); scene.remove(e.orb); if (e.label) scene.remove(e.label); live.peers.delete(k); }
   live.count = count; updateLivePill(); resolveNames(); refreshPeerLabels(); syncMemberVisibility();
@@ -380,7 +371,7 @@ let lastSent = '', lastSendT = 0;
 function sendPresence(now, moving){
   if (!live.room || now - lastSendT < 0.1) return;
   const st = flying ? {x:+drone.x.toFixed(1), z:+drone.z.toFixed(1), y:+drone.y.toFixed(1), r:+yaw.toFixed(2), m:0, f:1, place:lastArea}
-                    : inShop ? {x:+inShop.door.x.toFixed(1), z:+inShop.door.z.toFixed(1), y:0, r:+inShop.door.rot.toFixed(2), m:0, f:0, place:inShop.door.name} : {lk:myLook, st: sitting ? 1 : 0, wv: lastWave, x:+P.pos.x.toFixed(1), z:+P.pos.z.toFixed(1), y:+(P.y||0).toFixed(1), r:+P.rot.toFixed(2), m:moving?1:0, f:0, place:lastArea};
+                    : inShop ? {x:+inShop.door.x.toFixed(1), z:+inShop.door.z.toFixed(1), y:0, r:+inShop.door.rot.toFixed(2), m:0, f:0, place:inShop.door.name} : {lk:myLook, st: sitting ? 1 : 0, wv: lastWave, sc: scope ? 1 : 0, x:+P.pos.x.toFixed(1), z:+P.pos.z.toFixed(1), y:+(riding ? (riding.pos.y || groundY(riding.pos.x, riding.pos.z)) : (P.y||0)).toFixed(1), r:+P.rot.toFixed(2), m:moving?1:0, f:0, place:lastArea};
   const key = JSON.stringify(st); if (key === lastSent) return;
   lastSent = key; lastSendT = now; live.room.presence(st).catch(()=>{});
 }
@@ -390,6 +381,7 @@ function updatePeers(dt){
     if (e.fly){ e.ch.g.visible = false; e.orb.visible = true; e.orb.position.copy(e.cur); if (e.label) e.label.position.set(e.cur.x, e.cur.y+1.0, e.cur.z); }
     else {
       e.ch.g.visible = true; e.orb.visible = false;
+      if (!e.sit && !e.inside) e.cur.y = Math.max(e.cur.y||0, groundY(e.cur.x, e.cur.z));   // never inside the hill, whatever height they last sent
       e.ch.g.position.set(e.cur.x,e.cur.y||0,e.cur.z); e.rot = angLerp(e.rot, e.tr, Math.min(1,dt*8)); e.ch.g.rotation.y = e.rot;
       if (e.sit){ seat(e.ch); e.ch.g.position.y = (e.cur.y||0) - 0.42; } else { if (e.moving) e.walk += dt*8; animatePerson(e.ch, e.walk, e.moving?1:0, t); }
       if (Date.now() - e.wv < 2500){ e.ch.b.rSh.rotation.set(-2.5,0,0.3 + Math.sin(t*7)*0.2); e.ch.b.rEl.rotation.x = -0.5; }
@@ -481,7 +473,8 @@ function exitAuto(){
   if (a.driver){ a.driver.g.position.set(0,-0.05,0.38); seat(a.driver); }
   a.g.rotation.z = 0;
   scene.add(player.g); stand(player);
-  if (a.type === 'camel'){ a.home.set(a.pos.x,0,a.pos.z); a.beh = 'idle'; a.bt = 5; a.circle.r = 1.3; }
+  if (a.type === 'camel'){ a.beh = 'idle'; a.bt = 5; a.circle.r = 1.3; }
+  a.leftT = 0; a.away = 0;   // it heads home a few seconds after you leave it (see sendHome)
   const off = a.type==='camel' ? 2.0 : 1.6; P.pos.set(a.pos.x + Math.cos(a.heading)*off, 0, a.pos.z - Math.sin(a.heading)*off); resolve(P.pos); P.y = groundY(P.pos.x,P.pos.z);
   P.rot = a.heading; yaw = P.rot - Math.PI; dist = 6.2; snapCam = true; showHint(null);
 }
@@ -508,7 +501,7 @@ function laneGap(a, x0, z0, fx, fz){
   for (const o of scooters) check(o.pos.x, o.pos.z, 0.6, o.state === 'driven');
   for (const c of camels) check(c.pos.x, c.pos.z, 1.2, c.state === 'driven');
   for (const c of cows) check(c.pos.x, c.pos.z, 1.0, c.beh === 'walk' || c.beh === 'flee');
-  live.peers.forEach(e=>{ if (!e.fly) check(e.cur.x, e.cur.z, 0.5, e.moving); });
+  live.peers.forEach(e=>{ if (!e.fly && Math.abs((e.cur.y||0) - (a.pos.y||0)) < 2) check(e.cur.x, e.cur.z, 0.5, e.moving); });
   return {gap, still};
 }
 function trafficSpeed(a){
@@ -858,6 +851,8 @@ function computeAction(){
     if (P.pos.z < ud.counterZ + 1.7){ const b0 = inShop.door.biz; if (b0 && b0.products.length) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && (inShop.door.landmark || inShop.door.kind === 6)) return {key:'counter', label: ud.cafe ? 'See the menu' : 'See what they sell', fn:openProducts}; if (!b0 && db && myId) return {key:'claim', label:'Is this yours? Register it', fn:openBiz}; }
     return P.pos.z > R2.D/2 - 2.2 ? {key:'out', label:'Step outside', fn:exitShop} : null;
   }
+  if (scope) return {key:'scopeoff', label:'Step back from the telescope', fn:leaveScope};
+  for (const T of TELESCOPES){ if (!riding && Math.hypot(T.x - P.pos.x, T.z - P.pos.z) < 2.0 && Math.abs((P.y||0) - T.y) < 1.5){ const who = scopeBusy(T); return who ? {key:'scopebusy', label:`${who} is looking through it`, fn:()=>{ showHint(`${who} is using this telescope. ${T.name === 'Sunset Point' ? 'There’s another one on the other side of the platform.' : 'Give them a moment.'}`); setTimeout(()=>showHint(''), 3000); }} : {key:'scope', label:'Look through the telescope', fn:()=>useScope(T)}; } }
   for (let ci = 0; ci < CART_SPOTS.length; ci++){ const c = CART_SPOTS[ci]; if (!riding && Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < 2.6) return {key:'cart'+ci, label: c.kind === 'fruit' ? 'Buy fruit from the thela' : 'Buy vegetables from the thela', fn:()=>openCart(c)}; }
   for (const tb of outdoorTables){ if (!riding && Math.hypot(tb.x-P.pos.x, tb.z-P.pos.z) < 1.8 && tb.seats.some(s=>!s.npc)){ return {key:'otbl'+tb.x, label:'Sit down and join the chat', fn:()=>sitAt(tb, 'cafe:'+tb.place, {title:tb.place, sub:'Chat with people at this café', color:'#7A5638'}, scene)}; } }
   if (sitting && sitting.free) return {key:'standup', label:'Stand up', fn:standUp};
@@ -867,7 +862,7 @@ function computeAction(){
   if (riding) return riding.type==='jeep' ? null : {key:'getout', label: riding.type==='scooter' ? 'Get off the scooter' : riding.type==='camel' ? 'Get off the camel' : 'Get out of the auto', fn:exitAuto};
   if (jeep.state !== 'moving' && Math.hypot(jeep.pos.x-P.pos.x, jeep.pos.z-P.pos.z) < 4.2) return {key:'jeep'+jeep.u, label: jeep.u < 0.5 ? 'Take the jeep up to Sunset Point' : 'Take the jeep back down', fn:rideJeep};
   { let bc = null, bd = 3.0; for (const c of camels){ const d = Math.hypot(c.pos.x-P.pos.x, c.pos.z-P.pos.z); if (d < bd){ bd = d; bc = c; } } if (bc) return {key:'camel'+camels.indexOf(bc), label:'Ride the camel', fn:()=>enterAuto(bc)}; }
-  { let bp = null, bd0 = 3.2; live.peers.forEach(e=>{ if (e.fly) return; const d = Math.hypot(e.cur.x-P.pos.x, e.cur.z-P.pos.z); if (d < bd0){ bd0 = d; bp = e; } }); if (bp && !riding){ const mm = bp.by && memberMap.get(bp.by); return mm ? {key:'meet'+bp.peerId, label:`Meet ${peerName(bp)}`, fn:()=>{ waveAt(bp); openCard(mm); }} : {key:'wave'+bp.peerId, label:`Wave at ${peerName(bp)}`, fn:()=>waveAt(bp)}; } }
+  { let bp = null, bd0 = 3.2; live.peers.forEach(e=>{ if (e.fly || Math.abs((e.cur.y||0) - (P.y||0)) > 2) return; const d = Math.hypot(e.cur.x-P.pos.x, e.cur.z-P.pos.z); if (d < bd0){ bd0 = d; bp = e; } }); if (bp && !riding){ const mm = bp.by && memberMap.get(bp.by); return mm ? {key:'meet'+bp.peerId, label:`Meet ${peerName(bp)}`, fn:()=>{ waveAt(bp); openCard(mm); }} : {key:'wave'+bp.peerId, label:`Wave at ${peerName(bp)}`, fn:()=>waveAt(bp)}; } }
   if (nearNpc) return {key:'npc'+nearNpc.p.name, label:`Meet ${nearNpc.p.name.split(' ')[0]}`, fn:()=>openCard(nearNpc)};
   let ba = null, bd = 5.5; for (const a of autos){ const d = Math.hypot(a.pos.x-P.pos.x, a.pos.z-P.pos.z); if (d < bd){ bd = d; ba = a; } }
   if (ba) return (ba.state==='route' || ba.state==='rejoin') ? {key:'hail'+autos.indexOf(ba), label:'Stop the auto', fn:()=>hail(ba)} : {key:'in'+autos.indexOf(ba), label:'Get in the auto', fn:()=>enterAuto(ba)};
@@ -889,7 +884,7 @@ function updateAction(){
 }
 /* Visitors who haven't signed in can walk, look around, enter buildings and browse; anything that
    involves other people or riding asks them to sign in first. */
-const GUEST_OK = /^(door|lobby|out|call|counter|jobs|rec|board|getout|standup|seat|cart)/;
+const GUEST_OK = /^(door|lobby|out|call|counter|jobs|rec|board|getout|standup|seat|cart|scope)/;
 function needsSignIn(){ return !!(window.JP_AUTH && window.JP_AUTH.signIn) && !(db && myId); }
 function askSignIn(what){ showHint(`Sign in to ${what || 'interact'}. You can keep walking and looking around without signing in.`); setTimeout(()=>showHint(''), 3500); try { localStorage.setItem('jp-pending-role', 'signin'); } catch(e){} window.JP_AUTH.signIn(); }
 function doAction(){ if (!action) return; if (needsSignIn() && !GUEST_OK.test(action.key)){ askSignIn(/^(npc|meet|wave)/.test(action.key) ? 'meet people' : /^(hail|in|sc|camel|jeep)/.test(action.key) ? 'ride' : /tbl/.test(action.key) ? 'join the chat' : 'do that'); return; } action.fn(); }
@@ -1277,6 +1272,90 @@ function sitFree(x, z, rot, y, back){
   seat(player); player.b.lSh.rotation.set(-0.35,0,-0.12); player.b.rSh.rotation.set(-0.35,0,0.12); player.b.lEl.rotation.x = player.b.rEl.rotation.x = -1.0;
   yaw = rot - Math.PI + 0.35; pitch = 0.28; dist = 4.4; snapCam = true;
   showHint('Enjoy the view. Press E, or start walking, to stand up.');
+}
+/* =========================================================
+   Telescopes ("Telescope" by CreativeTrio, CC0): look through one, aim it and zoom across the city,
+   or up at the real moon at night. Two at Sunset Point so friends can look together, one at Jantar Mantar.
+   ========================================================= */
+const TELESCOPES = [
+  ...SUNSET_SCOPES.map(s => ({name:'Sunset Point', x:s.x, z:s.z, aim:Math.atan2(Math.cos(s.a), Math.sin(s.a)), look:s.look})),
+  {name:'Jantar Mantar', x:-14, z:-32, aim:Math.PI, up:0.55}
+];
+TELESCOPES.forEach((T, i)=>{
+  T.y = T.name === 'Sunset Point' ? HILL.h + 0.2 : groundY(T.x, T.z);
+  if (T.look){ T.aim = Math.atan2(T.look.x - T.x, T.look.z - T.z); T.up = Math.atan2(T.look.y - (T.y + 1.5), Math.hypot(T.look.x - T.x, T.look.z - T.z)); }   // starts aimed at the old city / Jal Mahal
+  T.g = new THREE.Group(); T.g.position.set(T.x, T.y, T.z); T.g.rotation.y = T.aim; scene.add(T.g);
+  Swap.apply(T.g, 'models/telescope.glb', {height:1.62, done:pv=>{ T.inst = pv.children[0]; }});
+  circles.push({x:T.x, z:T.z, r:0.45});
+});
+const SCOPE_OBJ = new THREE.Vector3(-0.012, 0.876, 0.383), scDir = new THREE.Vector3(), scEye = new THREE.Vector3(), scTmp = new THREE.Vector3();
+let scope = null;
+const scopeSpot = T => ({x:T.x - Math.sin(T.aim)*0.7, z:T.z - Math.cos(T.aim)*0.7});
+function scopeBusy(T){ const sp = scopeSpot(T); for (const e of live.peers.values()) if (e.sc && Math.hypot(e.cur.x - sp.x, e.cur.z - sp.z) < 1.2) return peerName(e); return null; }
+function useScope(T){
+  if (sitting) standUp();
+  const sp = scopeSpot(T); P.pos.set(sp.x, 0, sp.z); P.rot = T.aim; P.y = T.y; player.g.rotation.y = P.rot; stand(player);
+  scope = {T, a:T.aim, p:T.up, fov:22, save:{yaw, pitch, dist, fov:camera.fov}};
+  document.body.classList.add('scoping'); $('scopeView').hidden = false; showHint(null);
+}
+function leaveScope(){
+  if (!scope) return; const s = scope.save; scope.T.g.rotation.y = scope.T.aim; scope = null;
+  yaw = P.rot - Math.PI; pitch = s.pitch; dist = s.dist; camera.fov = s.fov; camera.updateProjectionMatrix(); snapCam = true;
+  document.body.classList.remove('scoping'); $('scopeView').hidden = true;
+}
+const scopeZoom = k => { if (scope) scope.fov = Math.max(1.3, Math.min(30, scope.fov * k)); };
+// what's in the middle of the view: the moon, or the nearest Jaipur place the telescope points at
+function scopeLabel(){
+  const cp = camera.position; let best = null, bestA = Math.max(0.02, scope.fov * Math.PI / 180 * 0.35);
+  if (moonMesh.visible){ const a = scDir.angleTo(scTmp.copy(moonMesh.position).sub(cp)); if (a < Math.max(bestA, 0.04)){ const ph = liveBodies ? liveBodies.moon.phase : 1; return `The Moon · ${Math.round(ph * 100)}% lit tonight`; } }
+  for (const pl of PLACES){ const d = Math.hypot(pl.x - cp.x, pl.z - cp.z); if (d < 12) continue; const a = scDir.angleTo(scTmp.set(pl.x - cp.x, 6 - cp.y, pl.z - cp.z)); const lim = Math.max(bestA, Math.atan(pl.r * 0.6 / d)); if (a < lim && (!best || a / lim < best.k)) best = {pl, d, k:a / lim}; }
+  return best ? `${best.pl.name} · ${Math.round(best.d)} m away` : '';
+}
+function updateScope(dt){
+  const T = scope.T, k = camera.fov / 52;
+  const turn = ((keys.KeyA||keys.ArrowLeft)?1:0) - ((keys.KeyD||keys.ArrowRight)?1:0), tilt = ((keys.KeyW||keys.ArrowUp)?1:0) - ((keys.KeyS||keys.ArrowDown)?1:0);
+  scope.a += turn * dt * 1.1 * k - joy.x * dt * 1.1 * k; scope.p = Math.max(-0.35, Math.min(1.45, scope.p + (tilt - joy.y) * dt * 0.8 * k));
+  if (keys.Equal || keys.NumpadAdd) scopeZoom(Math.exp(-dt * 1.6)); if (keys.Minus || keys.NumpadSubtract) scopeZoom(Math.exp(dt * 1.6));
+  T.g.rotation.y = scope.a; T.g.updateMatrixWorld(true);
+  scDir.set(Math.sin(scope.a) * Math.cos(scope.p), Math.sin(scope.p), Math.cos(scope.a) * Math.cos(scope.p));
+  if (T.inst) T.inst.localToWorld(scEye.copy(SCOPE_OBJ)); else scEye.set(T.x, T.y + 1.4, T.z);
+  camera.position.copy(scEye).addScaledVector(scDir, 0.35);
+  camera.lookAt(camera.position.x + scDir.x, camera.position.y + scDir.y, camera.position.z + scDir.z);
+  camera.fov += (scope.fov - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix();
+  P.rot = scope.a; player.g.rotation.y = P.rot;
+  const z = $('scopeZoom'), lb = $('scopeWhat'), txt = Math.round(52 / camera.fov) + '×', what = scopeLabel();
+  if (z.textContent !== txt) z.textContent = txt; if (lb.textContent !== what) lb.textContent = what;
+}
+canvas.addEventListener('wheel', e=>{ if (scope) scopeZoom(Math.exp(e.deltaY * 0.0015)); }, {passive:true});
+addEventListener('keydown', e=>{ if (scope && (e.key === 'Escape' || e.key === 'e' || e.key === 'E')){ e.stopImmediatePropagation(); leaveScope(); } }, true);
+$('scopeIn').addEventListener('click', ()=>scopeZoom(0.6)); $('scopeOut').addEventListener('click', ()=>scopeZoom(1/0.6)); $('scopeExit').addEventListener('click', leaveScope);
+
+/* =========================================================
+   Leave a scooter or a camel somewhere, or chase a cow off, and a few seconds later it goes back where it
+   belongs: animals walk back if home is close, otherwise (and for scooters) it's quietly returned to its spot.
+   ========================================================= */
+function sendHome(dt){
+  const far = o => Math.hypot(o.pos.x - o.origin.x, o.pos.z - o.origin.z);
+  const you = o => Math.hypot(o.pos.x - P.pos.x, o.pos.z - P.pos.z);
+  for (const o of scooters.concat(camels, cows)){
+    if (!o.origin || riding === o || o.state === 'driven') continue;
+    if (o.pop){   // shrink away, move home, grow back
+      o.pop.t += dt; const base = o.pop.s, kk = o.pop.t < 0.35 ? 1 - o.pop.t / 0.35 : Math.min(1, (o.pop.t - 0.35) / 0.35);
+      if (o.pop.t >= 0.35 && !o.pop.moved){ o.pop.moved = true; o.pos.set(o.origin.x, 0, o.origin.z); o.heading = o.origin.h; if (o.home) o.home.set(o.origin.x, 0, o.origin.z); o.beh = 'idle'; o.bt = 4;
+        if (o.circle){ o.circle.x = o.pos.x; o.circle.z = o.pos.z; } o.pos.y = seatOnGround(o.g, o.pos.x, o.pos.z, o.heading, o.type === 'scooter' ? 0.9 : 0.7, 0.3, 0); }
+      o.g.scale.copy(base).multiplyScalar(Math.max(0.001, kk)); if (o.pop.t >= 0.7){ o.g.scale.copy(base); o.pop = null; o.away = 0; } continue;
+    }
+    const d = far(o), limit = o.type === 'scooter' ? 0.6 : (o.range || 6) + 6;
+    if (d < limit || you(o) < 4){ o.away = 0; continue; }
+    o.away = (o.away || 0) + dt;
+    if (o.type !== 'scooter' && d < 45){   // close enough to walk back
+      if (o.away > 5 && o.beh !== 'walk' && o.beh !== 'flee'){ o.home.set(o.origin.x, 0, o.origin.z); o.target = V3(o.origin.x, 0, o.origin.z); o.beh = 'walk'; o.bt = 60; o.stuck = 0; o.sit = 0; o.tries = (o.tries || 0) + 1; }
+      if (o.tries > 3 && o.away > 25) o.pop = {t:0, s:o.g.scale.clone()};   // stuck behind something: give up walking
+      continue;
+    }
+    const slotTaken = o.type === 'scooter' && scooters.some(q => q !== o && Math.hypot(q.pos.x - o.origin.x, q.pos.z - o.origin.z) < 0.8);
+    if (o.away > 6 && !slotTaken){ o.tries = 0; o.pop = {t:0, s:o.g.scale.clone()}; }
+  }
 }
 const angDist = (a,b) => Math.abs(((b-a+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI);
 const BENCHES = [[3,-4,0.6],[-5,2,2.2],[4,3,-0.8]].map(([bx,bz,r])=>{ const x = HILL.x+bx, z = HILL.z+bz; const f1 = r, f2 = r+Math.PI; const toCity = Math.atan2(CX-x, CZ-z); const d1 = angDist(f1,toCity), d2 = angDist(f2,toCity); return {x, z, rot: d1 < d2 ? f1 : f2, y:HILL.h+0.2+0.1}; });
@@ -1987,7 +2066,7 @@ const TOUR_STOPS = [
   {t:'Camels', d:'Camels rest near Jal Mahal. Walk up and press E to ride one.', el:()=>camels[0] && camels[0].pos, r:8, h:4},
   {t:'Cows on the road', d:'Cows wander, graze and take their time. Honk with H and they move along.', el:()=>cows[0] && cows[0].pos, r:7, h:3, live:(n)=>{ if (n === 2 && cows[0]){ horn('scooter', 0.5); scareAnimals(cows[0].pos.x, cows[0].pos.z, 6); } }},
   {t:'Jal Mahal', d:'A palace in the middle of Man Sagar Lake. Most of its floors sit under the water.', keys:{pos:[[82,22,-118],[66,12,-134],[56,7,-145]], look:[[30,5,-175],[30,5,-175],[30,6,-175]]}},
-  {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city.', keys:{pos:[[-88,46,-98],[-104,40,-114],[-116,36,-126]], look:[[-140,30,-150],[-140,30,-150],[-140,31,-150]]}},
+  {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city. Up top, look through a telescope and zoom right into the old city, or at the real moon at night.', keys:{pos:[[-88,46,-98],[-104,40,-114],[-116,36,-126]], look:[[-140,30,-150],[-140,30,-150],[-140,31,-150]]}},
   {t:'Albert Hall Museum', d:'Rajasthan’s oldest museum, built in the Indo-Saracenic style in Ram Niwas Garden.', keys:{pos:[[16,10,112],[30,8,116],[44,10,122]], look:[[30,10,158],[30,10,158],[30,11,158]]}},
   {t:'C-Scheme and MI Road', d:'Cafés, roasters and Anokhi’s block-print store. Modern Jaipur hangs out here.', at:[150,0], r:30, h:14},
   {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', keys:{pos:[[246.9, 22, 8.9], [227.8, 23, 0.9], [207.7, 24, 0.1], [192.2, 24, 4.3]], look:[[205,24,65],[205,28,65],[205,33,65],[205,37,65]]}},
@@ -2032,6 +2111,7 @@ function startTour(){
   toggleMenu(false); if (mode !== 'play') start();
   for (const id of ['roleWrap','guideWrap','cardWrap','prodWrap','joinWrap','recWrap','jobsWrap']) { const el = $(id); if (el) el.hidden = true; }
   if (riding) exitAuto(); if (flying) setFly(false); if (sitting) standUp();
+  if (scope) leaveScope();
   tour = {i:-1, shot:0, t:0, st:0, fade:0, lift:0, fov: camera.fov}; document.body.classList.add('touring');
   cardOpen = true; player.g.visible = false; $('tourCard').hidden = false; $('tourVoice').textContent = narrate ? '🔊 Narration on' : '🔇 Narration off'; tourGo(0);
 }
@@ -2474,7 +2554,7 @@ function updateAnimal(a, dt){
       // blocked: something is in the way, so stop rather than shove past it
       if (r.wanted > 0 && r.moved < r.wanted*0.5) a.stuck = (a.stuck||0) + dt; else a.stuck = Math.max(0, (a.stuck||0) - dt);
       let other = false; for (const o of cows.concat(camels)) if (o !== a && Math.hypot(o.pos.x-a.pos.x, o.pos.z-a.pos.z) < 2.6 && Math.cos(Math.atan2(o.pos.x-a.pos.x, o.pos.z-a.pos.z) - a.heading) > 0.5){ other = true; break; }
-      if (r.dist < 0.6 || a.bt <= 0 || a.stuck > 1.2 || other){ if (a.beh === 'flee' && freeSpot(a, a.pos.x, a.pos.z)) a.home.set(a.pos.x, 0, a.pos.z); a.beh = 'idle'; a.bt = 4 + Math.random()*8; }
+      if (r.dist < 0.6 || a.bt <= 0 || a.stuck > 1.2 || other){ a.beh = 'idle'; a.bt = 4 + Math.random()*8; }
     }
   } else if (a.beh === 'sitting'){
     a.sit = Math.min(1, a.sit + dt*0.6);
@@ -2525,6 +2605,7 @@ function frame(){
   if (window.__fountainJets) window.__fountainJets.children.forEach((j,i)=>{ j.scale.y = 0.85 + Math.sin(t*6 + i)*0.15; });
   Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t); updateShopDoors(dt);
   for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : (riding && riding.type === 'scooter' ? 0.35 : 0.8); }   // ride out of a crowded stand without getting stuck
+  sendHome(dt);
   Sound.engine(riding && riding.type !== 'camel' ? riding.type : null, riding ? (riding.type === 'jeep' ? (jeep.state === 'moving' ? 8 : 0) : riding.v || 0) : 0);
   for (const a of autos){ if (a === riding || a.state !== 'route' || (a.v || 0) < 3) continue; const d = Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z);
     if (d < 30 && t > (a.nextHonk || 0)){ a.nextHonk = t + 6 + Math.random() * 10; if (Math.random() < 0.5) horn(a.g.userData.tuk ? 'scooter' : 'auto', Math.max(0.1, 1 - d / 30) * 0.7, panOf(a.pos.x, a.pos.z)); } }   // moving autos near you honk now and then, louder when close
@@ -2552,6 +2633,8 @@ function frame(){
     drone.y = Math.max(floor, Math.min(240, drone.y));
     // holding C down to the ground (not a roof) lands you
     if (up < 0 && !isFinite(roof) && drone.y <= ground + 1.8){ setFly(false); }
+  } else if (mode === 'play' && scope){
+    /* at the telescope: the keys aim it */
   } else if (mode === 'play' && riding){
     updateAutos(dt);
   } else if (mode === 'play' && liftState){
@@ -2657,6 +2740,7 @@ function frame(){
 
   // camera
   if (tour){ updateTour(dt); }
+  else if (scope && mode === 'play'){ updateScope(dt); }
   else if (mode !== 'play'){
     tourU = (tourU + dt*(reduceMotion?0.002:0.0085)) % 1;
     camera.position.copy(tourPos.getPointAt(tourU));
@@ -2694,7 +2778,6 @@ function frame(){
   }
   if (sky) sky.position.copy(camera.position);
   nightLamp.position.set(P.pos.x + 2, 6.5, P.pos.z + 3);
-  if (nightGroup.visible){ nightGroup.userData.stars.position.copy(camera.position); nightGroup.userData.moon.position.copy(camera.position).add(tmpV.set(0.4,0.55,-0.75).normalize().multiplyScalar(1000)); }
   const focus = mode!=='play' ? tmpV.set(camera.position.x,0,camera.position.z) : flying ? tmpV.set(drone.x,0,drone.z) : P.pos;
   sunLight.target.position.set(focus.x, 0, focus.z);
   sunLight.position.set(focus.x + sunDir.x*300, sunDir.y*300, focus.z + sunDir.z*300);

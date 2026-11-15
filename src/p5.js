@@ -334,6 +334,7 @@ const fairySpots = [];
 /* =========================================================
    Sunset Point: a hill with a spiral road to a viewpoint
    ========================================================= */
+const SUNSET_SCOPES = [];
 {
   const R = HILL.r, seg = 120;
   const g = new THREE.PlaneGeometry(2*R+4, 2*R+4, seg, seg); g.rotateX(-Math.PI/2);
@@ -361,10 +362,12 @@ const fairySpots = [];
   // summit platform
   const S = new THREE.Group(), H = HILL.h + 0.2, end = th0 + turns*Math.PI*2;
   cyl(S,HILL.top+0.6,0.6,'#D9B98A',0,H-0.6,0,40,'stone');
-  for (let i=0;i<40;i++){ const a = i/40*Math.PI*2; let da = Math.abs(((a - end)%(Math.PI*2)+Math.PI*3)%(Math.PI*2)-Math.PI); if (da < 0.28) continue; const x = Math.cos(a)*(HILL.top+0.2), z = Math.sin(a)*(HILL.top+0.2); kangura(S,x,H,z,1.2,'#D9876E'); circles.push({x:HILL.x+x, z:HILL.z+z, r:0.55}); }
+  { const jm = PLACES.find(p => p.name === 'Jal Mahal'); for (const a of [Math.atan2(CZ - HILL.z, CX - HILL.x), Math.atan2(jm.z - HILL.z, jm.x - HILL.x)]) SUNSET_SCOPES.push({a, x:HILL.x + Math.cos(a)*(HILL.top - 0.55), z:HILL.z + Math.sin(a)*(HILL.top - 0.55), look: a === Math.atan2(CZ - HILL.z, CX - HILL.x) ? {x:CX, y:5, z:CZ} : {x:jm.x, y:3, z:jm.z}}); }
+  for (const s of SUNSET_SCOPES) for (const d of [-0.085, 0.085]) circles.push({x:HILL.x + Math.cos(s.a + d)*(HILL.top + 0.2), z:HILL.z + Math.sin(s.a + d)*(HILL.top + 0.2), r:0.5});   // no walking off the edge beside a telescope
+  const scopeGap = a => SUNSET_SCOPES.some(s => Math.abs(((a - s.a)%(Math.PI*2)+Math.PI*3)%(Math.PI*2)-Math.PI) < 0.09);   // a gap in the parapet for each telescope
+  for (let i=0;i<40;i++){ const a = i/40*Math.PI*2; let da = Math.abs(((a - end)%(Math.PI*2)+Math.PI*3)%(Math.PI*2)-Math.PI); if (da < 0.28 || scopeGap(a)) continue; const x = Math.cos(a)*(HILL.top+0.2), z = Math.sin(a)*(HILL.top+0.2); kangura(S,x,H,z,1.2,'#D9876E'); circles.push({x:HILL.x+x, z:HILL.z+z, r:0.55}); }
   chhatri(S,-3.5,H,-3.5,2.0,'#D9876E',WHITE);
   for (const [x,z,r] of [[3,-4,0.6],[-5,2,2.2],[4,3,-0.8]]){ const b = new THREE.Group(); box(b,2.2,0.08,0.55,'#7A5638',0,0.45,0,'stone'); box(b,0.08,0.45,0.5,'#2A2A2A',-0.9,0,0,'stone'); box(b,0.08,0.45,0.5,'#2A2A2A',0.9,0,0,'stone'); b.position.set(x,H,z); b.rotation.y = r; S.add(b); }
-  cyl(S,0.05,1.1,'#2A2A2A',2,H,1,8,'stone'); add(S,CYL(12),M('#3A3A3A','stone',{metalness:0.6,roughness:0.4}),2,H+1.25,1,0.09,0.6,0.09,0.4,1.2);
   sign(S,{text:'SUNSET POINT',sub:'सनसेट पॉइंट · view over the Pink City',bg:'#7A1020',fg:'#F7D774',subFg:'#FFF2D6'},-3.5,H+4.9,-1.9,4.2,1.1,0.8);
   for (let i=0;i<6;i++){ const a = i/6*Math.PI*2 + 0.3; lamp(HILL.x+Math.cos(a)*(HILL.top-1), HILL.z+Math.sin(a)*(HILL.top-1), -Math.cos(a)*0.01, -Math.sin(a)*0.01, H); }
   S.position.set(HILL.x,0,HILL.z); staticRoot.add(S);

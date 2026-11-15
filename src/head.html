@@ -236,6 +236,16 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #tourCard .tk{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--pink)}#tourCard h3{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 4px}#tourCard p{margin:0 0 10px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
 #tourCard .tbar{height:4px;border-radius:9px;background:var(--line);overflow:hidden}#tourCard .tbar i{display:block;height:100%;width:0;background:var(--marigold)}
 #tourFade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:19}
+#scopeView{position:fixed;inset:0;z-index:17;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent min(41vw,41vh),rgba(0,0,0,.55) calc(min(41vw,41vh) + 3px),#000 calc(min(41vw,41vh) + 14px))}
+#scopeView::before,#scopeView::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.28)}
+#scopeView::before{width:1px;height:28px;transform:translate(-50%,-50%)}#scopeView::after{width:28px;height:1px;transform:translate(-50%,-50%)}
+#scopeBar{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:8px;align-items:center;pointer-events:auto}
+#scopeBar button{min-width:44px;height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.75);color:#fff;font:600 18px/1 system-ui,sans-serif;padding:0 14px;cursor:pointer}
+#scopeBar #scopeExit{font-size:14px}
+#scopeZoom{color:#fff;font:600 14px/1 system-ui,sans-serif;min-width:44px;text-align:center}
+#scopeWhat{position:absolute;left:50%;top:max(18px,env(safe-area-inset-top));transform:translateX(-50%);color:#fff;font:600 15px/1.3 system-ui,sans-serif;text-shadow:0 1px 3px #000;text-align:center;max-width:calc(100vw - 32px)}
+#scopeTip{position:absolute;left:50%;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 56px);transform:translateX(-50%);color:rgba(255,255,255,.7);font:13px/1.3 system-ui,sans-serif;text-align:center;width:calc(100vw - 32px)}
+body.scoping #topbar,body.scoping #topright,body.scoping #ghostBar,body.scoping #findBtn,body.scoping #minimap,body.scoping #bottomStack,body.scoping #stick,body.scoping #runBtn,body.scoping #prompt{display:none!important}
 #tourBars{display:none}body.touring #tourBars{display:block}#tourBars i{position:fixed;left:0;right:0;height:7vh;background:#000;z-index:18;pointer-events:none}#tourBars i:first-child{top:0}#tourBars i:last-child{bottom:0}
 body.touring #topbar,body.touring #topright,body.touring #ghostBar,body.touring #findBtn,body.touring #minimap,body.touring #bottomStack,body.touring #stick,body.touring #runBtn{display:none!important}
 #tourCard.in{animation:tourIn .6s ease}@keyframes tourIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
@@ -299,7 +309,8 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
-<div id="tourFade"></div><div id="tourBars"><i></i><i></i></div>
+<div id="tourFade"></div><div id="scopeView" hidden><div id="scopeWhat"></div><div id="scopeTip">Drag or use the arrow keys to aim · scroll or +/− to zoom</div><div id="scopeBar"><button id="scopeOut" aria-label="Zoom out">−</button><span id="scopeZoom">2×</span><button id="scopeIn" aria-label="Zoom in">+</button><button id="scopeExit">Step back</button></div></div>
+<div id="tourBars"><i></i><i></i></div>
 <div id="tourCard" hidden><div class="tk">GUIDED TOUR · <span id="tourStep"></span></div><h3 id="tourTitle"></h3><p id="tourText"></p><div class="tbar"><i id="tourFill"></i></div><div class="tbtns"><button id="tourVoice"></button></div><button id="tourExit">Exit tour</button></div>
 <div id="ghostBar" hidden><i class="gi">👤</i><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet.</span><button id="ghostVisible">Become visible</button><button id="ghostSign" class="alt">Sign in</button></div>
 <button id="findBtn" hidden>Find someone</button>
@@ -413,7 +424,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <div class="gsec"><b>Meets and clubs</b><p>Menu, then Community, or the notice boards at Badi Chaupar and in the Tech Park lobbies. Organise a meet with a date and place, join one, start a club, or join a club and its chat.</p></div>
     <div class="gsec"><b>Talk</b><p>Sit at any café table to join that café’s chat. City chat is in the Menu. Shops have their own chat where the owner replies. Notifications in the Menu show connection requests, accepted connections and new messages.</p></div>
     <div class="gsec" id="guidePriv"></div>
-    <p class="mhelp">3D models: people, cows and bulls by Quaternius (CC0). “Auto Rickshaw” by rSquare and “Cow” by Asheraf on Sketchfab (CC BY 4.0). “Bactrian Camel (Low Poly)” by Nyilonelycompany (CC BY-NC-SA 4.0). “Brahman Cow” by kunyong_Chen, “Pigeon” by hino, “Scooter Motorcycle” by NORBERTO-3D (CC BY 4.0). “Jeep 1” by Kapi777 (CC BY-NC 4.0). Thai tuk-tuk from Sketchfab. Sounds from Freesound: auto horn by Balaram_Mahalder, Jodhpur tuk-tuk by LukeIRL (CC BY 4.0), Vespa by derjuli, jeep by Mihacappy, footsteps by SecureSubset, pigeons by Fsu2001, Bangalore street by Alcappuccino (CC0). Inspired by People of Bengaluru.</p>
+    <p class="mhelp">3D models: people, cows and bulls by Quaternius (CC0). “Auto Rickshaw” by rSquare and “Cow” by Asheraf on Sketchfab (CC BY 4.0). “Bactrian Camel (Low Poly)” by Nyilonelycompany (CC BY-NC-SA 4.0). “Brahman Cow” by kunyong_Chen, “Pigeon” by hino, “Scooter Motorcycle” by NORBERTO-3D (CC BY 4.0). “Jeep 1” by Kapi777 (CC BY-NC 4.0). Thai tuk-tuk from Sketchfab. “Telescope” by CreativeTrio (CC0). Moon map: NASA SVS CGI Moon Kit. Sounds from Freesound: auto horn by Balaram_Mahalder, Jodhpur tuk-tuk by LukeIRL (CC BY 4.0), Vespa by derjuli, jeep by Mihacappy, footsteps by SecureSubset, pigeons by Fsu2001, Bangalore street by Alcappuccino (CC0). Inspired by People of Bengaluru.</p>
     <div class="prod-actions"><button class="btn" id="guideClose">Got it</button></div>
   </section>
 </div>

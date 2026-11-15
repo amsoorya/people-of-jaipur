@@ -140,7 +140,13 @@ function applyLook(T, mode){
   if (typeof onTimeChange === 'function') onTimeChange(mode);
 }
 /* The moon and the stars */
-const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(28, 24, 16), new THREE.MeshBasicMaterial({color:'#F4F1E6', fog:false, toneMapped:false})); moonMesh.visible = false; scene.add(moonMesh);
+// The real Moon: NASA's lunar colour map (LRO, public domain), lit from the sun's actual direction so it shows its true phase
+const moonMat = new THREE.ShaderMaterial({uniforms:{map:{value:null}, has:{value:0}, sunDir:{value:new THREE.Vector3(0,1,0)}},
+  vertexShader:'varying vec3 vN; varying vec2 vUv; void main(){ vUv = uv; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader:'uniform sampler2D map; uniform float has; uniform vec3 sunDir; varying vec3 vN; varying vec2 vUv; void main(){ vec3 c = has > 0.5 ? texture2D(map, vUv).rgb * 1.08 : vec3(0.86, 0.85, 0.8); float l = smoothstep(-0.03, 0.14, dot(normalize(vN), sunDir)); gl_FragColor = vec4(c * (0.03 + l), 1.0); }'});
+const moonGeo = new THREE.SphereGeometry(28, 64, 48); moonGeo.rotateY(-Math.PI/2);   // the near side (longitude 0) faces +z, then lookAt turns it to us
+const moonMesh = new THREE.Mesh(moonGeo, moonMat); moonMesh.visible = false; moonMesh.renderOrder = -1; scene.add(moonMesh);
+new THREE.TextureLoader().load('models/moon.jpg', tx => { moonMat.uniforms.map.value = tx; moonMat.uniforms.has.value = 1; });
 const starField = (()=>{ const n = 1400, pos = new Float32Array(n*3); for (let i = 0; i < n; i++){ const u = Math.random(), v = Math.random()*0.95 + 0.05, th = u*Math.PI*2, ph = Math.acos(v);
     pos.set([Math.sin(ph)*Math.cos(th)*1500, Math.cos(ph)*1500, Math.sin(ph)*Math.sin(th)*1500], i*3); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -150,7 +156,8 @@ function updateSkyBodies(cam){
   const b = liveBodies || (timeMode === 'night' ? {sun:{el:-0.5}, moon:{el:0.6, phase:1, v:new THREE.Vector3(0.4,0.6,-0.7).normalize()}} : null);
   const sunEl = b ? b.sun.el / D2R : (timeMode === 'dusk' ? 2 : 40);
   starField.material.opacity = Math.max(0, Math.min(0.9, (-sunEl - 4) / 10)); starField.visible = starField.material.opacity > 0.01;
-  if (b && b.moon.el > -0.02){ moonMesh.visible = true; moonMesh.position.addScaledVector(b.moon.v, 1400); const lit = 0.35 + 0.65*b.moon.phase; moonMesh.material.color.setRGB(lit, lit*0.98, lit*0.92); }
+  if (b && b.moon.el > -0.02){ moonMesh.visible = true; moonMesh.position.addScaledVector(b.moon.v, 1400); moonMesh.lookAt(cam.position);
+    const sd = moonMat.uniforms.sunDir.value; if (b.sun && b.sun.v) sd.copy(b.sun.v).normalize(); else sd.copy(b.moon.v).negate(); }
   else moonMesh.visible = false;
 }
 
