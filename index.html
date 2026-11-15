@@ -1290,30 +1290,36 @@ function fillRow(a0,a1,fn,min=8,max=12.5){
   box(g,W,0.5,3.4,C,0,6.5,-1.7);
   box(g,W+0.5,0.25,1.1,WHITE,0,6.9,0.1); box(g,W+0.3,0.35,0.5,C,0,6.55,0.1);
   friezeStrip(g,W-1,0.5,0,7.5,0.012);
-  const tiers = [[42,15,4.4,10],[42,15,4.4,9],[34,12,4.2,7],[24,8,4.0,5.5],[14,5,3.9,4.2]];
+  // The facade: columns of small jharokhas stacked straight up (the honeycomb), tapering like a crown,
+  // with the central columns bulging forward. Fixed spacing keeps every column aligned from bottom to top.
+  const SP = 1.62, tiers = [[25,3.3,10],[23,3.2,9],[17,3.1,7.5],[11,3.0,6],[5,2.9,4.6]];   // [columns, storey height, depth]
   let y = 7.15;
-  tiers.forEach(([w,n,th,dp],ti)=>{
+  tiers.forEach(([n,th,dp],ti)=>{
+    const w = n*SP;
     box(g,w,th,dp,C,0,y,-dp/2-0.6);
-    const sp = w/n, r = sp*0.43;
+    const r = SP*0.42;
     for (let i=0;i<n;i++){
-      const cx = -w/2 + sp*(i+0.5), big = (ti>=2 && i===Math.floor(n/2));
-      const rb = big ? r*1.25 : r, hb = th*(big?0.7:0.62);
-      add(g,CONE(8),M(WHITE),cx,y+0.3,-0.25,rb*0.5,0.5,rb*0.35,0,Math.PI);
-      box(g,rb*2.1,0.14,rb*1.4,WHITE,cx,y+0.45,-0.4);
-      add(g,BAY,M_JAALI,cx,y+0.59+hb/2,-0.6,rb,hb,rb*0.95);
-      box(g,rb*2.2,0.12,rb*1.45,WHITE,cx,y+0.59+hb,-0.4);
-      if ((i+ti)%2===0){ onion(g,rb*0.82,C2,cx,y+0.71+hb,-0.55,'plaster',0.8); }
-      else { add(g,BANGLA,M(C2),cx,y+0.71+hb,-0.45,rb*2.1,th*0.32,rb*1.4); add(g,BANGLA_FILL,M(C2),cx,y+0.71+hb,-0.45,rb*2.1,th*0.32,rb*1.4); }
-      box(g,0.12,th*0.75,0.12,WHITE,cx-sp/2,y+0.45,-0.55);
+      const col = i - (n-1)/2, cx = col*SP, centre = Math.abs(col) <= 1.01, fz = centre ? 0.45 : (Math.abs(col) % 3 === 0 ? 0.2 : 0);   // centre bulges; every third rib a touch forward
+      const rb = centre && ti >= 1 ? r*1.12 : r, hb = th*0.64, z = -0.6 + fz;
+      add(g,CONE(8),M(WHITE),cx,y+0.25,z+0.35,rb*0.5,0.45,rb*0.35,0,Math.PI);            // bracket under the balcony
+      box(g,rb*2.1,0.12,rb*1.4,WHITE,cx,y+0.4,z+0.2);
+      add(g,BAY,M_JAALI,cx,y+0.52+hb/2,z,rb,hb,rb*0.95);                                 // the jaali window bay
+      box(g,rb*2.2,0.1,rb*1.45,WHITE,cx,y+0.52+hb,z+0.2);
+      const odd = Math.abs(Math.round(col)) % 2 === 1;                                  // alternate columns: little dome / curved bangla roof
+      if (!odd) onion(g,rb*0.78,C2,cx,y+0.62+hb,z+0.05,'plaster',0.75);
+      else { add(g,BANGLA,M(C2),cx,y+0.62+hb,z+0.15,rb*2.1,th*0.28,rb*1.4); add(g,BANGLA_FILL,M(C2),cx,y+0.62+hb,z+0.15,rb*2.1,th*0.28,rb*1.4); }
+      box(g,0.1,th*0.72,0.1,WHITE,cx-SP/2,y+0.4,z+0.05);                                // white pilaster between bays
     }
-    box(g,w+0.3,0.18,dp+0.3,WHITE,0,y+th-0.18,-dp/2-0.6);
+    box(g,0.1,th*0.72,0.1,WHITE,w/2,y+0.4,-0.55);
+    box(g,w+0.3,0.16,dp+0.3,WHITE,0,y+th-0.16,-dp/2-0.6);                              // white cornice band
     const nxt = tiers[ti+1];
-    if (nxt && nxt[0] < w){ for (const s of [-1,1]){ chhatri(g, s*(w/2-1.4), y+th, -1.6, 1.0, C2, C2); } }
+    if (nxt){ for (const sd of [-1,1]){ chhatri(g, sd*(w/2-0.9), y+th, -1.4, 0.75, C2, WHITE); } }   // a small chhatri on each stepped shoulder
     y += th;
   });
-  // crown
-  chhatri(g,0,y,-1.8,1.6,C2,C2); chhatri(g,-4.2,y,-1.8,1.0,C2,WHITE); chhatri(g,4.2,y,-1.8,1.0,C2,WHITE);
-  box(g,8,1.4,0.5,C,0,y,-0.9); for (let i=0;i<7;i++) kangura(g,-3.4+i*1.13,y+1.4,-0.9,1,C);
+  // crown: a pointed pediment with three chhatris, the tallest in the middle
+  const cw = 5*SP;
+  box(g,cw,1.2,0.5,C,0,y,-0.9); for (let i=0;i<7;i++) kangura(g,-cw/2+0.6+i*(cw-1.2)/6,y+1.2,-0.9,1,C);
+  chhatri(g,0,y+1.0,-1.6,1.25,C2,WHITE); chhatri(g,-2.4,y,-1.6,0.8,C2,WHITE); chhatri(g,2.4,y,-1.6,0.8,C2,WHITE);
   place(g,-25,-10,0);
   colliderLocal(-25,-10,0,-21,21,-14,1.2);
 })();
