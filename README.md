@@ -126,6 +126,14 @@ Open http://localhost:8000. Without Supabase details in `config.js`, you can sti
 - "Brahman Cow" by kunyong_Chen, "Pigeon" by hino, "Scooter Motorcycle" by NORBERTO-3D and "Cyberpunk Scooter" by Berk Gedik on Sketchfab, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
 - "Jeep 1" by Kapi777, [CC BY-NC 4.0](http://creativecommons.org/licenses/by-nc/4.0/)
 - "Bactrian Camel (Low Poly)" by [Nyilonelycompany](https://sketchfab.com/Nyilonelycompany), [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/) (non-commercial use only)
+- Sounds, all real recordings from [Freesound](https://freesound.org), trimmed and cleaned for the web (`audio/`):
+  - Auto horn: "[Cng auto rickshaw](https://freesound.org/people/Balaram_Mahalder/sounds/723808/)" by Balaram_Mahalder, CC0
+  - Auto engine: "[29_tuktuk_jodhpur](https://freesound.org/people/LukeIRL/sounds/176114/)" by LukeIRL, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/)
+  - Scooter: "[Vespa Driving](https://freesound.org/people/derjuli/sounds/448130/)" by derjuli, CC0
+  - Jeep: "[djeep_idle](https://freesound.org/people/Mihacappy/sounds/840649/)" by Mihacappy, CC0
+  - Footsteps: "[Footsteps - Stone, Rock, Concrete, Cement](https://freesound.org/people/SecureSubset/sounds/813622/)" by SecureSubset, CC0
+  - Pigeons: "[Pigeon cooing](https://freesound.org/people/Fsu2001/sounds/795558/)" by Fsu2001, CC0
+  - Street: "[India Streets Bangalore City 2](https://freesound.org/people/Alcappuccino/sounds/263631/)" by Alcappuccino, CC0
 - Built for the people of Jaipur 🩷
 
 ---

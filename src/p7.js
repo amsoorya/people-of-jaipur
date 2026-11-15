@@ -402,7 +402,7 @@ function updatePeers(dt){
    Sound: auto horn
    ========================================================= */
 let actx = null;
-function horn(kind, gain){ try { Sound.horn(kind || (riding ? riding.type : 'auto'), gain == null ? 1 : gain); } catch(e){} }
+function horn(kind, gain, pan){ try { Sound.horn(kind || (riding ? riding.type : 'auto'), gain == null ? 1 : gain, pan || 0); } catch(e){} }
 
 /* =========================================================
    Autos: hail one, get in, drive it
@@ -517,7 +517,7 @@ function trafficSpeed(a){
   const base = laneGap(a, a.base.x, a.base.z, fx, fz);
   // stuck behind something that isn't moving: pull out towards the centre and go round it
   if (base.gap < 7 && base.still) a.blockT = (a.blockT || 0) + 1/60; else a.blockT = 0;
-  if (a.blockT > 1.0 && !a.honked){ a.honked = true; horn(a.type || 'auto', Math.max(0, 1 - Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z) / 45) * 0.6); scareAnimals(a.pos.x + Math.sin(a.heading)*5, a.pos.z + Math.cos(a.heading)*5, 6); if (Math.hypot(a.pos.x-P.pos.x, a.pos.z-P.pos.z) < 25) horn(); }
+  if (a.blockT > 1.0 && !a.honked){ a.honked = true; const hd = Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z); if (hd < 35) horn(a.g.userData.tuk ? 'scooter' : 'auto', (1 - hd / 35) * 0.8, panOf(a.pos.x, a.pos.z)); scareAnimals(a.pos.x + Math.sin(a.heading)*5, a.pos.z + Math.cos(a.heading)*5, 6); }
   if (a.blockT === 0) a.honked = false;
   if (a.blockT > 2.2) a.offT = 2.7;
   else if (a.offT && base.gap > 9) a.offT = 0;
@@ -1087,87 +1087,109 @@ const Music = (()=>{
 })();
 $('musicBtn').addEventListener('click', ()=>{ const v = Music.toggle(); $('musicBtn').setAttribute('aria-pressed', String(v)); Sound.setOn(v); });
 /* =========================================================
-   Sound: horns, footsteps and a quiet city in the background, all made in the browser (no audio files)
+   Sound: real recordings (see audio/ and the README for credits)
+   - horns: a CNG auto-rickshaw's own disc horn (long honk and short peeps)
+   - engines: a Jodhpur tuk-tuk, a Vespa, a jeep idling; pitch and loudness follow speed
+   - footsteps on stone, rock pigeons cooing, and a quiet Indian street in the background
    ========================================================= */
 const Sound = (()=>{
-  let ctx = null, out = null, amb = null, noiseBuf = null, on = true, lastStep = 0, nextHorn = 0, nextBird = 0, nextCoo = 0;
+  let ctx = null, out = null, on = true, lastStep = 0, nextCoo = 0, loading = false;
+  const B = {};   // decoded sounds: sprites become arrays of {buf, g}, loops become seamless buffers
+  const FILES = {horns:'sprite', steps:'sprite', coos:'sprite', auto:'loop', scooter:'loop', jeep:'loop', street:'loop'};
   function init(){
     if (ctx) return true;
     try { ctx = (Music.ctx && Music.ctx()) || new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return false; }
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(ctx.destination);
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(ctx.destination);
     out = ctx.createGain(); out.gain.value = 0.9; out.connect(comp);
-    // two seconds of soft noise, reused for steps and the city hum
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = noiseBuf.getChannelData(0); let b = 0;
-    for (let i = 0; i < d.length; i++){ b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = b * 3.5 + (Math.random() * 2 - 1) * 0.15; }
-    // city bed: low traffic rumble
-    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
-    amb = ctx.createGain(); amb.gain.value = 0; src.connect(lp).connect(amb).connect(out); src.start();
-    return true;
+    load(); return true;
+  }
+  function decode(ab){ return new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); }); }
+  // a sprite is several short sounds separated by silence: cut them apart and even out their levels
+  function split(buf){
+    const d = buf.getChannelData(0), sr = buf.sampleRate, gap = Math.floor(0.2 * sr), parts = []; let st = -1, quiet = 0;
+    for (let i = 0; i <= d.length; i++){
+      const loud = i < d.length && Math.abs(d[i]) > 0.002;
+      if (loud){ if (st < 0) st = i; quiet = 0; }
+      else if (st >= 0 && (++quiet > gap || i === d.length)){ const e = i - quiet + 1;
+        if (e - st > sr * 0.05){ const b = ctx.createBuffer(1, e - st, sr), c = b.getChannelData(0); let pk = 0;
+          for (let k = 0; k < c.length; k++){ c[k] = d[st + k]; pk = Math.max(pk, Math.abs(c[k])); } parts.push({buf:b, g:0.9 / (pk || 1)}); }
+        st = -1; quiet = 0; }
+    }
+    return parts;
+  }
+  // a loop: trim the encoder's padding and crossfade the end into the start so it never clicks
+  function makeLoop(buf){
+    const d = buf.getChannelData(0), sr = buf.sampleRate, trim = Math.floor(0.06 * sr), x = Math.floor(0.35 * sr), n = d.length - 2 * trim;
+    const b = ctx.createBuffer(1, n - x, sr), c = b.getChannelData(0);
+    for (let i = 0; i < n - x; i++){ const v = d[trim + i]; if (i < x){ const k = i / x; c[i] = v * Math.sin(k * Math.PI / 2) + d[trim + n - x + i] * Math.cos(k * Math.PI / 2); } else c[i] = v; }
+    return b;
+  }
+  function load(){
+    if (loading) return; loading = true;
+    for (const [name, kind] of Object.entries(FILES))
+      fetch('audio/' + name + '.mp3').then(r => r.arrayBuffer()).then(decode).then(buf => { B[name] = kind === 'sprite' ? split(buf) : makeLoop(buf); if (name === 'street') startStreet(); }).catch(()=>{});
   }
   const now = () => ctx.currentTime;
-  // Indian horns: small disc horns with a harsh, buzzy, nasal tone, honked in quick bursts ("pee-peep", "peep peep peeeep").
-  // auto: high and nasal; scooter: thin and higher; jeep: lower dual-tone car horn
-  const HORN = {auto:{f:[490], bursts:[[0,0.09],[0.15,0.09],[0.3,0.34]]}, camel:{f:[490], bursts:[[0,0.1],[0.17,0.3]]},
-                scooter:{f:[610], bursts:[[0,0.08],[0.13,0.08]]}, jeep:{f:[360,450], bursts:[[0,0.16],[0.26,0.45]]}};
-  function horn(kind, gain){
-    if (!on || gain <= 0.01 || !init()) return; ctx.resume();
-    const H = HORN[kind] || HORN.auto, t0 = now(), vary = 0.97 + Math.random()*0.06;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 320;
-    const pk = ctx.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 2400; pk.Q.value = 1.4; pk.gain.value = 9;   // the nasal honk
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
-    const shaper = ctx.createWaveShaper(); const curve = new Float32Array(512); for (let k = 0; k < 512; k++){ const x = k/256 - 1; curve[k] = Math.max(-0.6, Math.min(0.6, x*4)); } shaper.curve = curve;   // hard clip = buzz
-    const g = ctx.createGain(); g.gain.value = 0; shaper.connect(hp).connect(pk).connect(lp).connect(g).connect(out);
-    const end = t0 + H.bursts[H.bursts.length-1][0] + H.bursts[H.bursts.length-1][1] + 0.1;
-    for (const f of H.f){ const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = f*vary;
-      const wob = ctx.createOscillator(), wg = ctx.createGain(); wob.frequency.value = 28; wg.gain.value = f*0.012; wob.connect(wg).connect(o.frequency);   // the rattling diaphragm
-      o.connect(shaper); o.start(t0); o.stop(end); wob.start(t0); wob.stop(end); }
-    const v = 0.16 * gain;
-    for (const [st, len] of H.bursts){ g.gain.setValueAtTime(0.0001, t0+st); g.gain.linearRampToValueAtTime(v, t0+st+0.008); g.gain.setValueAtTime(v, t0+st+len-0.012); g.gain.linearRampToValueAtTime(0.0001, t0+st+len); }
+  function panner(pan){ if (!ctx.createStereoPanner) return null; const p = ctx.createStereoPanner(); p.pan.value = Math.max(-0.85, Math.min(0.85, pan || 0)); return p; }
+  function play(part, gain, rate, pan, when, dur){
+    const s = ctx.createBufferSource(), g = ctx.createGain(), p = panner(pan); s.buffer = part.buf; s.playbackRate.value = rate || 1;
+    const t0 = when || now(), v = gain * part.g; g.gain.setValueAtTime(v, t0);
+    if (dur){ g.gain.setValueAtTime(v, t0 + dur - 0.04); g.gain.linearRampToValueAtTime(0.0001, t0 + dur); }
+    s.connect(g); if (p) g.connect(p).connect(out); else g.connect(out);
+    s.start(t0, 0, dur || undefined);
   }
-  // engines: a two-stroke putter for the auto, a buzzier one for the scooter, a deeper diesel for the jeep.
-  // Pitch and loudness follow the vehicle's speed; silent when you're not riding.
-  let eng = null;
-  const ENG = {auto:{base:34, gain:0.07, wave:'sawtooth', lp:900}, scooter:{base:52, gain:0.055, wave:'sawtooth', lp:1400}, jeep:{base:26, gain:0.08, wave:'square', lp:600}};
+  // the horn: a real auto-rickshaw horn. Autos give a peep, a peep-peep or a long peeeep; scooters a thinner,
+  // higher peep; the jeep a lower honk. pan places it left or right of you.
+  function horn(kind, gain, pan){
+    if (!on || gain <= 0.01 || !init()) return; ctx.resume(); const H = B.horns; if (!H || H.length < 5) return;
+    const peep = () => H[1 + (Math.random() * 4 | 0)], t0 = now(), r = Math.random(), v = 0.75 * gain;
+    if (kind === 'scooter'){ const rate = 1.18 + Math.random() * 0.06; play(peep(), v * 0.8, rate, pan, t0); if (r < 0.5) play(peep(), v * 0.8, rate, pan, t0 + 0.32); return; }
+    if (kind === 'jeep'){ play(H[0], v, 0.8, pan, t0, 0.55); play(peep(), v, 0.8, pan, t0 + 0.7); return; }
+    if (r < 0.4) play(peep(), v, 1, pan, t0);
+    else if (r < 0.8){ play(peep(), v, 1, pan, t0); play(peep(), v, 1, pan, t0 + 0.4); }
+    else play(H[0], v, 1, pan, t0, 0.8 + Math.random() * 0.9);
+  }
+  // engines: the vehicle you ride, plus the nearest moving auto (heard as it passes)
+  function loop(name){ const s = ctx.createBufferSource(), g = ctx.createGain(), p = panner(0); s.buffer = B[name]; s.loop = true; g.gain.value = 0;
+    s.connect(g); if (p) g.connect(p).connect(out); else g.connect(out); s.start(); return {name, s, g, p}; }
+  let eng = null, near = null;
+  const ENG = {auto:{gain:0.55, rate:[0.85, 1.4]}, scooter:{gain:0.32, rate:[0.8, 1.25]}, jeep:{gain:0.3, rate:[0.9, 1.25]}};
   function engine(kind, speed){
-    if (!on || !kind || !ENG[kind]){ if (eng){ eng.g.gain.setTargetAtTime(0, now(), 0.15); } return; }
-    if (!init()) return;
-    if (!eng || eng.kind !== kind){ if (eng){ const old = eng; old.g.gain.setTargetAtTime(0, now(), 0.1); setTimeout(()=>{ try { old.o.stop(); old.lfo.stop(); } catch(e){} }, 400); }
-      const E = ENG[kind], o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), am = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-      o.type = E.wave; f.type = 'lowpass'; f.frequency.value = E.lp; g.gain.value = 0;
-      lfo.type = 'square'; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg).connect(am.gain);   // the putt-putt of firing cylinders
-      o.connect(f).connect(am).connect(g).connect(out); o.start(); lfo.start();
-      eng = {kind, o, lfo, g, E}; }
-    const r = Math.min(1, Math.abs(speed) / (kind === 'jeep' ? 8 : 15)), t0 = now();
-    eng.o.frequency.setTargetAtTime(eng.E.base * (1 + r * 1.8), t0, 0.12);
-    eng.lfo.frequency.setTargetAtTime(eng.E.base * 0.5 * (1 + r * 1.8), t0, 0.12);
-    eng.g.gain.setTargetAtTime(eng.E.gain * (0.55 + 0.45 * r), t0, 0.12);
+    if (!ctx) return;
+    if (!on || !kind || !ENG[kind] || !B[kind]){ if (eng){ const old = eng; eng = null; old.g.gain.setTargetAtTime(0, now(), 0.12); setTimeout(()=>{ try { old.s.stop(); } catch(e){} }, 600); } return; }
+    if (!eng || eng.name !== kind){ if (eng) engine(null); eng = loop(kind); }
+    const E = ENG[kind], r = Math.min(1, Math.abs(speed) / (kind === 'jeep' ? 8 : 15)), t0 = now();
+    eng.s.playbackRate.setTargetAtTime(E.rate[0] + (E.rate[1] - E.rate[0]) * r, t0, 0.15);
+    eng.g.gain.setTargetAtTime(E.gain * (0.6 + 0.4 * r), t0, 0.15);
   }
-  // a footstep: a short, soft scuff with a little thud
-  function stepSound(run, inside){
-    const t0 = now(), s = ctx.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 0.8 + Math.random() * 0.4;
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = (inside ? 1400 : 700) + Math.random() * 300; f.Q.value = 1.1;
-    const g = ctx.createGain(), v = (run ? 0.3 : 0.2) * (inside ? 1.2 : 1); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + (run ? 0.09 : 0.12));
-    s.connect(f).connect(g).connect(out); s.start(t0, Math.random() * 1.5, 0.15);
-    const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.06); og.gain.setValueAtTime(v * 0.5, t0); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07); o.connect(og).connect(out); o.start(t0); o.stop(t0 + 0.08);
+  function traffic(dist, pan, speed){
+    if (!ctx || !B.auto) return;
+    if (!near) near = loop('auto');
+    const v = on && mode === 'play' && dist < 28 ? Math.pow(1 - dist / 28, 1.6) * 0.45 : 0, t0 = now();
+    near.g.gain.setTargetAtTime(v, t0, 0.2); near.s.playbackRate.setTargetAtTime(0.95 + Math.min(1, speed / 15) * 0.35, t0, 0.2);
+    if (near.p) near.p.pan.setTargetAtTime(Math.max(-0.85, Math.min(0.85, pan)), t0, 0.1);
   }
+  // footsteps: one of six real steps on stone, a little varied each time
   function step(walk, run, inside){
-    if (!on || !init()) return; const k = Math.floor(walk / Math.PI); if (k !== lastStep){ lastStep = k; stepSound(run, inside); }
+    if (!on || !init() || !B.steps || !B.steps.length) return; const k = Math.floor(walk / Math.PI); if (k === lastStep) return; lastStep = k;
+    const S = B.steps; play(S[Math.random() * S.length | 0], (run ? 0.42 : 0.3) * (inside ? 1.15 : 1), 0.92 + Math.random() * 0.16, (k % 2 ? 0.08 : -0.08));
   }
-  function chirp(){ const t0 = now(), n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++){ const o = ctx.createOscillator(), g = ctx.createGain(), s = t0 + i * 0.11, f = 2600 + Math.random() * 900;
-      o.type = 'sine'; o.frequency.setValueAtTime(f, s); o.frequency.exponentialRampToValueAtTime(f * 1.35, s + 0.06); g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.018, s + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.08); o.connect(g).connect(out); o.start(s); o.stop(s + 0.1); } }
-  function coo(){ const t0 = now(); [0, 0.32].forEach((d, i)=>{ const o = ctx.createOscillator(), g = ctx.createGain(), s = t0 + d; o.type = 'sine'; o.frequency.setValueAtTime(i ? 300 : 340, s); o.frequency.exponentialRampToValueAtTime(i ? 250 : 290, s + 0.25);
-      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.03, s + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.28); o.connect(g).connect(out); o.start(s); o.stop(s + 0.3); }); }
-  // called every frame: the city hum follows where you are, with the odd far-off horn, birds and pigeons
+  // the street: a real Indian street, quiet in the background and muffled indoors
+  let street = null;
+  function startStreet(){ if (street || !B.street) return; const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = B.street; s.loop = true; f.type = 'lowpass'; f.frequency.value = 12000; g.gain.value = 0; s.connect(f).connect(g).connect(out); s.start(); street = {s, f, g}; }
   function update(t, inside, nearPigeons){
-    if (!ctx) return; const target = on && mode === 'play' ? (inside ? 0.012 : 0.05) : 0; amb.gain.setTargetAtTime(target, now(), 0.6);
+    if (!ctx) return;
+    if (street){ street.g.gain.setTargetAtTime(on && mode === 'play' ? (inside ? 0.06 : 0.2) : 0, now(), 0.6); street.f.frequency.setTargetAtTime(inside ? 700 : 12000, now(), 0.3); }
     if (!on || mode !== 'play' || inside) return;
-    if (t > nextBird){ nextBird = t + 4 + Math.random() * 9; chirp(); }
-    if (nearPigeons && t > nextCoo){ nextCoo = t + 3 + Math.random() * 5; coo(); }
+    if (nearPigeons && t > nextCoo && B.coos && B.coos.length){ nextCoo = t + 3 + Math.random() * 6; play(B.coos[Math.random() * B.coos.length | 0], 0.32, 0.95 + Math.random() * 0.1, (Math.random() - 0.5) * 0.8); }
   }
   // browsers only allow sound after a click or key press
   const wake = () => { if (init()) ctx.resume(); }; addEventListener('pointerdown', wake, {once:true}); addEventListener('keydown', wake, {once:true});
-  return {horn, step, update, engine, setOn(v){ on = v; if (!v) engine(null); }};
+  return {horn, step, update, engine, traffic, setOn(v){ on = v; if (!v){ engine(null); if (near) near.g.gain.setTargetAtTime(0, now(), 0.1); } }};
 })();
+// where a sound is, left or right of the camera (-1..1)
+function panOf(x, z){ const e = camera.matrixWorld.elements, dx = x - camera.position.x, dz = z - camera.position.z, d = Math.hypot(dx, dz) || 1; return (dx * e[0] + dz * e[2]) / d; }
 
 /* =========================================================
    Inside view for autos and scooters
@@ -2505,7 +2527,9 @@ function frame(){
   for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : (riding && riding.type === 'scooter' ? 0.35 : 0.8); }   // ride out of a crowded stand without getting stuck
   Sound.engine(riding && riding.type !== 'camel' ? riding.type : null, riding ? (riding.type === 'jeep' ? (jeep.state === 'moving' ? 8 : 0) : riding.v || 0) : 0);
   for (const a of autos){ if (a === riding || a.state !== 'route' || (a.v || 0) < 3) continue; const d = Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z);
-    if (d < 30 && t > (a.nextHonk || 0)){ a.nextHonk = t + 6 + Math.random() * 10; if (Math.random() < 0.5) horn(a.g.userData.tuk ? 'scooter' : 'auto', Math.max(0.1, 1 - d / 30) * 0.7); } }   // moving autos near you honk now and then, louder when close
+    if (d < 30 && t > (a.nextHonk || 0)){ a.nextHonk = t + 6 + Math.random() * 10; if (Math.random() < 0.5) horn(a.g.userData.tuk ? 'scooter' : 'auto', Math.max(0.1, 1 - d / 30) * 0.7, panOf(a.pos.x, a.pos.z)); } }   // moving autos near you honk now and then, louder when close
+  { let nd = 1e9, na = null; for (const a of autos){ if (a === riding || (a.v || 0) < 1) continue; const d = Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z); if (d < nd){ nd = d; na = a; } }
+    Sound.traffic(na ? nd : 1e9, na ? panOf(na.pos.x, na.pos.z) : 0, na ? na.v : 0); }   // hear autos as they pass
   Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
