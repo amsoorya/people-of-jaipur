@@ -1637,7 +1637,7 @@ function lamp(x,z,ax=1,az=0,y0=0){ LAMP_SPOTS.push([x,z]);
   flat(mat('#6E8A3C','grass'), 30, 170, 110, 70, 0.04);
   flat(M_PAVE2, 30, 132, 70, 14, 0.06);
   flat(M_PAVE2, 30, 148, 14, 30, 0.06);
-  const g = new THREE.Group(), C = '#E7D1A8', P = '#D9937A', W = 58;
+  const g = new THREE.Group(), C = '#E9D3A8', P = '#B5523B', W = 58;   // cream sandstone with red sandstone trim
   box(g,W,10,20,C,0,0,-10,'stone');
   add(g,arcadeGeo(W,15,5.0,2.6,3.9,0.8),M(C,'stone'),0,0,0.4);
   add(g,arcadeGeo(W,15,4.6,2.4,3.6,0.8),M(C,'stone'),0,5.2,0.4);
@@ -1645,8 +1645,15 @@ function lamp(x,z,ax=1,az=0,y0=0){ LAMP_SPOTS.push([x,z]);
   box(g,W+0.6,0.3,1.6,WHITE,0,5.0,0.3,'stone'); box(g,W+0.6,0.35,1.6,P,0,9.8,0.3,'stone');
   for (let i=0;i<15;i++){ const cx = -W/2+W/15*(i+0.5); plane(g,M_ARCH,cx,3.9*1.15/2,0.82,2.6*1.32,3.9*1.15); plane(g,M_ARCH,cx,5.2+3.6*1.15/2,0.82,2.4*1.32,3.6*1.15); }
   for (let i=0;i<Math.floor(W/1.2);i++) kangura(g,-W/2+0.6+i*1.2,10.15,0.6,1,C);
+  for (let i=0;i<=15;i++){ const px = -W/2 + W/15*i; box(g,0.35,9.8,0.3,P,px,0,0.95,'stone'); }   // red pilasters between the arches
+  box(g,W+0.4,0.25,1.2,P,0,0.0,0.5,'stone');
   // central projecting portico + tower
-  box(g,16,12,6,C,0,0,2.2,'stone'); add(g,arcadeGeo(16,3,11,4,8.5,0.8),M(C,'stone'),0,0,5.4);
+  // portico: three tall open arches into a shaded porch, with the doors set back inside
+  for (const sx of [-1,1]) box(g,1.2,12,6,C,sx*7.4,0,2.2,'stone');
+  box(g,16,3.5,6,C,0,8.5,2.2,'stone'); box(g,14.8,8.5,0.3,'#5A3A2A',0,0,-0.7,'stone');
+  for (const dx of [-4.6,0,4.6]) box(g,2.2,4.2,0.1,'#3A2418',dx,0,-0.5,'stone');
+  add(g,arcadeGeo(16,3,11,4,8.5,0.8),M(C,'stone'),0,0,5.4);
+  for (const px of [-8,-2.67,2.67,8]) box(g,0.45,11,0.4,P,px,0,5.85,'stone');
   for (let i=0;i<3;i++) plane(g,M_ARCH,-16/2+16/3*(i+0.5),8.5*1.15/2,5.82,4*1.32,8.5*1.15);
   box(g,16.6,0.4,6.8,P,0,12,2.2,'stone');
   box(g,12,9,12,C,0,12.4,-4,'stone');
@@ -1656,6 +1663,7 @@ function lamp(x,z,ax=1,az=0,y0=0){ LAMP_SPOTS.push([x,z]);
   onion(g,4.6,'#E9D8B4',0,24,-4,'stone',1.0);
   cone(g,0.25,2.2,'#D9A23A',0,31.7,-4,8,'stone');
   for (const [a,b] of [[-1,-1],[1,-1],[-1,1],[1,1]]) chhatri(g,a*5.5,21.8,-4+b*5.5,1.3,C,WHITE,'stone');
+  for (const [a,b] of [[-1,0],[1,0],[0,1]]) chhatri(g,a*7.2,12.4,-4+b*7.2,0.9,C,WHITE,'stone');   // a lower ring of chhatris on the tower
   for (const s of [-1,1]){ box(g,8,4,8,C,s*(W/2-4),10,-6,'stone'); chhatri(g,s*(W/2-4),14,-6,2.4,C,'#E9D8B4','stone'); chhatri(g,s*(W/2-12),10.2,0,1.2,C,WHITE,'stone'); }
   place(g,30,160,Math.PI);
   colliderLocal(30,160,Math.PI,-W/2,W/2,-20,6);
