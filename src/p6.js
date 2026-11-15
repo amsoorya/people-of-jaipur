@@ -584,9 +584,9 @@ function makeScooter(col){
     cpart(S16,'#FFF4C8',m4(0,1.03,0.72,0.07,0.07,0.04)), cpart(UBOX,'#C0C0C0',m4(0,1.12,0.6,0.16,0.06,0.06)),
   ];
   const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
-  // "Scooter Motorcycle" by NORBERTO-3D and, every third one, "Cyberpunk Scooter" by Berk Gedik (both CC BY 4.0)
-  const cyber = false; scooterCount++;   // only the seated Vespa-style scooter: the stand-up e-scooter doesn't suit a seated rider
-  Swap.apply(g, cyber ? 'models/vehicles/scooter2.glb' : 'models/vehicles/scooter.glb', cyber ? {height: 1.2, hide: [m]} : {length: 1.85, hide: [m]});   // the standing e-scooter is sized by height (handlebar ~1.2 m)
+  // "Scooter Motorcycle" by NORBERTO-3D (CC BY 4.0): a seated Vespa-style scooter
+  scooterCount++;
+  Swap.apply(g, 'models/vehicles/scooter.glb', {length: 1.85, hide: [m]});
   scene.add(g); return g;
 }
 const SCOOTER_COLS = ['#1F3B6E','#B82B2B','#2A2A2A','#E8E2D6','#2E8C87','#E05A2B','#5E8F3A'];

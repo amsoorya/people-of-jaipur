@@ -34,8 +34,8 @@ const isCoarse = matchMedia('(pointer: coarse)').matches;
 const lowEnd = isCoarse || (navigator.hardwareConcurrency||8) <= 4;
 /* 3D model downloads: phones get the lighter .lite versions; every download is tracked so the
    loading screen can wait for the whole city before it opens. */
-const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/vehicles/scooter2.glb','models/nature/trees.glb']);
-const MID = new Set(['models/vehicles/tuktuk.glb','models/animals/CamelRig.glb','models/vehicles/scooter2.glb']);   // desktop: 2048 textures, same look, far lighter
+const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/nature/trees.glb']);
+const MID = new Set(['models/vehicles/tuktuk.glb','models/animals/CamelRig.glb']);   // desktop: 2048 textures, same look, far lighter
 const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : MID.has(u) ? u.replace(/\.glb$/, '.mid.glb') : u;
 const ModelLoad = {started:0, done:0, bytes:{}};
 if (THREE.GLTFLoader){

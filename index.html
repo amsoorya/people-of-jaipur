@@ -417,7 +417,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <div class="gsec"><b>Meets and clubs</b><p>Menu, then Community, or the notice boards at Badi Chaupar and in the Tech Park lobbies. Organise a meet with a date and place, join one, start a club, or join a club and its chat.</p></div>
     <div class="gsec"><b>Talk</b><p>Sit at any café table to join that café’s chat. City chat is in the Menu. Shops have their own chat where the owner replies. Notifications in the Menu show connection requests, accepted connections and new messages.</p></div>
     <div class="gsec" id="guidePriv"></div>
-    <p class="mhelp">3D models: people, cows and bulls by Quaternius (CC0). “Auto Rickshaw” by rSquare and “Cow” by Asheraf on Sketchfab (CC BY 4.0). “Bactrian Camel (Low Poly)” by Nyilonelycompany (CC BY-NC-SA 4.0). “Brahman Cow” by kunyong_Chen, “Pigeon” by hino, “Scooter Motorcycle” by NORBERTO-3D, “Cyberpunk Scooter” by Berk Gedik (CC BY 4.0). “Jeep 1” by Kapi777 (CC BY-NC 4.0). Thai tuk-tuk from Sketchfab. Sounds from Freesound: auto horn by Balaram_Mahalder, Jodhpur tuk-tuk by LukeIRL (CC BY 4.0), Vespa by derjuli, jeep by Mihacappy, footsteps by SecureSubset, pigeons by Fsu2001, Bangalore street by Alcappuccino (CC0). Inspired by People of Bengaluru.</p>
+    <p class="mhelp">3D models: people, cows and bulls by Quaternius (CC0). “Auto Rickshaw” by rSquare and “Cow” by Asheraf on Sketchfab (CC BY 4.0). “Bactrian Camel (Low Poly)” by Nyilonelycompany (CC BY-NC-SA 4.0). “Brahman Cow” by kunyong_Chen, “Pigeon” by hino, “Scooter Motorcycle” by NORBERTO-3D (CC BY 4.0). “Jeep 1” by Kapi777 (CC BY-NC 4.0). Thai tuk-tuk from Sketchfab. Sounds from Freesound: auto horn by Balaram_Mahalder, Jodhpur tuk-tuk by LukeIRL (CC BY 4.0), Vespa by derjuli, jeep by Mihacappy, footsteps by SecureSubset, pigeons by Fsu2001, Bangalore street by Alcappuccino (CC0). Inspired by People of Bengaluru.</p>
     <div class="prod-actions"><button class="btn" id="guideClose">Got it</button></div>
   </section>
 </div>
@@ -667,8 +667,8 @@ const isCoarse = matchMedia('(pointer: coarse)').matches;
 const lowEnd = isCoarse || (navigator.hardwareConcurrency||8) <= 4;
 /* 3D model downloads: phones get the lighter .lite versions; every download is tracked so the
    loading screen can wait for the whole city before it opens. */
-const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/vehicles/scooter2.glb','models/nature/trees.glb']);
-const MID = new Set(['models/vehicles/tuktuk.glb','models/animals/CamelRig.glb','models/vehicles/scooter2.glb']);   // desktop: 2048 textures, same look, far lighter
+const LITE = new Set(['models/vehicles/auto.glb','models/vehicles/tuktuk.glb','models/animals/Camel.glb','models/animals/CowStatic.glb','models/animals/CamelRig.glb','models/vehicles/scooter.glb','models/nature/trees.glb']);
+const MID = new Set(['models/vehicles/tuktuk.glb','models/animals/CamelRig.glb']);   // desktop: 2048 textures, same look, far lighter
 const modelUrl = u => (isCoarse && LITE.has(u)) ? u.replace(/\.glb$/, '.lite.glb') : MID.has(u) ? u.replace(/\.glb$/, '.mid.glb') : u;
 const ModelLoad = {started:0, done:0, bytes:{}};
 if (THREE.GLTFLoader){
@@ -2593,9 +2593,9 @@ function makeScooter(col){
     cpart(S16,'#FFF4C8',m4(0,1.03,0.72,0.07,0.07,0.04)), cpart(UBOX,'#C0C0C0',m4(0,1.12,0.6,0.16,0.06,0.06)),
   ];
   const m = new THREE.Mesh(merge(parts), PM); m.castShadow = true; m.receiveShadow = true; g.add(m);
-  // "Scooter Motorcycle" by NORBERTO-3D and, every third one, "Cyberpunk Scooter" by Berk Gedik (both CC BY 4.0)
-  const cyber = false; scooterCount++;   // only the seated Vespa-style scooter: the stand-up e-scooter doesn't suit a seated rider
-  Swap.apply(g, cyber ? 'models/vehicles/scooter2.glb' : 'models/vehicles/scooter.glb', cyber ? {height: 1.2, hide: [m]} : {length: 1.85, hide: [m]});   // the standing e-scooter is sized by height (handlebar ~1.2 m)
+  // "Scooter Motorcycle" by NORBERTO-3D (CC BY 4.0): a seated Vespa-style scooter
+  scooterCount++;
+  Swap.apply(g, 'models/vehicles/scooter.glb', {length: 1.85, hide: [m]});
   scene.add(g); return g;
 }
 const SCOOTER_COLS = ['#1F3B6E','#B82B2B','#2A2A2A','#E8E2D6','#2E8C87','#E05A2B','#5E8F3A'];
