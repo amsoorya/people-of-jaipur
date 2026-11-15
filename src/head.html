@@ -235,6 +235,11 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #tourCard{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);z-index:20;width:min(560px,calc(100vw - 24px));background:var(--surface);color:var(--ink);border-radius:18px;padding:16px 18px 14px;box-shadow:var(--shadow)}
 #tourCard .tk{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--pink)}#tourCard h3{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 4px}#tourCard p{margin:0 0 10px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
 #tourCard .tbar{height:4px;border-radius:9px;background:var(--line);overflow:hidden}#tourCard .tbar i{display:block;height:100%;width:0;background:var(--marigold)}
+#tourFade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:19}
+#tourBars{display:none}body.touring #tourBars{display:block}#tourBars i{position:fixed;left:0;right:0;height:7vh;background:#000;z-index:18;pointer-events:none}#tourBars i:first-child{top:0}#tourBars i:last-child{bottom:0}
+body.touring #topbar,body.touring #topright,body.touring #ghostBar,body.touring #findBtn,body.touring #minimap,body.touring #bottomStack,body.touring #stick,body.touring #runBtn{display:none!important}
+#tourCard.in{animation:tourIn .6s ease}@keyframes tourIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+#tourCard .tbtns{display:flex;gap:8px;margin-top:10px}#tourCard .tbtns button{border:0;border-radius:10px;padding:6px 12px;background:var(--surface-2);font-weight:700;font-size:13px}
 #tourExit{position:absolute;top:12px;right:12px;border:0;border-radius:10px;padding:7px 12px;background:var(--surface-2);font-weight:700}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
@@ -292,7 +297,8 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
-<div id="tourCard" hidden><div class="tk">GUIDED TOUR · <span id="tourStep"></span></div><h3 id="tourTitle"></h3><p id="tourText"></p><div class="tbar"><i id="tourFill"></i></div><button id="tourExit">Exit tour</button></div>
+<div id="tourFade"></div><div id="tourBars"><i></i><i></i></div>
+<div id="tourCard" hidden><div class="tk">GUIDED TOUR · <span id="tourStep"></span></div><h3 id="tourTitle"></h3><p id="tourText"></p><div class="tbar"><i id="tourFill"></i></div><div class="tbtns"><button id="tourVoice"></button></div><button id="tourExit">Exit tour</button></div>
 <div id="ghostBar" hidden><i class="gi">👤</i><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet.</span><button id="ghostVisible">Become visible</button><button id="ghostSign" class="alt">Sign in</button></div>
 <button id="findBtn" hidden>Find someone</button>
 

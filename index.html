@@ -239,6 +239,11 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 #tourCard{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);z-index:20;width:min(560px,calc(100vw - 24px));background:var(--surface);color:var(--ink);border-radius:18px;padding:16px 18px 14px;box-shadow:var(--shadow)}
 #tourCard .tk{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--pink)}#tourCard h3{font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 4px}#tourCard p{margin:0 0 10px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
 #tourCard .tbar{height:4px;border-radius:9px;background:var(--line);overflow:hidden}#tourCard .tbar i{display:block;height:100%;width:0;background:var(--marigold)}
+#tourFade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:19}
+#tourBars{display:none}body.touring #tourBars{display:block}#tourBars i{position:fixed;left:0;right:0;height:7vh;background:#000;z-index:18;pointer-events:none}#tourBars i:first-child{top:0}#tourBars i:last-child{bottom:0}
+body.touring #topbar,body.touring #topright,body.touring #ghostBar,body.touring #findBtn,body.touring #minimap,body.touring #bottomStack,body.touring #stick,body.touring #runBtn{display:none!important}
+#tourCard.in{animation:tourIn .6s ease}@keyframes tourIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+#tourCard .tbtns{display:flex;gap:8px;margin-top:10px}#tourCard .tbtns button{border:0;border-radius:10px;padding:6px 12px;background:var(--surface-2);font-weight:700;font-size:13px}
 #tourExit{position:absolute;top:12px;right:12px;border:0;border-radius:10px;padding:7px 12px;background:var(--surface-2);font-weight:700}
 .mhelp{font-size:13px;color:var(--ink-soft);margin:6px 8px 4px;line-height:1.45}
 #outfitWrap,#coWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:13;overflow:auto}
@@ -296,7 +301,8 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
 
-<div id="tourCard" hidden><div class="tk">GUIDED TOUR · <span id="tourStep"></span></div><h3 id="tourTitle"></h3><p id="tourText"></p><div class="tbar"><i id="tourFill"></i></div><button id="tourExit">Exit tour</button></div>
+<div id="tourFade"></div><div id="tourBars"><i></i><i></i></div>
+<div id="tourCard" hidden><div class="tk">GUIDED TOUR · <span id="tourStep"></span></div><h3 id="tourTitle"></h3><p id="tourText"></p><div class="tbar"><i id="tourFill"></i></div><div class="tbtns"><button id="tourVoice"></button></div><button id="tourExit">Exit tour</button></div>
 <div id="ghostBar" hidden><i class="gi">👤</i><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet.</span><button id="ghostVisible">Become visible</button><button id="ghostSign" class="alt">Sign in</button></div>
 <button id="findBtn" hidden>Find someone</button>
 
@@ -4626,18 +4632,21 @@ const TOUR_STOPS = [
   {t:'Welcome to the Pink City', d:'Jaipur’s old city was painted pink in 1876 to welcome the Prince of Wales, and it has stayed that way. Let’s look around.', at:[30,0], r:70, h:55},
   {t:'Hawa Mahal', d:'The Palace of Winds, built in 1799: 953 small windows let royal women watch the street without being seen.', world:true, cam:[-18,2.2,5.5], look:[-25,9,-8]},
   {t:'Bazaar life', d:'Bangle, textile, sweet and spice shops line the arcades. Walk up to any open shop and its glass doors slide open.', at:[-50,0], r:12, h:4},
-  {t:'Autos and tuk-tuks', d:'Black-and-yellow autos run the bazaars. Stop one with E and drive it yourself; press V for the view from the driver’s seat.', el:()=>autos[0] && autos[0].pos, r:7, h:3},
-  {t:'A thela on the corner', d:'Fruit and vegetable carts with a thelawala calling out. Walk up and press E to see what’s fresh today.', el:()=>CART_SPOTS[0] && {x:CART_SPOTS[0].x, z:CART_SPOTS[0].z}, r:6, h:3},
-  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when you come close.', at:[30,0], r:22, h:10},
-  {t:'Inside a sweet shop', d:'Every shop has a shopkeeper and real stock. At the counter, press E to see their best sellers one by one.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===2), cam:[0,2.2,4.2], look:[0,1.2,-2]},
-  {t:'Inside a bangle shop', d:'Lac and glass bangles in every colour, stacked on the walls. Sit on a stool and take your time.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===1), cam:[1.2,2.0,4.2], look:[0,1.2,-2]},
-  {t:'A café', d:'Sit at any table to join that café’s chat with the people there.', shop:()=>shopDoors.find(x=>x.kind===6), cam:[2.5,3.0,4.5], look:[0,0.8,0]},
+  {t:'Autos and tuk-tuks', d:'Black-and-yellow autos run the bazaars, and the odd tuk-tuk too. Stop one with E and drive it yourself; press V for the view from the driver’s seat.', el:()=>autos[0] && autos[0].pos, r:7, h:3, live:(n)=>{ if (n === 0) horn('auto', 0.6); }},
+  {t:'A thela on the corner', d:'Fruit and vegetable carts heaped high, with the thelawala calling out to passers-by. Walk up and press E to see what’s fresh today.', el:()=>CART_SPOTS[0] && {x:CART_SPOTS[0].x, z:CART_SPOTS[0].z}, r:6, h:3},
+  {t:'Badi Chaupar', d:'The great square where the main bazaars meet. Pigeons gather by the fountain and scatter when anyone comes close.', at:[30,0], r:22, h:10, live:(n)=>{ if (n === 1) pigeons.forEach(q=>{ if (Math.hypot(q.hx-30, q.hz) < 20) q.fly = 8; }); }},
+  {t:'Inside a sweet shop', d:'Every shop has a shopkeeper and real stock: ladoo, barfi and jalebi on the counter, cakes and mithai boxes on the shelves. At the counter, press E to see their best sellers.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===2),
+    shots:[{from:[0,2.6,4.6], to:[0,1.9,2.4], look:[0,1.3,-2.4], lookTo:[0,1.4,-3.2], dur:5}, {from:[-2.4,1.55,-0.7], to:[2.4,1.55,-0.7], look:[-1.2,1.2,-3], lookTo:[1.2,1.3,-3], dur:5}, {from:[1.6,1.7,0.4], to:[0.9,1.75,-0.4], look:[0.9,1.6,-3.3], lookTo:[0.9,1.7,-3.3], dur:4}]},
+  {t:'Inside a bangle shop', d:'Lac and glass bangles in every colour, stacked up the walls the way they are in Maniharon ka Rasta. Sit on a stool, and the shopkeeper brings out the new designs.', shop:()=>shopDoors.find(x=>x.landmark && x.kind===1),
+    shots:[{from:[1.4,2.2,4.4], to:[0.4,1.8,2.6], look:[0,1.3,-2.4], lookTo:[0,1.5,-3], dur:5}, {from:[-1.2,1.6,3.2], to:[-1.2,1.7,-1.0], look:[-3.4,1.6,2.6], lookTo:[-3.4,1.8,-1.4], dur:5}, {from:[1.2,1.6,-0.4], to:[1.2,1.6,2.8], look:[3.4,1.7,-0.4], lookTo:[3.4,1.6,2.8], dur:4}]},
+  {t:'A café', d:'Chai in a kulhad, pyaaz kachori and bun maska. Sit at any table to join that café’s chat with whoever is there.', shop:()=>shopDoors.find(x=>x.kind===6),
+    shots:[{from:[2.8,3.2,4.6], to:[2.2,1.9,3.2], look:[0,0.8,0], lookTo:[-1.8,0.8,-0.4], dur:5}, {from:[-0.6,1.15,0.8], to:[-1.2,1.05,0.4], look:[-1.8,0.85,-0.4], lookTo:[-1.8,0.8,-0.4], dur:4}, {from:[0,1.8,1.2], to:[0.6,1.7,0.2], look:[0.6,1.5,-3], lookTo:[0.9,1.6,-3.2], dur:4}]},
   {t:'Johari Bazaar', d:'The jewellers’ market, and home of LMB’s famous sweets.', at:[30,50], r:24, h:8},
   {t:'Jantar Mantar', d:'An 18th-century observatory. Its Samrat Yantra is one of the largest stone sundials in the world.', at:[-14,-56], r:28, h:14},
   {t:'City Palace', d:'Chandra Mahal rises seven storeys and is still home to Jaipur’s royal family.', at:[-68,-58], r:30, h:14},
   {t:'Panna Meena ka Kund', d:'A 17th-century stepwell famous for its criss-cross stairs. Walk down to the water, or sit on the steps.', at:[-150,-10], r:24, h:16},
   {t:'Camels', d:'Camels rest near Jal Mahal. Walk up and press E to ride one.', el:()=>camels[0] && camels[0].pos, r:8, h:4},
-  {t:'Cows on the road', d:'Cows wander, graze and take their time. Honk with H and they move along.', el:()=>cows[0] && cows[0].pos, r:7, h:3},
+  {t:'Cows on the road', d:'Cows wander, graze and take their time. Honk with H and they move along.', el:()=>cows[0] && cows[0].pos, r:7, h:3, live:(n)=>{ if (n === 2 && cows[0]){ horn('scooter', 0.5); scareAnimals(cows[0].pos.x, cows[0].pos.z, 6); } }},
   {t:'Jal Mahal', d:'A palace in the middle of Man Sagar Lake. Most of its floors sit under the water.', at:[30,-175], r:60, h:22},
   {t:'Sunset Point', d:'Take the jeep or ride a scooter up the spiral road for a view over the whole city.', at:[-140,-150], r:40, h:30},
   {t:'Albert Hall Museum', d:'Rajasthan’s oldest museum, built in the Indo-Saracenic style in Ram Niwas Garden.', at:[30,158], r:40, h:16},
@@ -4645,48 +4654,81 @@ const TOUR_STOPS = [
   {t:'Central Park', d:'The city’s big green lung, with one of India’s tallest flag masts.', at:[205,65], r:45, h:20},
   {t:'Patrika Gate', d:'Every wall and ceiling painted in a different Rajasthani style.', at:[246,0], r:24, h:9},
   {t:'Jagatpura Tech Park', d:'Two towers of offices. IT companies take a floor, post open roles, and their team shows up at the desks.', at:[207,132], r:45, h:22},
-  {t:'The lobby', d:'Reception, a waiting area and lifts to every floor. The directory shows which company is on which floor.', shop:()=>lobbyDoors[0], cam:[2.5,2.3,4.2], look:[-1,1.1,-2]},
-  {t:'A company floor', d:'Desks with screens, a glass meeting room, the manager’s cabin, a pantry and a lounge. Talk to the receptionist for the company’s website, email and phone, and read the jobs board.', floor:()=>officeDoors[MANTHHAN_SLOT], cam:[3.2,2.4,4.6], look:[-2,0.9,-2.5]},
+  {t:'The lobby', d:'Reception, a waiting area and lifts to every floor. The directory board shows which company is on which floor.', shop:()=>lobbyDoors[0],
+    shots:[{from:[3,2.6,4.6], to:[1.5,1.8,3.2], look:[-1,1.1,-2], lookTo:[-3.6,1.2,0.2], dur:5}, {from:[3.0,1.4,0.6], to:[3.6,1.3,2.8], look:[4.4,0.6,2.45], lookTo:[4.4,0.6,2.45], dur:4}, {from:[0,1.8,1.5], to:[0,1.8,-0.2], look:[0,1.8,-6], lookTo:[0,2.2,-6], dur:4}]},
+  {t:'A company floor', d:'Desks with screens, a glass meeting room, the manager’s cabin, a pantry and a lounge. Talk to the receptionist for the company’s website, email and phone, and read the jobs board.', floor:()=>officeDoors[MANTHHAN_SLOT],
+    shots:[{from:[-4.6,1.7,1.0], to:[-4.6,1.8,2.2], look:[-4.6,1.9,6], lookTo:[-3,2.1,6], dur:4}, {from:[3.2,2.4,4.6], to:[1.0,1.6,2.6], look:[-2,0.9,-2.5], lookTo:[0.6,1.0,-2.0], dur:5}, {from:[-2.4,1.6,-1.6], to:[-2.0,1.6,-2.4], look:[-5.4,1.0,-4.4], lookTo:[-5.4,1.0,-4.4], dur:4}, {from:[4.4,1.7,1.2], to:[4.4,1.7,-0.6], look:[6.9,1.0,-2.3], lookTo:[7.6,1.6,1.0], dur:4}]},
   {t:'Meet the people', d:'Everyone you see walking about is a real person who joined. Sign in to become visible, connect, message, and organise meets and clubs. Enjoy Jaipur!', at:[-25,-4], r:40, h:24},
 ];
-const TOUR_HOLD = 9;   // seconds at each stop
-let tour = null;
+/* Each stop is a short film: two to four shots (a wide establishing crane, a street-level dolly, a close detail),
+   with fades between stops, slow camera moves, live moments (pigeons taking off, a horn, cows ambling off) and spoken narration. */
+let tour = null, narrate = true; try { narrate = localStorage.getItem('jp-tour-voice') !== 'off'; } catch(e){}
+const ease = k => k < 0 ? 0 : k > 1 ? 1 : k*k*(3 - 2*k);
+function stopCentre(st){ const c = st.el ? st.el() : (st.at ? {x:st.at[0], z:st.at[1]} : null); return c ? {x:c.x, z:c.z, y: typeof groundY === 'function' ? Math.max(0, groundY(c.x, c.z)) : 0} : null; }
+// One continuous camera move per stop: a smooth curve through key points, eased in and out. No cuts.
+// Outdoor stops sweep around the place, starting wide and high and settling closer; points are relative to the
+// stop's centre so moving subjects (autos, cows, camels) stay framed.
+function outdoorKeys(st, i){
+  const r = st.r, h = st.h, big = h > 18, a0 = st.a != null ? st.a : (i * 1.37) % 6.283, sweep = st.sweep || 1.6;
+  const pos = [[0, 1.55, 1.7], [0.33, 1.25, 1.3], [0.66, 1.0, 0.95], [1, 0.85, 0.8]].map(([f, rf, hf]) => {
+    const a = a0 + sweep * f; return [Math.sin(a) * r * rf, Math.max(big ? 12 : 4.5, h * hf), Math.cos(a) * r * rf]; });
+  const look = [[0, big ? 0 : 2.5, 0], [0, big ? 2 : 3, 0], [0, big ? 3 : 3, 0], [0, big ? 4 : 2.5, 0]];
+  return {rel:true, pos, look};
+}
+function interiorKeys(st){ const pos = [], look = []; st.shots.forEach(sh=>{ pos.push(sh.from, sh.to); look.push(sh.look, sh.lookTo); }); return {rel:false, pos, look}; }
+function keysOf(st, i){
+  if (st.shots) return interiorKeys(st);
+  if (st.world) return {rel:false, pos:[st.cam, [st.cam[0] + 3, st.cam[1] + 0.3, st.cam[2] - 0.5], [st.cam[0] + 6, st.cam[1] + 1.5, st.cam[2] - 1.5]], look:[st.look, [st.look[0] + 1.5, st.look[1] + 1, st.look[2]], [st.look[0] + 3, st.look[1] + 2, st.look[2]]]};
+  return outdoorKeys(st, i);
+}
+const curveOf = pts => new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3().fromArray(p)), false, 'centripetal');
+function say(text){ try { speechSynthesis.cancel(); if (!narrate) return; const u = new SpeechSynthesisUtterance(text); const v = speechSynthesis.getVoices(); u.voice = v.find(x=>/en-IN/i.test(x.lang)) || v.find(x=>/en-GB|en-US/i.test(x.lang)) || null; u.rate = 0.98; speechSynthesis.speak(u); } catch(e){} }
 function startTour(){
   toggleMenu(false); if (mode !== 'play') start();
   for (const id of ['roleWrap','guideWrap','cardWrap','prodWrap','joinWrap','recWrap','jobsWrap']) { const el = $(id); if (el) el.hidden = true; }
   if (riding) exitAuto(); if (flying) setFly(false); if (sitting) standUp();
-  tour = {i:-1, t:0, pos: camera.position.clone(), look: new THREE.Vector3(), fromPos: new THREE.Vector3(), fromLook: new THREE.Vector3()};
-  camera.getWorldDirection(tour.look); tour.look.multiplyScalar(10).add(camera.position);
-  cardOpen = true; player.g.visible = false; $('tourCard').hidden = false; tourNext();
+  tour = {i:-1, shot:0, t:0, st:0, fade:0, lift:0, fov: camera.fov}; document.body.classList.add('touring');
+  cardOpen = true; player.g.visible = false; $('tourCard').hidden = false; $('tourVoice').textContent = narrate ? '🔊 Narration on' : '🔇 Narration off'; tourGo(0);
 }
 function endTour(){
-  if (!tour) return; tour = null; $('tourCard').hidden = true; cardOpen = false; player.g.visible = true;
+  if (!tour) return; camera.fov = tour.fov; camera.updateProjectionMatrix(); tour = null; try { speechSynthesis.cancel(); } catch(e){}
+  document.body.classList.remove('touring'); $('tourFade').style.opacity = 0; $('tourCard').hidden = true; cardOpen = false; player.g.visible = true;
   if (inShop) exitShop(); P.pos.set(-31,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.18; dist = 4.6; snapCam = true; canvas.focus();
 }
-function tourNext(){
-  const i = tour.i + 1; if (i >= TOUR_STOPS.length){ endTour(); return; }
-  const st = TOUR_STOPS[i]; tour.i = i; tour.t = 0; tour.fromPos.copy(camera.position); tour.fromLook.copy(tour.look);
-  // interiors: step inside (the camera jumps, since it can't glide through walls)
+function tourGo(i){
+  if (i >= TOUR_STOPS.length){ endTour(); return; }
+  const st = TOUR_STOPS[i]; tour.i = i; tour.t = 0; tour.lift = 0; const K = keysOf(st, i); tour.rel = K.rel; tour.path = curveOf(K.pos); tour.lookPath = curveOf(K.look);
+  tour.total = Math.max(st.shots ? st.shots.reduce((a,b)=>a + b.dur, 0) : 13, st.d.split(' ').length / 2.6 + 2.5);   // long enough for the narration
+  tour.liveAt = st.live ? [0, tour.total * 0.35, tour.total * 0.65] : []; tour.liveDone = 0;
   const door = st.shop ? st.shop() : st.floor ? st.floor() : null;
-  if (door){ if (inShop) exitShop(); if (st.floor){ enterFloor(door); if (typeof closeLift === 'function') closeLift(); } else enterShop(door); player.g.visible = false;
-    tour.fromPos.set(...st.cam); tour.fromLook.set(...st.look); }
-  else if (inShop){ exitShop(); player.g.visible = false; }
+  if (door){ if (inShop) exitShop(); if (st.floor){ enterFloor(door); if (typeof closeLift === 'function') closeLift(); } else enterShop(door); }
+  else if (inShop) exitShop();
+  player.g.visible = false;
   $('tourStep').textContent = `${i+1} of ${TOUR_STOPS.length}`; $('tourTitle').textContent = st.t; $('tourText').textContent = st.d;
+  $('tourCard').classList.remove('in'); void $('tourCard').offsetWidth; $('tourCard').classList.add('in');
+  tour.cam = null; tour.cc = null; if (st.live) st.live(0); say(st.t + '. ' + st.d);
 }
 function updateTour(dt){
-  const st = TOUR_STOPS[tour.i]; tour.t += dt; for (const k in keys) keys[k] = false;
-  const k = Math.min(1, tour.t / 3.2), e = k*k*(3 - 2*k);   // glide for the first 3 seconds
-  let wantPos, wantLook;
-  if (st.cam){ wantPos = new THREE.Vector3(...st.cam).add(new THREE.Vector3(Math.sin(tour.t*0.25)*(st.world ? 3 : 0.6), 0, 0)); wantLook = new THREE.Vector3(...st.look); }
-  else { const c = st.el ? st.el() : {x:st.at[0], z:st.at[1]}; const cx = c ? c.x : 0, cz = c ? c.z : 0, a = 0.6 + tour.t * 0.09;   // a slow orbit
-    wantPos = new THREE.Vector3(cx + Math.sin(a)*st.r, (typeof groundY === 'function' ? Math.max(0, groundY(cx, cz)) : 0) + st.h, cz + Math.cos(a)*st.r); wantLook = new THREE.Vector3(cx, (st.h > 20 ? 0 : 1.5), cz);
-    // never inside a building: if the orbit passes over one, rise above its roof
-    let roof = 0; for (const c of colliders){ if (c.h && wantPos.x > c.minX - 2 && wantPos.x < c.maxX + 2 && wantPos.z > c.minZ - 2 && wantPos.z < c.maxZ + 2) roof = Math.max(roof, c.h); }
-    tour.lift = (tour.lift || 0) + ((roof > wantPos.y - 1.5 ? roof + 3 - wantPos.y : 0) - (tour.lift || 0)) * Math.min(1, dt * 2); wantPos.y += tour.lift; }
-  camera.position.lerpVectors(tour.fromPos, wantPos, e); tour.look.lerpVectors(tour.fromLook, wantLook, e); camera.lookAt(tour.look);
-  $('tourFill').style.width = Math.min(100, tour.t / TOUR_HOLD * 100) + '%';
-  if (tour.t >= TOUR_HOLD) tourNext();
+  const st = TOUR_STOPS[tour.i]; for (const k in keys) keys[k] = false;
+  tour.t += dt;
+  while (tour.liveDone < tour.liveAt.length && tour.t >= tour.liveAt[tour.liveDone]){ if (tour.liveDone > 0) st.live(tour.liveDone); tour.liveDone++; }
+  // slow, steady progress along the curve: eased at both ends, constant speed in the middle
+  const k = Math.min(1, tour.t / tour.total), u = k < 0.15 ? (k/0.15)*(k/0.15)*0.075/0.15*0.15/0.075*0.075 : k > 0.85 ? 1 - ((1-k)/0.15)*((1-k)/0.15)*0.075 : 0.075 + (k - 0.15) * (0.85/0.7);
+  const pos = tour.path.getPoint(Math.min(1, Math.max(0, u))), look = tour.lookPath.getPoint(Math.min(1, Math.max(0, u)));
+  if (tour.rel){ const c = stopCentre(st) || {x:0, y:0, z:0}; const cc = tour.cc || (tour.cc = new THREE.Vector3(c.x, c.y, c.z)); cc.lerp(new THREE.Vector3(c.x, c.y, c.z), Math.min(1, dt * 2)); pos.add(cc); look.add(cc); }
+  if (!inShop){   // rise smoothly over any roof the camera path crosses
+    let roof = 0; for (const cl of colliders){ if (cl.h && pos.x > cl.minX - 1.5 && pos.x < cl.maxX + 1.5 && pos.z > cl.minZ - 1.5 && pos.z < cl.maxZ + 1.5) roof = Math.max(roof, cl.h); }
+    const need = roof > pos.y - 1.2 ? roof + 2.5 - pos.y : 0; tour.lift += (need - tour.lift) * Math.min(1, dt * 1.2); pos.y += tour.lift;
+  }
+  // a little extra smoothing so nothing ever snaps
+  if (!tour.cam || tour.t < 0.05){ tour.cam = pos.clone(); tour.lk = look.clone(); } else { tour.cam.lerp(pos, Math.min(1, dt * 4)); tour.lk.lerp(look, Math.min(1, dt * 4)); }
+  camera.position.copy(tour.cam); camera.lookAt(tour.lk);
+  camera.fov = tour.fov - 3 * k; camera.updateProjectionMatrix();
+  const left = tour.total - tour.t; $('tourFade').style.opacity = tour.t < 0.7 ? 1 - tour.t/0.7 : left < 0.7 ? 1 - left/0.7 : 0;
+  $('tourFill').style.width = Math.min(100, k * 100) + '%';
+  if (tour.t >= tour.total) tourGo(tour.i + 1);
 }
+$('tourVoice').addEventListener('click', ()=>{ narrate = !narrate; try { localStorage.setItem('jp-tour-voice', narrate ? 'on' : 'off'); } catch(e){} $('tourVoice').textContent = narrate ? '🔊 Narration on' : '🔇 Narration off'; if (!narrate) try { speechSynthesis.cancel(); } catch(e){} });
 $('tourExit').addEventListener('click', endTour);
 $('tourBtn').addEventListener('click', startTour);
 addEventListener('keydown', e=>{ if (tour && e.key === 'Escape'){ e.stopImmediatePropagation(); endTour(); } }, true);
