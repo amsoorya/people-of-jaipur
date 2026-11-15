@@ -464,7 +464,7 @@ function enterAuto(a){
     if (a.circle) a.circle.r = 0;   // the scooter you're on must not collide with itself
     const ahead = V3(a.pos.x + Math.sin(a.heading)*1.6, 0, a.pos.z + Math.cos(a.heading)*1.6), ax = ahead.x, az = ahead.z; resolve(ahead, 0.5);
     if (Math.hypot(ahead.x-ax, ahead.z-az) > 0.05){ a.heading += Math.PI; a.g.rotation.y = a.heading; }
-    a.g.add(player.g); player.g.position.set(0,-0.02,-0.3); player.g.rotation.set(0,0,0); seat(player); player.b.lHip.rotation.x = player.b.rHip.rotation.x = -1.05; player.b.lKnee.rotation.x = player.b.rKnee.rotation.x = 1.3; player.b.lSh.rotation.x = player.b.rSh.rotation.x = -1.0;
+    a.g.add(player.g); player.g.position.set(0,-0.2,-0.14); player.g.rotation.set(0,0,0); seat(player);   // down onto the seat player.b.lHip.rotation.x = player.b.rHip.rotation.x = -1.05; player.b.lKnee.rotation.x = player.b.rKnee.rotation.x = 1.3; player.b.lSh.rotation.x = player.b.rSh.rotation.x = -1.0;
     yaw = a.heading - Math.PI; pitch = 0.22; dist = 5.2; snapCam = true;
     showHint('Riding the scooter. W and S to ride, A and D to steer, H to honk, V for the rider’s view. Press E to get off.');
     return;
@@ -1124,11 +1124,29 @@ const Sound = (()=>{
     const v = 0.16 * gain;
     for (const [st, len] of H.bursts){ g.gain.setValueAtTime(0.0001, t0+st); g.gain.linearRampToValueAtTime(v, t0+st+0.008); g.gain.setValueAtTime(v, t0+st+len-0.012); g.gain.linearRampToValueAtTime(0.0001, t0+st+len); }
   }
+  // engines: a two-stroke putter for the auto, a buzzier one for the scooter, a deeper diesel for the jeep.
+  // Pitch and loudness follow the vehicle's speed; silent when you're not riding.
+  let eng = null;
+  const ENG = {auto:{base:34, gain:0.07, wave:'sawtooth', lp:900}, scooter:{base:52, gain:0.055, wave:'sawtooth', lp:1400}, jeep:{base:26, gain:0.08, wave:'square', lp:600}};
+  function engine(kind, speed){
+    if (!on || !kind || !ENG[kind]){ if (eng){ eng.g.gain.setTargetAtTime(0, now(), 0.15); } return; }
+    if (!init()) return;
+    if (!eng || eng.kind !== kind){ if (eng){ const old = eng; old.g.gain.setTargetAtTime(0, now(), 0.1); setTimeout(()=>{ try { old.o.stop(); old.lfo.stop(); } catch(e){} }, 400); }
+      const E = ENG[kind], o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), am = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = E.wave; f.type = 'lowpass'; f.frequency.value = E.lp; g.gain.value = 0;
+      lfo.type = 'square'; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg).connect(am.gain);   // the putt-putt of firing cylinders
+      o.connect(f).connect(am).connect(g).connect(out); o.start(); lfo.start();
+      eng = {kind, o, lfo, g, E}; }
+    const r = Math.min(1, Math.abs(speed) / (kind === 'jeep' ? 8 : 15)), t0 = now();
+    eng.o.frequency.setTargetAtTime(eng.E.base * (1 + r * 1.8), t0, 0.12);
+    eng.lfo.frequency.setTargetAtTime(eng.E.base * 0.5 * (1 + r * 1.8), t0, 0.12);
+    eng.g.gain.setTargetAtTime(eng.E.gain * (0.55 + 0.45 * r), t0, 0.12);
+  }
   // a footstep: a short, soft scuff with a little thud
   function stepSound(run, inside){
     const t0 = now(), s = ctx.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 0.8 + Math.random() * 0.4;
     const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = (inside ? 1400 : 700) + Math.random() * 300; f.Q.value = 1.1;
-    const g = ctx.createGain(), v = (run ? 0.16 : 0.1) * (inside ? 1.2 : 1); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + (run ? 0.09 : 0.12));
+    const g = ctx.createGain(), v = (run ? 0.3 : 0.2) * (inside ? 1.2 : 1); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + (run ? 0.09 : 0.12));
     s.connect(f).connect(g).connect(out); s.start(t0, Math.random() * 1.5, 0.15);
     const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.06); og.gain.setValueAtTime(v * 0.5, t0); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07); o.connect(og).connect(out); o.start(t0); o.stop(t0 + 0.08);
   }
@@ -1143,13 +1161,12 @@ const Sound = (()=>{
   function update(t, inside, nearPigeons){
     if (!ctx) return; const target = on && mode === 'play' ? (inside ? 0.012 : 0.05) : 0; amb.gain.setTargetAtTime(target, now(), 0.6);
     if (!on || mode !== 'play' || inside) return;
-    if (t > nextHorn){ nextHorn = t + 7 + Math.random() * 12; horn(Math.random() < 0.7 ? 'auto' : 'scooter', 0.12 + Math.random() * 0.12); }
     if (t > nextBird){ nextBird = t + 4 + Math.random() * 9; chirp(); }
     if (nearPigeons && t > nextCoo){ nextCoo = t + 3 + Math.random() * 5; coo(); }
   }
   // browsers only allow sound after a click or key press
   const wake = () => { if (init()) ctx.resume(); }; addEventListener('pointerdown', wake, {once:true}); addEventListener('keydown', wake, {once:true});
-  return {horn, step, update, setOn(v){ on = v; }};
+  return {horn, step, update, engine, setOn(v){ on = v; if (!v) engine(null); }};
 })();
 
 /* =========================================================
@@ -2486,6 +2503,9 @@ function frame(){
   if (window.__fountainJets) window.__fountainJets.children.forEach((j,i)=>{ j.scale.y = 0.85 + Math.sin(t*6 + i)*0.15; });
   Rig.update(dt); AnimalRig.update(dt); CamelRig.update(dt, t); PigeonRig.update(dt, t); updateShopDoors(dt);
   for (const s of scooters){ s.circle.x = s.pos.x; s.circle.z = s.pos.z; s.circle.r = riding === s ? 0 : (riding && riding.type === 'scooter' ? 0.35 : 0.8); }   // ride out of a crowded stand without getting stuck
+  Sound.engine(riding && riding.type !== 'camel' ? riding.type : null, riding ? (riding.type === 'jeep' ? (jeep.state === 'moving' ? 8 : 0) : riding.v || 0) : 0);
+  for (const a of autos){ if (a === riding || a.state !== 'route' || (a.v || 0) < 3) continue; const d = Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z);
+    if (d < 30 && t > (a.nextHonk || 0)){ a.nextHonk = t + 6 + Math.random() * 10; if (Math.random() < 0.5) horn(a.g.userData.tuk ? 'scooter' : 'auto', Math.max(0.1, 1 - d / 30) * 0.7); } }   // moving autos near you honk now and then, louder when close
   Sound.update(t, !!inShop, pigeons.some(q => Math.abs(q.hx - P.pos.x) + Math.abs(q.hz - P.pos.z) < 14));
   // models without a skeleton (camels, resting cows): a walking sway and bob, and slow breathing when still
   for (const a of camels.concat(cows)){ const pv = a.g.userData.model; if (!pv) continue; const mv = Math.abs(a.v || 0) > 0.05, w = a.walk || 0, ph = a.home.x * 0.37;
