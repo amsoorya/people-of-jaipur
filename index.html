@@ -1542,15 +1542,18 @@ gate(30,-S,0,'Ganga Pol'); gate(30,S,0,'Sanganeri Gate'); gate(S,0,Math.PI/2,'Su
    ========================================================= */
 {
   flat(M_PAVE2, -68, -58, 48, 60, 0.05);
-  const g = new THREE.Group(), C = '#EEDCB9', P = '#E2A08A';
-  const fl = [[30,5.5,12],[27,4.2,11],[24,4.0,10],[20,3.8,9],[16,3.6,8],[12,3.4,7],[8,3.2,6]];
+  // Chandra Mahal: full width for the lower storeys, setting back only near the top; cream-yellow with pink trim
+  const g = new THREE.Group(), C = '#F0DCA6', P = '#D98C78';
+  const fl = [[30,5.5,12],[30,4.2,11],[30,4.0,10],[26,3.8,9],[22,3.6,8],[16,3.4,7],[10,3.2,6]];
   let y = 0;
   fl.forEach(([w,h,d],i)=>{
     box(g,w,h,d,C,0,y,-d/2);
     const n = Math.max(3, Math.round(w/2.6)), ow = (w/n)*0.62;
     add(g,arcadeGeo(w,n,h,ow,h*0.72,0.5),M(i%2?P:C),0,y,0.25);
     box(g,w,0.3,1.4,STONE,0,y,-0.4,'stone');
-    for (let k=0;k<n;k++){ const cx = -w/2 + (w/n)*(k+0.5); plane(g,M_SHOP[3],cx,y+h*0.36,-0.9,(w/n)*0.7,h*0.6); }
+    for (let k=0;k<n;k++){ const cx = -w/2 + (w/n)*(k+0.5); plane(g,M_JAALI,cx,y+h*0.36,-0.9,(w/n)*0.7,h*0.6);
+      if (i >= 1 && i <= 4 && k % 3 === 1){ const rb = Math.min(0.8, (w/n)*0.32), hb = h*0.55;   // projecting jharokha balcony
+        box(g,rb*2.3,0.14,rb*1.6,WHITE,cx,y+h*0.12,0.85); add(g,BAY,M_JAALI,cx,y+h*0.12+0.14+hb/2,0.9,rb,hb,rb*0.95); onion(g,rb*0.75,P,cx,y+h*0.12+0.28+hb,0.95,'plaster',0.7); } }
     box(g,w+0.6,0.22,1.4,WHITE,0,y+h,0.1); box(g,w+0.2,0.3,0.6,P,0,y+h-0.3,0.4);
     for (let k=0;k<Math.floor(w/1.1);k++) kangura(g,-w/2+0.55+k*1.1,y+h+0.22,0.4,0.9,C);
     if (i>0) for (const s of [-1,1]) chhatri(g,s*(w/2-1),y+h+0.22,-d/2,0.9,C,WHITE);
