@@ -1270,7 +1270,7 @@ let insideView = false;
 const viewBtn = $('viewBtn');
 function setInside(v){ insideView = v; viewBtn.textContent = v ? 'Outside view' : 'Inside view'; snapCam = true; }
 viewBtn.addEventListener('click', ()=>setInside(!insideView));
-addEventListener('keydown', e=>{ if (mode==='play' && riding && (e.key==='v'||e.key==='V')) setInside(!insideView); });
+addEventListener('keydown', e=>{ if (mode!=='play' || cardOpen || mapOpen) return; if ((riding && (e.key==='v'||e.key==='V')) || ((e.key==='i'||e.key==='I') && !flying)) setInside(!insideView); });   // I: see through your own eyes, walking or riding (V still works in vehicles)
 
 /* =========================================================
    Conversations (real replies from Claude when available)
@@ -3012,8 +3012,8 @@ function frame(){
   if (inShop) inShop.scene.children.forEach(o=>{ if (o.isSprite) o.visible = !document.body.classList.contains('dlg'); });
   if (!riding){ const gy = inShop ? 0 : (sitting && sitting.free ? sitting.y : groundY(P.pos.x,P.pos.z)); if (snapCam) P.y = gy; P.y += (gy - P.y)*Math.min(1, dt*(gy < P.y ? 9 : 14)); if (P.jv || P.jy){ P.jv -= 16*dt; P.jy = Math.max(0, (P.jy||0) + P.jv*dt); if (!P.jy && P.jv < 0) P.jv = 0; } player.jumpK = P.jy > 0 ? Math.min(1, P.jy*2.5) : 0;
     player.g.position.set(P.pos.x, P.y + (P.jy||0) + (sitting ? -0.42 : 0), P.pos.z); player.g.rotation.y = P.rot; } else P.y = riding.pos.y || 0;
-  player.g.visible = !flying && !(riding && insideView);
-  viewBtn.hidden = !(riding && mode==='play');
+  player.g.visible = !flying && !insideView;
+  viewBtn.hidden = !(mode==='play' && (riding || (isCoarse && !flying)));
   updatePeers(dt); if (mode==='play') sendPresence(t, movingNow);
 
   // NPCs
@@ -3122,6 +3122,12 @@ function frame(){
     if (snapCam){ camera.position.copy(eye); snapCam = false; } else camera.position.lerp(eye, Math.min(1, dt*20));
     const look = yaw + Math.PI, lp = Math.max(-0.5, Math.min(0.6, pitch - 0.22));
     camera.lookAt(camera.position.x + Math.sin(look)*10, camera.position.y - Math.sin(lp)*10 - 1.0, camera.position.z + Math.cos(look)*10);
+  } else if (insideView && !flying){
+    // on foot, through your own eyes: head height, looking where you face; drag to look about
+    const eye = tmpV.set(P.pos.x, (riding ? 0 : (P.y||0) + (P.jy||0)) + (sitting ? 1.2 : 1.62), P.pos.z);
+    if (snapCam){ camera.position.copy(eye); snapCam = false; } else camera.position.lerp(eye, Math.min(1, dt*25));
+    const look = yaw + Math.PI, lp = Math.max(-1.1, Math.min(1.1, pitch - 0.22));
+    camera.lookAt(camera.position.x + Math.sin(look)*Math.cos(lp)*10, camera.position.y - Math.sin(lp)*10, camera.position.z + Math.cos(look)*Math.cos(lp)*10);
   } else if (flying){
     camera.position.lerp(drone, Math.min(1, dt*10));
     camera.lookAt(camera.position.x - Math.sin(yaw)*Math.cos(flyPitch)*10, camera.position.y - Math.sin(flyPitch)*10, camera.position.z - Math.cos(yaw)*Math.cos(flyPitch)*10);
