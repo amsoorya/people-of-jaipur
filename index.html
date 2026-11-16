@@ -2706,10 +2706,16 @@ const PigeonRig = (()=>{
   if (ok) new THREE.GLTFLoader().load('models/animals/Pigeon.glb', g=>{
     const root = g.scene; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root), len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) || 1;
     const k = 0.85 / len, clips = {};   // a touch larger than life so they read on screen
-    const footY = -b.min.y * k;   // lift so their feet touch the ground
+    // The file's mesh box doesn't match where the skeleton actually draws the bird (it sat ~2 m underground and ~17 m off its spot),
+    // so centre each bird on its own bones and stand it on its lowest one: feet on the ground, right where it belongs.
+    root.scale.setScalar(k); root.updateMatrixWorld(true);
+    const bv = new THREE.Vector3(), lo = new THREE.Vector3(1e9, 1e9, 1e9), hi = new THREE.Vector3(-1e9, -1e9, -1e9);
+    root.traverse(o=>{ if (o.isBone){ o.getWorldPosition(bv); lo.min(bv); hi.max(bv); } });
+    root.scale.setScalar(1); root.updateMatrixWorld(true);
+    const off = lo.x < 1e8 ? new THREE.Vector3(-(lo.x + hi.x)/2, -lo.y, -(lo.z + hi.z)/2) : new THREE.Vector3(0, -b.min.y * k, 0);
     g.animations.forEach(c=>clips[c.name] = c);
     pigeons.forEach((p, i)=>{
-      const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.position.y = footY; inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
+      const inst = THREE.SkeletonUtils.clone(root); inst.scale.setScalar(k); inst.position.copy(off); inst.traverse(o=>{ if (o.isMesh){ o.castShadow = true; o.frustumCulled = false; } });
       const holder = new THREE.Group(); holder.add(inst); scene.add(holder);
       const mixer = new THREE.AnimationMixer(inst), acts = {}; for (const n in clips) acts[n] = mixer.clipAction(clips[n]);
       const names = Object.keys(acts), idle = ['idle1','idle2','idle3'].filter(n=>acts[n])[i % 3] || names[0]; if (!idle) return;
