@@ -5980,6 +5980,9 @@ const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THRE
 const flagBase = flagMesh.geometry.attributes.position.array.slice();
 const camRay = new THREE.Vector3();
 
+/* Height of the walkable surface at (x, z): the top of whatever is baked there (road, paving, garden), ignoring anything above knee height */
+const surfRay = new THREE.Raycaster(), surfDown = new THREE.Vector3(0, -1, 0);
+function surfaceY(x, z){ surfRay.set(tmpV2.set(x, 3, z), surfDown); surfRay.far = 4; const hit = surfRay.intersectObject(staticRoot, true).find(h => h.point.y < 0.8); return hit ? Math.max(groundY(x, z), hit.point.y) : groundY(x, z); }
 function frame(){
   const dt = Math.min(clock.getDelta(), 0.05); t += dt;
   if (window.__fountainJets) window.__fountainJets.children.forEach((j,i)=>{ j.scale.y = 0.85 + Math.sin(t*6 + i)*0.15; });
@@ -6115,11 +6118,12 @@ function frame(){
   }
   // pigeons
   { const pm = pigeons.mesh;
+    if (pigeons[0] && pigeons[0].gy === undefined) pigeons.forEach(p=>{ p.gy = surfaceY(p.hx, p.hz); });   // stand on the real surface: asphalt, paving or the raised garden
     pigeons.forEach((p,i)=>{
       const d = Math.hypot(p.hx-P.pos.x, p.hz-P.pos.z);
       if (p.fly <= 0 && (d < 3.5 || autos.some(a => Math.abs(a.pos.x - p.hx) < 4 && Math.abs(a.pos.z - p.hz) < 4))) p.fly = 8;   // scatter for people and autos, then settle back
-      if (p.fly > 0){ p.fly -= dt; const k = Math.sin(Math.min(1,(8-p.fly)/8)*Math.PI), ang = i + (8 - p.fly)*0.35; p.y = k*5; p.x = p.hx + Math.cos(ang)*k*6; p.z = p.hz + Math.sin(ang)*k*6; p.ry = -ang; }   // a slow, wide circle and back down
-      else { p.x = p.hx; p.z = p.hz; p.y = 0; if (Math.sin(t*2+p.ph) > 0.97) p.ry += dt*4; }
+      if (p.fly > 0){ p.fly -= dt; const k = Math.sin(Math.min(1,(8-p.fly)/8)*Math.PI), ang = i + (8 - p.fly)*0.35; p.y = p.gy + k*5; p.x = p.hx + Math.cos(ang)*k*6; p.z = p.hz + Math.sin(ang)*k*6; p.ry = -ang; }   // a slow, wide circle and back down
+      else { p.x = p.hx; p.z = p.hz; p.y = p.gy; if (Math.sin(t*2+p.ph) > 0.97) p.ry += dt*4; }
       tmpM.compose(tmpV.set(p.x,p.y + Math.max(0,Math.sin(t*9+p.ph))*0.02*(p.fly>0?0:1),p.z), tmpQ.setFromEuler(tmpE.set(p.fly>0?0:Math.max(0,Math.sin(t*3+p.ph))*0.5,p.ry,0)), ONE);
       pm.setMatrixAt(i,tmpM);
     }); pm.instanceMatrix.needsUpdate = true; }
