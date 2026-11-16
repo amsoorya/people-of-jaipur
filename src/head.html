@@ -62,6 +62,16 @@ h1.city{font-family:'Rozha One',Georgia,serif;font-weight:400;margin:-.06em 0 0;
 
 #topbar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:calc(env(safe-area-inset-left,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;pointer-events:none;z-index:5}
 #topbar > *{pointer-events:auto}
+#keysPanel{position:fixed;left:calc(env(safe-area-inset-left,0px) + 12px);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:4;background:rgba(43,26,24,.82);color:#FBE7DB;border-radius:14px;padding:6px 10px 8px;font-size:13px;line-height:1.3;max-width:240px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#keysToggle{background:none;border:0;color:inherit;font:inherit;font-weight:700;font-size:13px;letter-spacing:.03em;padding:2px 0;cursor:pointer}
+#keysPanel.min dl{display:none}
+#keysPanel.min #keysToggle span{display:inline-block;transform:rotate(180deg)}
+#keysList{margin:4px 0 0;display:grid;gap:3px}
+#keysList div{display:flex;gap:8px;align-items:baseline}
+#keysList dt{min-width:72px;color:#F5C76A;font-weight:600}
+#keysList dd{margin:0}
+#keysList kbd{font-family:inherit;font-size:12px;background:rgba(255,255,255,.14);border-radius:5px;padding:0 5px}
+@media (pointer:coarse), (max-height:520px){ #keysPanel{display:none!important} }
 .hud{flex:0 1 340px;min-width:0;
   background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   border:1px solid var(--line);border-radius:16px;padding:9px 16px 9px;box-shadow:0 6px 20px rgba(59,30,25,.12)}
@@ -138,7 +148,10 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 .mapsub{font-size:15px;color:#F5DCCB;text-shadow:0 1px 8px rgba(0,0,0,.7)}
 .mapzoom{position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;gap:8px}
 .mapzoom .pill{width:46px;height:46px;padding:0;font-size:22px}
-#joinWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:10;overflow:auto}
+#joinWrap,#hangWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:10;overflow:auto}
+.hchips{display:flex;flex-wrap:wrap;gap:6px}
+.hchips button{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
+.hchips button[aria-pressed="true"]{background:var(--marigold);border-color:transparent;color:#3B1E19;font-weight:600}
 .join{max-height:calc(100% - 8px);overflow:auto}
 .fld{display:block;margin:0 0 14px}
 .fld > span{display:block;font-size:14px;color:var(--ink-soft);margin-bottom:4px}
@@ -322,6 +335,23 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 <div id="ghostBar" hidden><i class="gi">👤</i><b>YOU’RE INVISIBLE</b><span>Nobody in the city can see you yet.</span><button id="ghostVisible">Become visible</button><button id="ghostSign" class="alt">Sign in</button></div>
 <button id="findBtn" hidden>Find someone</button>
 
+<div id="keysPanel" hidden aria-label="Controls">
+  <button type="button" id="keysToggle" aria-expanded="true">Controls <span aria-hidden="true">▾</span></button>
+  <dl id="keysList">
+    <div><dt><kbd>W</kbd> <kbd>↑</kbd></dt><dd>Walk forward</dd></div>
+    <div><dt><kbd>S</kbd> <kbd>↓</kbd></dt><dd>Walk back</dd></div>
+    <div><dt><kbd>A</kbd> <kbd>D</kbd></dt><dd>Turn left / right</dd></div>
+    <div><dt><kbd>Shift</kbd></dt><dd>Hold to run</dd></div>
+    <div><dt><kbd>Space</kbd></dt><dd>Jump (climb when flying)</dd></div>
+    <div><dt><kbd>E</kbd></dt><dd>Talk, enter, ride, sit</dd></div>
+    <div><dt><kbd>F</kbd></dt><dd>Fly / land</dd></div>
+    <div><dt><kbd>M</kbd></dt><dd>Map</dd></div>
+    <div><dt><kbd>H</kbd></dt><dd>Horn</dd></div>
+    <div><dt><kbd>V</kbd></dt><dd>Seat view in a vehicle</dd></div>
+    <div><dt>Drag · Scroll</dt><dd>Look around · Zoom</dd></div>
+    <div><dt><kbd>Esc</kbd></dt><dd>Close</dd></div>
+  </dl>
+</div>
 <div id="topbar" hidden>
 <div class="hud" id="hud">
   <div class="brand">People of Jaipur</div>
@@ -595,7 +625,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
     <div class="card-body">
       <label class="fld"><span>Your name</span><output id="jName">Signed in</output><small>From the account you’re signed in with, so people know it’s really you.</small></label>
       <label class="fld"><span>What you do</span><input id="jRole" maxlength="60" placeholder="Product designer" required></label>
-      <label class="fld"><span>What you’re building</span><textarea id="jBuild" maxlength="160" rows="2" placeholder="A booking app for blue pottery workshops" required></textarea></label>
+      <label class="fld"><span>What you’re building</span><textarea id="jBuild" maxlength="160" rows="2" placeholder="A booking app for blue pottery workshops"></textarea></label>
       <div class="fld"><span>Your status (optional)</span>
         <label class="chk"><input type="checkbox" id="jOpen"> <b class="chip work">OPEN TO WORK</b></label>
         <input class="applyln" id="jLooking" maxlength="60" placeholder="Looking for, e.g. Product design roles">
@@ -618,7 +648,21 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       <div id="jSw" hidden></div>
       <p class="note" id="jNote"></p>
       <div class="actions"><button class="btn primary" type="submit" id="jSave">Save and stand here</button><button class="btn" type="button" id="jCancel">Cancel</button></div>
+      <button class="linkbtn" type="button" id="jHang">Change where you’re based and hang out</button>
       <button class="linkbtn" type="button" id="jRemove" hidden>Remove me from the city</button>
+    </div>
+  </form>
+</div>
+<div id="hangWrap" hidden>
+  <form class="card join" id="hangForm" role="dialog" aria-modal="true" aria-labelledby="hangTitle" novalidate>
+    <div class="card-top"><div><h2 id="hangTitle">Where are you based?</h2><div class="role">Your character lives in the city and strolls about, even when you’re offline.</div></div></div>
+    <div class="card-body">
+      <div class="fld"><span>You are</span><div class="hchips" id="hBased"><button type="button" data-v="jaipur" aria-pressed="true">In Jaipur</button><button type="button" data-v="city" aria-pressed="false">From another city</button></div></div>
+      <label class="fld"><span id="hLocL">Which area of Jaipur?</span><input id="hLoc" maxlength="39" list="hAreas" placeholder="Malviya Nagar, C-Scheme, Vaishali Nagar…" autocomplete="address-level3"><datalist id="hAreas"></datalist></label>
+      <div class="fld"><span>Where do you hang out?</span><div class="hchips" id="hSpots"></div><small id="hBlurb">Your character stands here for everyone who visits.</small></div>
+      <p class="note" id="hNote"></p>
+      <div class="actions"><button class="btn primary" type="submit" id="hSave">Put me in the city</button></div>
+      <button class="linkbtn" type="button" id="hSkip">Not now</button>
     </div>
   </form>
 </div>
@@ -638,6 +682,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Water.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/meshopt_decoder.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>

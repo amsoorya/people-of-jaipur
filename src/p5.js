@@ -2,7 +2,7 @@
    Jal Mahal in Man Sagar Lake
    ========================================================= */
 {
-  add(staticRoot,new THREE.CircleGeometry(LAKE.r+1,64),M_WATER,LAKE.x,-0.7,LAKE.z,1,1,1,0,-Math.PI/2).userData.noCast = true;
+  var LAKE_SURFACE = add(scene,new THREE.CircleGeometry(LAKE.r+1,96),waterMat('#14363D', 18, 0.03, 0.8, 1.1),LAKE.x,-0.7,LAKE.z,1,1,1,0,-Math.PI/2);   // kept out of the baked scenery: on computers it swaps for a reflecting surface up close (see Waters)
   add(staticRoot,new THREE.CylinderGeometry(LAKE.r,LAKE.r,1.2,64,1,true),M('#A98C6A','stone'),LAKE.x,-0.6,LAKE.z).userData.noCast = true;
   circles.push({x:LAKE.x,z:LAKE.z,r:LAKE.r+0.3});
   const g = new THREE.Group(), S = '#D9A866', S2 = '#E4BB80';
@@ -93,7 +93,7 @@ function lamp(x,z,ax=1,az=0,y0=0){ LAMP_SPOTS.push([x,z]);
       add(g,UBOX,M_KUND,Math.sin(a)*(o-st/2),yTop-rs/2,Math.cos(a)*(o-st/2),2*o,rs,st,a);
     }
   }
-  add(g,UPLANE,mat('#4C6B48','stone',{roughness:0.1,metalness:0.1}),0,-N*rise+0.3,0,2*(h-N*step)+0.5,2*(h-N*step)+0.5,1,0,-Math.PI/2);
+  add(g,UPLANE,M_POOL,0,-N*rise+0.3,0,2*(h-N*step)+0.5,2*(h-N*step)+0.5,1,0,-Math.PI/2);
   for (let side=0; side<4; side++){ const a = side*Math.PI/2; add(g,UBOX,M('#D9B98A','stone'),Math.sin(a)*(h+0.4),0.1,Math.cos(a)*(h+0.4),2*h+1.6,0.2,0.8,a); }
   for (const [a,b] of [[-1,-1],[1,-1]]) chhatri(g,a*(h+3),0,b*(h+3),1.8,'#D9B98A','#E8D2A6','stone');
   box(g,10,4.5,5,'#D9B98A',0,0,-h-4,'stone'); add(g,arcadeGeo(10,3,4.5,2.0,3.2,0.5),M('#E1C496','stone'),0,0,-h-1.3);
@@ -414,3 +414,24 @@ flat(mat('#CDBBA4','paving'), 207, 131, 100, 13, 0.045);
 techTower(186,148,22,22,10,'A'); techTower(228,146,20,20,8,'B');
 for (let x=166; x<=250; x+=16) lamp(x,124.5,0,-1);
 for (let x=170; x<=250; x+=18) tree(x,110.5,'ashoka',0.9);
+
+/* =========================================================
+   Complete connectivity: Jaipur's Ring Road around the whole city,
+   with every road that used to stop in the sand linked to it
+   ========================================================= */
+const RING = {x:CX, z:CZ, r:292, w:9};   // just clears the foot of Sunset Point hill and stays inside the walkable edge
+const ringBand = (x, z, pad = 0) => Math.abs(Math.hypot(x - RING.x, z - RING.z) - RING.r) < RING.w/2 + pad;
+{
+  const ringZ = (x, s) => RING.z + s*Math.sqrt(RING.r*RING.r - (x-RING.x)**2), ringX = (z, s) => RING.x + s*Math.sqrt(RING.r*RING.r - (z-RING.z)**2);
+  const ew = (x0, x1, z, d) => addRoad((x0+x1)/2, z, Math.abs(x1-x0), d, 0.06), ns = (x, z0, z1, w) => addRoad(x, (z0+z1)/2, w, Math.abs(z1-z0), 0.062);
+  ew(263, ringX(0, 1), 0, 17);           // MI Road on through Patrika Gate to the Ring Road
+  ns(150, ringZ(150, -1), -78, 17);      // C-Scheme cross road, north to the Ring Road
+  ns(150, 108, ringZ(150, 1), 17);       // and south
+  ew(250, ringX(117, 1), 117, 11);       // Tech Park road east
+  ew(26, 142, -112, 9);                  // Amer Road: Sunset Point road ⇄ Jal Mahal road ⇄ C-Scheme
+  ew(36, 142, 112, 11);                  // Albert Hall road ⇄ C-Scheme
+  ew(-125.5, 24, 112, 11);               // Albert Hall road west, under the city wall
+  ns(-120, -6, ringZ(-120, 1), 11);      // stepwell road ⇄ Ring Road, outside the west wall
+  const ring = new THREE.Mesh(new THREE.RingGeometry(RING.r - RING.w/2, RING.r + RING.w/2, 400, 1), M_ASPH);
+  ring.rotation.x = -Math.PI/2; ring.position.set(RING.x, 0.058, RING.z); ring.userData.noCast = true; staticRoot.add(ring);
+}

@@ -46,6 +46,7 @@ addEventListener('keydown', e=>{
   if (mapOpen) return;
   if (cardOpen) return;
   keys[e.code] = true;
+  if (e.code === 'Space' && !e.repeat && !riding && !flying && !sitting && !(P.jy > 0)){ P.jv = 5.4; }   // jump (Space still climbs when flying and brakes in a vehicle)
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup', e=>{ keys[e.code] = false; });
@@ -98,7 +99,7 @@ async function welcomeBack(){
 function start(){
   if (mode !== 'intro') return;
   mode = 'play'; intro.classList.add('leaving'); setTimeout(()=>intro.hidden = true, 750);
-  $('topbar').hidden = false; if (isCoarse){ stick.hidden = false; runBtn.hidden = false; }
+  $('topbar').hidden = false; if (isCoarse){ stick.hidden = false; runBtn.hidden = false; } else $('keysPanel').hidden = false;
   P.pos.set(-31,0,4); resolve(P.pos); P.rot = Math.PI; yaw = 0; pitch = 0.14; dist = 4.6; snapCam = true; canvas.focus(); Music.start();
   if (!isCoarse){ showHint('W to walk, hold Shift to run, A and D to turn, drag to look around. Walk up to shops and autos, then press E.'); setTimeout(()=>{ if (!flying && !riding) showHint(null); }, 9000); }
 }
@@ -110,7 +111,7 @@ function renderList(){
   $('tabJobs').setAttribute('aria-selected', String(tab==='jobs')); $('tabOffices').setAttribute('aria-selected', String(tab==='offices'));
   $('tabPeople').setAttribute('aria-selected', String(tab==='people')); $('tabPlaces').setAttribute('aria-selected', String(tab==='places')); $('tabShops').setAttribute('aria-selected', String(tab==='shops'));
   const peopleRows = ()=>{ const rows = []; live.peers.forEach(e=>{ const nm = peerName(e); const mm = e.by && memberMap.get(e.by); rows.push({t:nm, s:`Online now${e.place ? ', at ' + e.place : ''}`, c:'#34C27A', i:initials(nm==='Visitor'?'V':nm), go:()=>{ if (mm){ togglePanel(false); openCard(mm); return; } if (riding) exitAuto(); if (inShop) exitShop(); setFly(false); P.pos.set(e.cur.x+1.5,0,e.cur.z+1.5); resolve(P.pos); snapCam = true; }}); });
-    const on = onlineIds(); memberMap.forEach(m=>{ if (on.has(m.id)) return; const co = m.p.company ? companyOf(m.p.company) : null; const st2 = Social.status(m.id); rows.push({creator: m.id === CREATOR_ID, t:m.p.name, s:[m.id === CREATOR_ID ? 'Creator of People of Jaipur' : '', m.p.open ? 'Open to work' : '', m.p.coffee ? '☕ Coffee chat' : '', st2==='connected' ? 'Connected' : st2==='incoming' ? 'Wants to connect' : '', m.p.role, co && co.name].filter(Boolean).join(', ') || 'Member', c:lookColor(m.p.look), i:initials(m.p.name), go:()=>{ togglePanel(false); openCard(m); }}); });
+    const on = onlineIds(); memberMap.forEach(m=>{ if (on.has(m.id)) return; const co = m.p.company ? companyOf(m.p.company) : null; const st2 = Social.status(m.id); rows.push({creator: m.id === CREATOR_ID, t:m.p.name, s:[m.id === CREATOR_ID ? 'Creator of People of Jaipur' : '', m.p.open ? 'Open to work' : '', m.p.coffee ? '☕ Coffee chat' : '', st2==='connected' ? 'Connected' : st2==='incoming' ? 'Wants to connect' : '', m.p.role, co && co.name, m.p.from].filter(Boolean).join(', ') || 'Member', c:lookColor(m.p.look), i:initials(m.p.name), go:()=>{ togglePanel(false); openCard(m); }}); });
     const ci = rows.findIndex(r=>r.creator); if (ci > 0) rows.unshift(rows.splice(ci,1)[0]);
     if (myDoc) rows.unshift({t:`${myName || 'You'} (you)`, s:`Your spot${myDoc.place ? ', ' + myDoc.place : ''}. Tap to edit.`, c:'#EE9C14', i:initials(myName || 'You'), go:()=>{ togglePanel(false); openJoin(); }});
     return rows.length ? rows : [{t:'Nobody has joined yet', s: (db && myId) ? 'Be the first: Menu, then Add yourself to the city.' : 'Signed-in people show up here.', c:'#B85C48', i:'+', go:()=>{ if (db && myId) openJoin(); }}]; };
@@ -478,7 +479,7 @@ function exitAuto(){
   const off = a.type==='camel' ? 2.0 : 1.6; P.pos.set(a.pos.x + Math.cos(a.heading)*off, 0, a.pos.z - Math.sin(a.heading)*off); resolve(P.pos); P.y = groundY(P.pos.x,P.pos.z);
   P.rot = a.heading; yaw = P.rot - Math.PI; dist = 6.2; snapCam = true; showHint(null);
 }
-const tmpV2 = new THREE.Vector3();
+const tmpV2 = new THREE.Vector3(), memV = new THREE.Vector3();
 function nearestOnPath(path, x, z){
   let best = {s:0, d:Infinity};
   for (let i=1;i<path.pts.length;i++){ const A = path.pts[i-1], B = path.pts[i], abx = B.x-A.x, abz = B.z-A.z, L2 = abx*abx + abz*abz || 1;
@@ -892,6 +893,9 @@ $('ghostSign').addEventListener('click', ()=>askSignIn('meet people, ride and ch
 $('ghostVisible').addEventListener('click', ()=>askSignIn('become visible'));
 const findSomeone = () => { if (mode !== 'play') return; tab = 'people'; togglePanel(true); renderList(); };
 $('findBtn').addEventListener('click', findSomeone);
+{ const kp = $('keysPanel'), set = min => { kp.classList.toggle('min', min); $('keysToggle').setAttribute('aria-expanded', String(!min)); };
+  try { set(localStorage.getItem('jp-keys-min') === '1'); } catch(e){}
+  $('keysToggle').addEventListener('click', ()=>{ const min = !kp.classList.contains('min'); set(min); try { localStorage.setItem('jp-keys-min', min ? '1' : '0'); } catch(e){} $('keysToggle').blur(); canvas.focus(); }); }
 // guests walk as a white ghost of their character, like People of Bengaluru
 function ghostPlayer(on){ const r = player.rig; if (!r || !r.inst) return; if (r.ghost === on) return; r.ghost = on;
   r.inst.traverse(o=>{ if (!o.isMesh) return; if (on){ o.userData.realMat = o.userData.realMat || o.material; const m = o.userData.realMat.clone(); m.color.set('#E9EDF2'); m.map = null; if (m.emissive) m.emissive.set('#262C36'); m.needsUpdate = true; m.roughness = 0.45; m.metalness = 0.1; o.material = m; } else if (o.userData.realMat) o.material = o.userData.realMat; }); }
@@ -928,7 +932,7 @@ async function syncMembers(snap){
     }
     m.p.role = str(d.role,60); m.p.building = str(d.building,160); m.p.link = isLinkedIn(str(d.linkedin,120)) ? str(d.linkedin,120) : '';
     m.p.open = !!d.openToWork; m.p.looking = str(d.looking,60); m.p.coffee = !!d.coffee; m.p.status = str(d.status,50); m.p.resume = safeUrl(str(d.resume,300)) ? str(d.resume,300) : '';
-    m.p.area = str(d.place,60) || 'Somewhere in Jaipur'; m.p.company = str(d.company,80); m.p.displayName = str(d.displayName,48);
+    m.p.from = placeOf(str(d.location,40)); m.p.area = [m.p.from, str(d.place,60) && `hangs out at ${str(d.place,60)}`].filter(Boolean).join(' · ') || 'Somewhere in Jaipur'; m.p.company = str(d.company,80); m.p.displayName = str(d.displayName,48);
     const so = d.socials && typeof d.socials === 'object' ? d.socials : {}; m.p.socials = {}; SOCIALS.forEach(([k])=>{ const c2 = cleanSocial(k, str(so[k],200)); if (c2) m.p.socials[k] = c2; }); if (!m.p.socials.linkedin && isLinkedIn(str(d.linkedin,120))) m.p.socials.linkedin = str(d.linkedin,120);
     m.p.link = '';
   }
@@ -950,8 +954,80 @@ function removeMember(id){ const m = memberMap.get(id); if (!m) return; scene.re
     db.collection('profiles').onSnapshot(snap=>{ syncMembers(snap); profilesLoaded = true; }, ()=>{});   // everyone sees members, signed in or not
     if (!myId) return;
     $('joinBtn').hidden = false;
+    autoJoin();
   } catch(e){}
 })();
+/* Everyone who signs in gets a spot in the city straight away, so they show up in Find someone
+   and their character strolls about while they're offline. They can edit or remove it from the Menu. */
+async function autoJoin(){
+  for (let i=0;i<50 && !profilesLoaded;i++) await new Promise(r=>setTimeout(r,200));
+  if (!profilesLoaded || myDoc || !db || !myId) return;
+  try { if (localStorage.getItem('jp-left-city-'+myId) || sessionStorage.getItem('jp-hang-later')) return; } catch(e){}
+  while (mode !== 'play' || !$('joinWrap').hidden || cardOpen) await new Promise(r=>setTimeout(r,500));   // ask once they're in the city
+  if (myDoc) return;
+  let me = null; try { me = await live.user.me(); } catch(e){}
+  if (!me || !me.name) return;   // the sign-in asks for a name first; we'll add them once they have one
+  openHangout();
+}
+/* "Where are you based? Where do you hang out?" (like People of Bengaluru's neighbourhood step).
+   Jaipur areas we haven't built yet, and other cities, still pick a hangout spot on the map. */
+const HANGOUTS = [
+  {id:'hawa', label:'Hawa Mahal', blurb:'On the street facing the Palace of Winds', x:-22, z:5, r:12},
+  {id:'chaupar', label:'Badi Chaupar', blurb:'In the big square where the bazaars meet', x:30, z:0, r:10},
+  {id:'johari', label:'Johari Bazaar', blurb:'Among the jewellers’ shops', x:30, z:50, r:12},
+  {id:'jantar', label:'Jantar Mantar', blurb:'Beside the giant sundials', x:-14, z:-56, r:12},
+  {id:'palace', label:'City Palace', blurb:'In the palace courtyards', x:-68, z:-58, r:12},
+  {id:'albert', label:'Albert Hall', blurb:'On the museum lawns', x:30, z:158, r:14},
+  {id:'park', label:'Central Park', blurb:'On the walking track', x:205, z:65, r:18},
+  {id:'patrika', label:'Patrika Gate', blurb:'Under the painted arches', x:246, z:0, r:10},
+  {id:'techpark', label:'Jagatpura Tech Park', blurb:'Outside the office towers', x:207, z:132, r:14},
+  {id:'jalmahal', label:'Jal Mahal', blurb:'On the lakeside promenade', x:30, z:-128, r:6},
+];
+const JAIPUR_AREAS = ['C-Scheme','Malviya Nagar','Vaishali Nagar','Mansarovar','Raja Park','Jagatpura','Tonk Road','Bani Park','Civil Lines','Sodala','Shyam Nagar','Pratap Nagar','Sitapura','Jhotwara','Vidhyadhar Nagar','Sanganer','Durgapura','Ajmer Road','Walled City','Adarsh Nagar','Bapu Nagar','Lal Kothi','Gopalpura','Tilak Nagar','Mahesh Nagar','Murlipura','Amer','Sikar Road','Nirman Nagar','Khatipura'];
+(()=>{ const dl = $('hAreas'); JAIPUR_AREAS.forEach(a=>{ const o = document.createElement('option'); o.value = a; dl.appendChild(o); }); })();
+let hangPick = 'hawa', hangBased = 'jaipur';
+function hangSpot(h){
+  const taken = [...memberMap.values()].map(m=>m.ch.g.position); let spot = null;
+  for (let k=0;k<60 && !spot;k++){
+    const a = Math.random()*Math.PI*2, r = Math.random()*h.r, p = new THREE.Vector3(h.x + Math.cos(a)*r, 0, h.z + Math.sin(a)*r), q = p.clone(); resolve(q, 0.6);
+    if (q.distanceTo(p) < 0.05 && Math.abs(groundY(q.x,q.z)) < 0.05 && taken.every(o=>Math.hypot(o.x-q.x, o.z-q.z) > 2.5)) spot = q;
+  }
+  if (!spot){ spot = new THREE.Vector3(h.x, 0, h.z); resolve(spot, 0.6); }
+  return spot;
+}
+function setHangBased(v){ hangBased = v; [...$('hBased').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===v)));
+  $('hLocL').textContent = v==='city' ? 'Which city?' : 'Which area of Jaipur?'; $('hLoc').placeholder = v==='city' ? 'Delhi, Bengaluru, Mumbai, Pune…' : 'Malviya Nagar, C-Scheme, Vaishali Nagar…';
+  $('hLoc').setAttribute('list', v==='city' ? '' : 'hAreas'); }
+function setHangPick(id){ hangPick = id; const h = HANGOUTS.find(x=>x.id===id); [...$('hSpots').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===id))); $('hBlurb').textContent = h.blurb + '. Your character stands here for everyone who visits.'; }
+HANGOUTS.forEach(h=>{ const b = document.createElement('button'); b.type = 'button'; b.dataset.v = h.id; b.textContent = h.label; b.addEventListener('click', ()=>setHangPick(h.id)); $('hSpots').appendChild(b); });
+[...$('hBased').children].forEach(b=>b.addEventListener('click', ()=>{ if (b.dataset.v !== hangBased){ setHangBased(b.dataset.v); $('hLoc').value = ''; } $('hLoc').focus(); }));
+function openHangout(){
+  if (riding) exitAuto(); if (inShop) exitShop(); setFly(false); toggleMenu(false);
+  for (const k in keys) keys[k] = false; cardOpen = true;
+  const loc = myDoc ? str(myDoc.location,40) : '';
+  setHangBased(loc.startsWith('@') ? 'city' : 'jaipur'); $('hLoc').value = loc.replace(/^@/,'');
+  setHangPick((myDoc && HANGOUTS.some(h=>h.id===myDoc.hangout)) ? myDoc.hangout : 'hawa');
+  $('hNote').textContent = ''; $('hSkip').hidden = !!myDoc; $('hSave').textContent = myDoc ? 'Move me there' : 'Put me in the city';
+  $('hangWrap').hidden = false; $('hLoc').focus();
+}
+function closeHangout(){ $('hangWrap').hidden = true; cardOpen = false; canvas.focus(); }
+$('hSkip').addEventListener('click', ()=>{ try { sessionStorage.setItem('jp-hang-later', '1'); } catch(e){} closeHangout(); });
+$('hangForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const name = $('hLoc').value.replace(/\s+/g,' ').replace(/^@+/,'').trim().slice(0,39);
+  if (name.length < 2){ $('hNote').textContent = hangBased==='city' ? 'Tell us which city you’re from.' : 'Tell us which area of Jaipur you’re in.'; return; }
+  const h = HANGOUTS.find(x=>x.id===hangPick), spot = hangSpot(h);
+  const base = myDoc ? Object.assign({}, myDoc) : {role:'', building:'', displayName:'', socials:{}, lk:Object.assign({},myLook), company:'', outfit:0, dress: myLook.style==='lehenga', skin:myLook.skin|0, openToWork:false, looking:'', coffee:false, status:'', resume:''};
+  const body = Object.assign(base, {location: (hangBased==='city' ? '@' : '') + name, hangout:h.id, x:+spot.x.toFixed(1), z:+spot.z.toFixed(1), r:+(Math.random()*6.28).toFixed(2), place:h.label, updatedAt:Date.now()});
+  $('hSave').disabled = true; $('hNote').textContent = 'Saving…';
+  try { await db.collection('profiles').doc(myId).set(body); myDoc = body; $('joinBtn').textContent = 'Edit your profile and spot';
+    closeHangout(); P.pos.set(spot.x + 2, 0, spot.z + 2); resolve(P.pos); snapCam = true;
+    showHint(`You’re in the city now, at ${h.label}. Add what you do from the Menu.`); setTimeout(()=>showHint(null), 6000); }
+  catch(err){ $('hNote').textContent = 'That didn’t save. Check your connection and try again.'; }
+  $('hSave').disabled = false;
+});
+const placeOf = loc => !loc ? '' : loc.startsWith('@') ? `Visiting from ${loc.slice(1)}` : `${loc}, Jaipur`;
+$('jHang').addEventListener('click', ()=>{ closeJoin(); openHangout(); });
 const sw = $('jSw');
 OUTFITS.forEach((o,i)=>{ const b = document.createElement('button'); b.type = 'button'; b.style.background = `linear-gradient(135deg, ${o[0]} 55%, ${o[1]} 55%)`; b.setAttribute('aria-label', `Outfit ${i+1}`); b.setAttribute('aria-pressed', String(i===0)); b.addEventListener('click', ()=>{ outfitPick = i; [...sw.children].forEach((c,k)=>c.setAttribute('aria-pressed', String(k===i))); }); sw.appendChild(b); });
 async function openJoin(){
@@ -1000,7 +1076,7 @@ $('joinWrap').addEventListener('click', e=>{ if (e.target === $('joinWrap')) clo
 $('joinForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const role = $('jRole').value.trim(), building = $('jBuild').value.trim(), link = $('jLink').value.trim();
-  if (!role || !building){ $('jNote').textContent = 'Add what you do and what you’re building.'; return; }
+  if (!role){ $('jNote').textContent = 'Add what you do.'; return; }
   if (link && !isLinkedIn(link)){ $('jNote').textContent = 'Use your public LinkedIn profile link, like https://www.linkedin.com/in/your-name'; return; }
   const socials = {linkedin:link};
   for (const [id,key] of [['jX','x'],['jIg','instagram'],['jGh','github'],['jWeb','website']]){ const v = $(id).value.trim(); const c2 = cleanSocial(key, v); if (c2 === null){ $('jNote').textContent = `Check your ${SOCIALS.find(s=>s[0]===key)[1]} link. It needs to start with https://`; return; } socials[key] = c2 || ''; }
@@ -1016,13 +1092,14 @@ $('joinForm').addEventListener('submit', async e=>{
   const spot = {x:+P.pos.x.toFixed(1), z:+P.pos.z.toFixed(1)};
   if (Social.private){ try { await Social.setSocials(socials); } catch(e){} }
   if (dispName && window.JP_AUTH && window.JP_AUTH.setName) window.JP_AUTH.setName(dispName);
-  const body = {role, building, displayName:dispName, socials: Social.private ? {} : socials, lk:Object.assign({},myLook), company:$('jCo').value || '', outfit:outfitPick, dress: myLook.style==='lehenga', skin:myLook.skin|0, x:spot.x, z:spot.z, r:+((P.rot+Math.PI)%(Math.PI*2)).toFixed(2), place:lastArea, openToWork:$('jOpen').checked, looking:$('jLooking').value.trim().slice(0,60), coffee:$('jCoffee').checked, status:$('jStatus').value.trim().slice(0,50), resume, updatedAt:Date.now()};
+  const body = {role, building, displayName:dispName, socials: Social.private ? {} : socials, lk:Object.assign({},myLook), company:$('jCo').value || '', outfit:outfitPick, dress: myLook.style==='lehenga', skin:myLook.skin|0, x:spot.x, z:spot.z, r:+((P.rot+Math.PI)%(Math.PI*2)).toFixed(2), place:lastArea, openToWork:$('jOpen').checked, looking:$('jLooking').value.trim().slice(0,60), coffee:$('jCoffee').checked, status:$('jStatus').value.trim().slice(0,50), resume, location: myDoc ? str(myDoc.location,40) : '', hangout: myDoc ? str(myDoc.hangout,20) : '', updatedAt:Date.now()};
   const firstJoin = !myDoc;
+  try { localStorage.removeItem('jp-left-city-'+myId); } catch(e){}
   try { await db.collection('profiles').doc(myId).set(body); $('jNote').textContent = 'Saved. When you’re offline, people find you at this spot.'; setTimeout(closeJoin, 900); if (firstJoin) setTimeout(()=>meetCreator(true), 1400); }
   catch(err){ $('jNote').textContent = (err && (err.code==='permission_denied' || err.code==='not_granted')) ? 'You need edit access to this page to add yourself. Ask the person who shared it.' : 'That didn’t save. Check your connection and try again.'; }
   $('jSave').disabled = false;
 });
-$('jRemove').addEventListener('click', async ()=>{ try { await db.collection('profiles').doc(myId).delete(); closeJoin(); } catch(e){ $('jNote').textContent = 'That didn’t work. Try again.'; } });
+$('jRemove').addEventListener('click', async ()=>{ try { await db.collection('profiles').doc(myId).delete(); try { localStorage.setItem('jp-left-city-'+myId, '1'); } catch(e){} closeJoin(); } catch(e){ $('jNote').textContent = 'That didn’t work. Try again.'; } });
 /* =========================================================
    Music: an original, generated Rajasthani-style piece
    (tanpura drone, santoor-like plucks in raag Mand, soft dholak)
@@ -1278,6 +1355,65 @@ function sitFree(x, z, rot, y, back){
    Jupiter's four big moons, each where it actually is right now (or tonight at 10 pm in Night mode).
    Stars: d3-celestial (Hipparcos). Planets: JPL approximate Keplerian elements. Jupiter's moons: Meeus, ch. 44.
    ========================================================= */
+/* =========================================================
+   Waters: Man Sagar Lake reflects Jal Mahal, the sky and passers-by (on computers, when you're near it);
+   every surface ripples in the breeze; the fountains really play, arcs of water falling back into their basins
+   ========================================================= */
+const Waters = (()=>{
+  LAKE_SURFACE.receiveShadow = true;
+  let lake = null;
+  if (!isCoarse && THREE.Water){
+    lake = new THREE.Water(new THREE.CircleGeometry(LAKE.r + 1, 96), {textureWidth:512, textureHeight:512, waterNormals:WATER_NORMALS.clone(),
+      sunDirection:new THREE.Vector3(0.7, 0.7, 0), sunColor:0xffffff, waterColor:0x2A6E73, distortionScale:0.8, fog:true});
+    lake.material.uniforms.size.value = 4.5;
+    lake.material.fragmentShader = lake.material.fragmentShader.replace('float rf0 = 0.3;', 'float rf0 = 0.035;');   // water reflects ~4% looking straight down and becomes a mirror only towards the horizon (the example's 0.3 made the lake look like wet sand)   // swells a few metres long: a breezy lake, not the open sea
+    lake.rotation.x = -Math.PI/2; lake.position.set(LAKE.x, -0.7, LAKE.z); lake.visible = false; scene.add(lake);
+  }
+  // fountain jets: every drop follows a real ballistic arc (gravity 9.8 m/s²) and ends where it lands in the basin
+  const drops = [], G = 9.8;
+  const emit = (n, make) => { for (let i=0;i<n;i++) drops.push(make(i)); };
+  const flight = (y0, vy, floor) => (vy + Math.sqrt(vy*vy + 2*G*(y0 - floor))) / G;   // time until it falls back to the water
+  // Badi Chaupar: eight arcing jets round a tall central plume, falling into the 6.5 m basin
+  { const cx = 30, cz = 0, top = 1.2, floor = 0.74;
+    for (let j=0;j<8;j++){ const a = j/8*Math.PI*2; emit(70, ()=>{ const vy = 5.2 + Math.random()*0.35, sp = 3.4 + Math.random()*0.3, aa = a + (Math.random()-0.5)*0.05;
+      return [cx + Math.cos(a)*0.35, top, cz + Math.sin(a)*0.35, Math.cos(aa)*sp, vy, Math.sin(aa)*sp, flight(top, vy, floor)]; }); }
+    emit(140, ()=>{ const vy = 7.4 + Math.random()*0.9, a = Math.random()*Math.PI*2, sp = Math.random()*0.55; return [cx, top, cz, Math.cos(a)*sp, vy, Math.sin(a)*sp, flight(top, vy, floor)]; }); }
+  // Albert Hall: water brims over the upper bowl and falls as a ring of drops into the basin, with a small bubbling jet on top
+  { const cx = 30, cz = 130, rim = 1.4, y0 = 2.62, floor = 0.64;
+    emit(220, ()=>{ const a = Math.random()*Math.PI*2, out = 0.25 + Math.random()*0.35, vy = Math.random()*0.25; return [cx + Math.cos(a)*rim, y0, cz + Math.sin(a)*rim, Math.cos(a)*out, vy, Math.sin(a)*out, flight(y0, vy, floor)]; });
+    emit(50, ()=>{ const a = Math.random()*Math.PI*2, sp = Math.random()*0.4, vy = 2.2 + Math.random()*0.6; return [cx, 3.0, cz, Math.cos(a)*sp, vy, Math.sin(a)*sp, flight(3.0, vy, y0 + 0.05)]; }); }
+  const n = drops.length, start = new Float32Array(n*3), vel = new Float32Array(n*3), life = new Float32Array(n*2);
+  drops.forEach((d, i)=>{ start.set(d.slice(0,3), i*3); vel.set(d.slice(3,6), i*3); life.set([d[6], Math.random()], i*2); });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(start, 3)); g.setAttribute('vel', new THREE.BufferAttribute(vel, 3)); g.setAttribute('life', new THREE.BufferAttribute(life, 2));
+  const jetMat = new THREE.ShaderMaterial({transparent:true, depthWrite:false, fog:true,
+    uniforms:THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {time:{value:0}, light:{value:1}, scale:{value:innerHeight/2}}]),
+    vertexShader:`attribute vec3 vel; attribute vec2 life; uniform float time; uniform float scale; varying float vA;
+      #include <fog_pars_vertex>
+      void main(){ float t = fract(time / life.x + life.y) * life.x; vec3 p = position + vel * t + vec3(0.0, -4.9, 0.0) * t * t;
+        vec4 mvPosition = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = clamp(0.085 * scale / -mvPosition.z, 1.0, 14.0); vA = smoothstep(0.0, 0.06, t) * (1.0 - smoothstep(life.x - 0.05, life.x, t));
+        #include <fog_vertex>
+      }`,
+    fragmentShader:`uniform float light; varying float vA;
+      #include <fog_pars_fragment>
+      void main(){ float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(vec3(0.82, 0.9, 0.95) * light, vA * 0.62 * smoothstep(0.5, 0.15, d));
+        #include <fog_fragment>
+      }`});
+  const jets = new THREE.Points(g, jetMat); jets.frustumCulled = false; scene.add(jets);
+  const sunCol = new THREE.Color(), tmp = new THREE.Vector3();
+  function update(t, cam){
+    for (const m of WATER_MATS){ const u = m.userData.wOff; if (!u) continue; const s = m.userData.speed; u.value.set(t*0.010*s, t*0.006*s, -t*0.007*s, t*0.0085*s); }
+    jetMat.uniforms.time.value = t; jetMat.uniforms.scale.value = innerHeight / 2 / Math.tan(cam.fov * Math.PI / 360);
+    jetMat.uniforms.light.value = Math.max(0.28, Math.min(1, sunLight.intensity / 2.2));
+    if (lake){
+      const near = !inShop && cam.position.distanceTo(tmp.set(LAKE.x, 0, LAKE.z)) < 300;   // the mirror costs a second render, so only near the lake
+      lake.visible = near; LAKE_SURFACE.visible = !near;
+      if (near){ const u = lake.material.uniforms; u.time.value = t * 0.6; u.eye.value.copy(cam.position); u.sunDirection.value.copy(sunDir).normalize();
+        sunCol.copy(sunLight.color).multiplyScalar(Math.min(1, sunLight.intensity / 2.6)); u.sunColor.value.copy(sunCol); }
+    }
+  }
+  return {update};
+})();
 const Sky = (()=>{
   const grp = new THREE.Group(); grp.matrixAutoUpdate = false; grp.visible = false; scene.add(grp);   // equatorial frame, turned to Jaipur's horizon
   const RS = 1490, RP = 1380, KM_AU = 1.495978707e8, dg = D2R;
@@ -1366,7 +1502,7 @@ const Sky = (()=>{
   const tmpW = new THREE.Vector3(), tmpL = new THREE.Vector3();
   function update(cam, sc){
     if (!data || !stars) return;
-    night = skyNight; grp.visible = night > 0.01 || (sc && sc.p > 0.02);
+    night = skyNight; grp.visible = !!(night > 0.01 || (sc && sc.p > 0.02));   // a real boolean: three.js only hides on === false, and null left the planets drawn at the city centre by day
     if (!grp.visible) return;
     const date = skyDate(); if (!nowD || Math.abs(date - nowD) > 20000){ nowD = date; compute(date); }
     grp.matrix.copy(frame).setPosition(cam.position); grp.matrixWorldNeedsUpdate = true;
@@ -2517,7 +2653,7 @@ const Social = (()=>{
 })();
 
 /* Names for any id */
-async function nameOf(id){ if (id === myId) return myName || 'You'; const m = memberMap.get(id); if (m && m.p.name && m.p.name !== 'Someone') return m.p.name; if (live.user){ try { const ps = await live.user.profiles([id]); if (ps[id] && ps[id].name) return ps[id].name; } catch(e){} } return 'Someone'; }
+async function nameOf(id){ if (id === myId) return myName || 'You'; const m = memberMap.get(id); if (m && m.p.name && m.p.name !== 'Someone') return m.p.name; if (live.user){ try { const ps = await live.user.profiles([id]); if (ps[id] && ps[id].name) return ps[id].name; } catch(e){} } return 'A new member (no name yet)'; }
 
 /* Card actions for real people */
 async function refreshCardSocial(n){
@@ -2874,7 +3010,8 @@ function frame(){
   if (prod && prod.model) prod.model.rotation.y += dt*0.8;
   entranceMarkers.forEach(m=>{ m.rotation.y += dt*1.5; m.position.y = 4.6 + Math.sin(t*2)*0.12; });
   if (inShop) inShop.scene.children.forEach(o=>{ if (o.isSprite) o.visible = !document.body.classList.contains('dlg'); });
-  if (!riding){ const gy = inShop ? 0 : (sitting && sitting.free ? sitting.y : groundY(P.pos.x,P.pos.z)); if (snapCam) P.y = gy; P.y += (gy - P.y)*Math.min(1, dt*(gy < P.y ? 9 : 14)); player.g.position.set(P.pos.x, P.y + (sitting ? -0.42 : 0), P.pos.z); player.g.rotation.y = P.rot; } else P.y = riding.pos.y || 0;
+  if (!riding){ const gy = inShop ? 0 : (sitting && sitting.free ? sitting.y : groundY(P.pos.x,P.pos.z)); if (snapCam) P.y = gy; P.y += (gy - P.y)*Math.min(1, dt*(gy < P.y ? 9 : 14)); if (P.jv || P.jy){ P.jv -= 16*dt; P.jy = Math.max(0, (P.jy||0) + P.jv*dt); if (!P.jy && P.jv < 0) P.jv = 0; } player.jumpK = P.jy > 0 ? Math.min(1, P.jy*2.5) : 0;
+    player.g.position.set(P.pos.x, P.y + (P.jy||0) + (sitting ? -0.42 : 0), P.pos.z); player.g.rotation.y = P.rot; } else P.y = riding.pos.y || 0;
   player.g.visible = !flying && !(riding && insideView);
   viewBtn.hidden = !(riding && mode==='play');
   updatePeers(dt); if (mode==='play') sendPresence(t, movingNow);
@@ -2882,12 +3019,33 @@ function frame(){
   // NPCs
   let best = null, bestD = inShop ? -1 : 3.6;
   for (const n of npcs){
-    const dx = P.pos.x-n.p.pos[0], dz = P.pos.z-n.p.pos[1], d = Math.hypot(dx,dz);
-    const target = d < 7 ? Math.atan2(dx,dz) : n.baseRot + Math.sin(t*0.3+n.ph)*0.4;
-    n.rot = angLerp(n.rot, target, Math.min(1, dt*3)); n.ch.g.rotation.y = n.rot;
-    const wave = d < 4.5;
-    animatePerson(n.ch, 0, 0, t);
-    if (wave){ n.ch.b.rSh.rotation.set(-2.5, 0, 0.3 + Math.sin(t*7)*0.18); n.ch.b.rEl.rotation.x = -0.5; }
+    let dx = P.pos.x-n.p.pos[0], dz = P.pos.z-n.p.pos[1], d = Math.hypot(dx,dz);
+    // members who are offline keep strolling around their spot, and stop to greet whoever walks up
+    let walking = false, heading = 0;
+    if (n.member && n.ch.g.visible){
+      const g = n.ch.g.position;
+      if (n.hx === undefined){ n.hx = g.x; n.hz = g.z; n.pause = 1 + Math.random()*3; n.walk = 0; }
+      if (d < 4.5){ /* stand still and say hi */ }
+      else if (n.pause > 0) n.pause -= dt;
+      else {
+        if (n.tx === undefined){ const a = Math.random()*Math.PI*2, r = 1.5 + Math.random()*3.5; n.tx = n.hx + Math.sin(a)*r; n.tz = n.hz + Math.cos(a)*r; }
+        const ex = n.tx - g.x, ez = n.tz - g.z, el = Math.hypot(ex, ez);
+        if (el < 0.25){ n.tx = undefined; n.pause = 2 + Math.random()*5; }
+        else {
+          const st = Math.min(el, 1.15*dt), q = memV.set(g.x + ex/el*st, 0, g.z + ez/el*st), r0 = n.circle.r;
+          n.circle.r = 0; resolve(q, 0.32); n.circle.r = r0;   // don't bump into our own footprint
+          if (Math.hypot(q.x-g.x, q.z-g.z) < st*0.4){ n.tx = undefined; n.pause = 0.5 + Math.random(); }   // blocked: pick somewhere else
+          else { g.x = q.x; g.z = q.z; g.y = groundY(g.x, g.z); n.circle.x = g.x; n.circle.z = g.z; n.p.pos[0] = g.x; n.p.pos[1] = g.z; n.marker.position.x = g.x; n.marker.position.z = g.z;
+            n.walk += dt*1.15*3.4; walking = true; heading = Math.atan2(ex, ez); }
+        }
+      }
+      dx = P.pos.x-g.x; dz = P.pos.z-g.z; d = Math.hypot(dx,dz);
+    }
+    const target = d < 7 ? Math.atan2(dx,dz) : walking ? heading : n.member ? n.rot : n.baseRot + Math.sin(t*0.3+n.ph)*0.4;
+    n.rot = angLerp(n.rot, target, Math.min(1, dt*(walking ? 6 : 3))); n.ch.g.rotation.y = n.rot;
+    const wave = d < 4.5 && !inShop && !flying;
+    animatePerson(n.ch, n.walk || 0, walking ? 1 : 0, t);
+    if (wave){ if (n.ch.rig) Rig.wave(n.ch); else { n.ch.b.rSh.rotation.set(-2.5, 0, 0.3 + Math.sin(t*7)*0.18); n.ch.b.rEl.rotation.x = -0.5; } }
     if (n.label) n.label.visible = d < 40;
     n.marker.rotation.y += dt*1.6; n.marker.position.y = 2.75 + (reduceMotion?0:Math.sin(t*2+n.ph)*0.08);
     if (d < bestD){ best = n; bestD = d; }
@@ -2989,7 +3147,7 @@ function frame(){
   sunLight.position.set(focus.x + sunDir.x*300, sunDir.y*300, focus.z + sunDir.z*300);
   sunLight.shadow.camera.updateProjectionMatrix();
 
-  updateSkyBodies(camera); Sky.update(camera, scope);
+  updateSkyBodies(camera); Sky.update(camera, scope); Waters.update(t, camera);
   // indoors: normal exposure and almost no bloom, whatever the time outside (night settings over-brighten white rooms)
   renderer.toneMappingExposure = inShop ? 0.95 : curLook.exp; if (bloomPass) bloomPass.strength = inShop ? 0.08 : curLook.bloom;
   if (composer) composer.render(); else renderer.render(activeScene, camera);

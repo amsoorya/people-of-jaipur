@@ -65,7 +65,32 @@ const M_SHOP = shopTex.map(t=>new THREE.MeshStandardMaterial({map:t, emissiveMap
 const M_GLASS = new THREE.MeshStandardMaterial({color:lin('#5E7680'), roughness:0.05, metalness:0.3, envMapIntensity:1.0});
 const M_GLASS_SHOP = new THREE.MeshStandardMaterial({color:lin('#9FB4BA'), roughness:0.04, metalness:0.1, transparent:true, opacity:0.22, envMapIntensity:1.0, depthWrite:false});
 const M_CAFE = cafeTex.map(t=>new THREE.MeshStandardMaterial({map:t, emissiveMap:t, emissive:lin('#FFD2A0'), emissiveIntensity:0.7, roughness:0.9}));
-const M_WATER = new THREE.MeshStandardMaterial({color:lin('#2C5A62'), roughness:0.16, metalness:0.05, envMapIntensity:0.75});
+/* Water. A seamless wave normal map made here: swells of different sizes and directions, each with a whole number
+   of waves across the tile so it repeats without seams. Two copies drift across each other in different directions,
+   so the surface never visibly loops, and the sky reflects off it through the scene's environment. */
+const WATER_NORMALS = (()=>{
+  const N = 256, [c, ctx] = cv(N, N), img = ctx.createImageData(N, N), H = new Float32Array(N*N), waves = [];
+  for (let i=0;i<28;i++){ const k = 1 + Math.floor(Math.pow(Math.random(), 1.7)*16), a = Math.random()*Math.PI*2, kx = Math.round(Math.cos(a)*k), ky = Math.round(Math.sin(a)*k); if (kx || ky) waves.push([kx, ky, Math.random()*6.283, 1/Math.pow(Math.hypot(kx, ky), 1.25)]); }
+  for (let y=0;y<N;y++) for (let x=0;x<N;x++){ let h = 0; for (const [kx, ky, ph, am] of waves) h += am*Math.sin(6.2832*(kx*x + ky*y)/N + ph); H[y*N+x] = h; }
+  for (let y=0;y<N;y++) for (let x=0;x<N;x++){
+    const dx = H[y*N + (x+1)%N] - H[y*N + (x+N-1)%N], dy = H[((y+1)%N)*N + x] - H[((y+N-1)%N)*N + x], s = 9, l = Math.hypot(dx*s, dy*s, 1), i = (y*N+x)*4;
+    img.data[i] = (-dx*s/l*0.5+0.5)*255; img.data[i+1] = (-dy*s/l*0.5+0.5)*255; img.data[i+2] = (1/l*0.5+0.5)*255; img.data[i+3] = 255; }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
+})();
+const WATER_MATS = [];
+function waterMat(hex, rep, rough, speed = 1, ripple = 1, env = 0.7){
+  const nm = WATER_NORMALS.clone(); nm.needsUpdate = true; nm.repeat.set(rep, rep);
+  const m = new THREE.MeshStandardMaterial({color:lin(hex), roughness:rough, metalness:0, envMapIntensity:env, normalMap:nm, normalScale:new THREE.Vector2(ripple, ripple)});
+  m.userData.speed = speed;
+  m.onBeforeCompile = sh => { sh.uniforms.wOff = m.userData.wOff = {value:new THREE.Vector4()};
+    sh.fragmentShader = 'uniform vec4 wOff;\n' + sh.fragmentShader.replace('vec3 mapN = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0;',
+      'vec3 mapN = normalize( texture2D( normalMap, vUv + wOff.xy ).xyz * 2.0 - 1.0 + texture2D( normalMap, vUv * 1.73 + wOff.zw ).xyz * 2.0 - 1.0 );'); };
+  m.customProgramCacheKey = () => 'jp-water';
+  WATER_MATS.push(m); return m;
+}
+const M_WATER = waterMat('#173E44', 10, 0.03, 1.6, 2.0, 0.55);      // fountains: lively, splashed by the jets
+const M_POOL = waterMat('#18301F', 8, 0.03, 0.35, 1.6, 1.8);      // the stepwell's deep green pool: nearly still
 const M_KUND = new THREE.MeshStandardMaterial({map:kundTex, roughness:0.9}); kundTex.repeat.set(3.5,1);
 const M_PAINT = paintTex.map(t=>new THREE.MeshStandardMaterial({map:t, roughness:0.8}));
 const M_LIGHT = new THREE.MeshStandardMaterial({color:lin('#FFE2A8'), emissive:lin('#FFC86E'), emissiveIntensity:2.2}); lampMat = M_LIGHT;

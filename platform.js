@@ -56,6 +56,8 @@
         ${cfg.linkedin ? '<button class="li" id="jpLi">Continue with LinkedIn instead</button>' : ''}<button class="sec" id="jpCancel">Not now</button></div>
       <div id="jpStep2" hidden><h2>Check your email</h2><p id="jpSent"></p>
         <input id="jpCode" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······"><button class="pri" id="jpVerify">Verify and sign in</button><button class="sec" id="jpBack">Use a different email</button></div>
+      <div id="jpStep3" hidden><h2>What’s your name?</h2><p>This is how people in the city see you, and who they see when you wave, connect or message.</p>
+        <input id="jpName" maxlength="48" autocomplete="name" placeholder="Your full name"><button class="pri" id="jpNameSave">Continue</button><button class="sec" id="jpNameOut">Sign out</button></div>
       <p class="msg" id="jpMsg"></p></div>`;
     document.body.appendChild(w);
     const $$ = id => document.getElementById(id), msg = t => { $$('jpMsg').textContent = t || ''; };
@@ -79,9 +81,32 @@
       const {error} = await sb.auth.verifyOtp({email, token, type:'email'});
       $$('jpVerify').disabled = false;
       if (error){ msg('That code didn’t work. Check it, or ask for a new one.'); return; }
+      if (await hasName()) location.reload(); else showNameStep();
+    };
+    const showNameStep = () => { $$('jpStep1').hidden = true; $$('jpStep2').hidden = true; $$('jpStep3').hidden = false; msg(''); w.hidden = false; $$('jpName').focus(); };
+    w.showNameStep = showNameStep;
+    $$('jpNameOut').onclick = () => window.JP_AUTH.signOut();
+    $$('jpName').onkeydown = e => { if (e.key === 'Enter') $$('jpNameSave').click(); };
+    $$('jpNameSave').onclick = async () => {
+      const nm = $$('jpName').value.replace(/\s+/g,' ').trim();
+      if (nm.length < 2){ msg('Add your name so people know who you are.'); return; }
+      $$('jpNameSave').disabled = true;
+      const {data:{session:s}} = await sb.auth.getSession();
+      const {error} = s ? await sb.from('people').upsert({id:s.user.id, name:nm.slice(0,48), provider:(s.user.app_metadata && s.user.app_metadata.provider) || 'email', updated_at:new Date().toISOString()}) : {error:true};
+      $$('jpNameSave').disabled = false;
+      if (error){ msg('That didn’t save. Check your connection and try again.'); return; }
       location.reload();
     };
   }
+  /* Everyone who signs in has a name, so others never see "Someone". */
+  async function hasName(){
+    const {data:{session:s}} = await sb.auth.getSession(); if (!s) return true;
+    const m = s.user.user_metadata || {}; if (m.name || m.full_name) return true;
+    const {data} = await sb.from('people').select('name').eq('id', s.user.id).maybeSingle();
+    return !!(data && data.name && data.name.trim());
+  }
+  function askName(){ authModal(); const w = document.getElementById('jpAuth'); if (w && w.showNameStep) w.showNameStep(); }
+  ready.then(async s => { if (!s) return; try { if (!(await hasName())){ if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, {once:true})); askName(); } } catch(e){} });
   window.JP_AUTH = Object.freeze({
     signIn: () => authModal(),
     signOut: async () => { await sb.auth.signOut(); location.reload(); },

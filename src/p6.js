@@ -311,7 +311,8 @@ const Rig = (()=>{
       let want = r.want || 'Idle'; if (want === 'Walk' && r.speed > 3.6) want = 'Run'; if ((want === 'Walk' || want === 'Run') && r.speed < 0.25 && !ch.isPlayer) want = 'Idle';
       play(r, want, 0.2);
       const ts = want === 'Walk' ? THREE.MathUtils.clamp(r.speed / 1.45, 0.6, 1.5) : want === 'Run' ? THREE.MathUtils.clamp(r.speed / 4.6, 0.7, 1.4) : 1;
-      if (r.acts[want]) r.acts[want].timeScale = ts; r.mixer.update(dt); }
+      if (r.acts[want]) r.acts[want].timeScale = ts; r.mixer.update(dt);
+      if (ch.jumpK > 0){ const b = r.bones, bone = n => b[n] || b[n.replace(".", "")]; for (const sd of ["L","R"]){ const ul = bone("UpperLeg."+sd), ll = bone("LowerLeg."+sd); if (ul) ul.rotation.x += SIT_HIP*0.45*ch.jumpK; if (ll) ll.rotation.x += SIT_KNEE*0.7*ch.jumpK; } } }   // tuck the legs mid-jump (the packs have no jump clip)
   }
   function drop(ch){ const i = live.indexOf(ch); if (i >= 0) live.splice(i, 1); }   // forget a body that's been replaced
   return {attach, drop, update, setSit(ch, v){ if (ch.rig) ch.rig.sit = v; }, wave(ch){ if (ch.rig && ch.rig.acts && ch.rig.acts.Wave && !ch.rig.sit){ ch.rig.want = 'Wave'; } }};
@@ -478,12 +479,34 @@ function viaRoundabout(start, end){
   const arc = []; for (let a = a0 + 0.1; a < a1 - 0.05; a += 0.1) arc.push([RB.x + Math.cos(a)*RB.r, RB.z + Math.sin(a)*RB.r]);
   return makePath([start, inP, ...arc, outP, end]);
 }
+/* Each route is a closed loop: drive to the end of the road, U-turn into the other lane and come back,
+   so autos never vanish at a road end and pop up at the start again. */
+function loopPath(parts){
+  const pts = [];
+  const join = (a, prev, b) => { const m = a.clone().add(b).multiplyScalar(0.5), r = a.distanceTo(b)/2; if (r < 0.5 || r > 6) return;   // far apart: just drive straight on
+    const d = a.clone().sub(prev).normalize(), u = a.clone().sub(m); for (let k=1;k<8;k++){ const th = k/8*Math.PI; pts.push(m.clone().addScaledVector(u, Math.cos(th)).addScaledVector(d, r*Math.sin(th))); } };
+  parts.forEach(pa => { if (pts.length) join(pts[pts.length-1], pts[pts.length-2], pa.pts[0]); pts.push(...pa.pts.map(p=>p.clone())); });
+  join(pts[pts.length-1], pts[pts.length-2], pts[0]); pts.push(pts[0].clone());
+  const cum = [0]; for (let i=1;i<pts.length;i++) cum.push(cum[i-1] + pts[i].distanceTo(pts[i-1])); return {pts, cum, len:cum[cum.length-1], loop:true};
+}
 const LANES = [
-  viaRoundabout([-86,-3.2],[86,-3.2]), viaRoundabout([86,3.2],[-86,3.2]),
-  viaRoundabout([33.2,-86],[33.2,86]), viaRoundabout([26.8,86],[26.8,-86]),
-  makePath([[104,-4],[238,-4]]), makePath([[238,4],[104,4]]),
+  // old-city bazaar and MI Road as one east-west route: Stepwell road end ⇄ Badi Chaupar ⇄ Patrika Gate
+  loopPath([viaRoundabout([-86,-3.2],[86,-3.2]), makePath([[104,-4],[312,-4]]), makePath([[312,4],[104,4]]), viaRoundabout([86,3.2],[-86,3.2])]),
+  // north-south: Jal Mahal road ⇄ Badi Chaupar ⇄ Albert Hall road
+  loopPath([makePath([[33.2,-132],[33.2,-86]]), viaRoundabout([33.2,-86],[33.2,86]), makePath([[33.2,86],[33.2,124]]), makePath([[26.8,124],[26.8,86]]), viaRoundabout([26.8,86],[26.8,-86]), makePath([[26.8,-86],[26.8,-132]])]),
+  // the Ring Road, both ways round (keep left)
+  ...[[RING.r - 2.2, 1], [RING.r + 2.2, -1]].map(([r, dir]) => { const pts = []; for (let i = 0; i < 360; i += 2){ const th = dir * i * Math.PI/180; pts.push([RING.x + Math.cos(th)*r, RING.z + Math.sin(th)*r]); } return loopPath([makePath(pts)]); }),
+  // C-Scheme cross road, end to end between the two sides of the Ring Road
+  loopPath([makePath([[146,248],[146,-268]]), makePath([[154,-268],[154,248]])]),
+  // outside the west wall: stepwell road down to the Ring Road
+  loopPath([makePath([[-122.5,-2],[-122.5,232]]), makePath([[-117.5,232],[-117.5,-2]])]),
+  // under the south wall: past Albert Hall to C-Scheme
+  loopPath([makePath([[-117,109.5],[146,109.5]]), makePath([[146,114.5],[-117,114.5]])]),
+  // Amer Road past Jal Mahal
+  loopPath([makePath([[-78,-114],[146,-114]]), makePath([[146,-110],[-78,-110]])]),
 ];
-const autos = [0,0,1,1,2,3,4,5].map((li,i)=>{ const path = LANES[li]; return {g:makeAuto(), path, s:(i%2 ? 0.55 : 0.1)*path.len + rand()*20, sp:rr(5.5,7), v:0}; });
+const AUTO_PLAN = [[0,5],[1,3],[2,2],[3,2],[4,1],[5,1],[6,1],[7,1]];   // [route, how many autos on it]
+const autos = AUTO_PLAN.flatMap(([li, n]) => Array.from({length:n}, (_, j) => { const path = LANES[li]; return {g:makeAuto(), path, s:(j/n)*path.len + rand()*15, sp:rr(5.5,7), v:0}; }));
 
 /* Kites */
 const kites = [];
@@ -543,14 +566,18 @@ const PigeonRig = (()=>{
     const alongX = r.w >= r.d, len = alongX ? r.w : r.d, half = (alongX ? r.d : r.w) / 2;
     for (let u = -len/2 + SEG/2, i = 0; u < len/2; u += SEG, i++){
       for (const side of [-1, 1]){ const x = alongX ? r.x + u : r.x + side * (half + 0.12), z = alongX ? r.z + side * (half + 0.12) : r.z + u;
-        if (!inRoad(x, z, r, 0.4)) K.push({x, z, alongX, yellow: i % 2 === 0}); }
+        if (!inRoad(x, z, r, 0.4) && !ringBand(x, z, 0.4)) K.push({x, z, alongX, yellow: i % 2 === 0}); }
       const cx = alongX ? r.x + u : r.x, cz = alongX ? r.z : r.z + u;
-      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5) && Math.hypot(cx - 30, cz) > 12) L.push({x: cx, z: cz, alongX});   // none through the Badi Chaupar roundabout
+      if (i % 2 === 0 && half > 4 && !inRoad(cx, cz, r, 1.5) && !ringBand(cx, cz, 1.5) && Math.hypot(cx - 30, cz) > 12) L.push({x: cx, z: cz, alongX});   // none through the Badi Chaupar roundabout
     }
   }
   const box = new THREE.BoxGeometry(1, 1, 1), m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
   const make = (list, color, sx, sy, sz, y, cast) => { if (!list.length) return; const im = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({color: new THREE.Color(color).convertSRGBToLinear(), roughness: 0.75}), list.length);
-    list.forEach((k, i)=>{ q.setFromAxisAngle(up, k.alongX ? 0 : Math.PI/2); m.compose(new THREE.Vector3(k.x, y, k.z), q, new THREE.Vector3(sx, sy, sz)); im.setMatrixAt(i, m); }); im.castShadow = cast; im.receiveShadow = true; scene.add(im); };
+    list.forEach((k, i)=>{ q.setFromAxisAngle(up, k.a ?? (k.alongX ? 0 : Math.PI/2)); m.compose(new THREE.Vector3(k.x, y, k.z), q, new THREE.Vector3(sx, sy, sz)); im.setMatrixAt(i, m); }); im.castShadow = cast; im.receiveShadow = true; scene.add(im); };
+  // the Ring Road: kerbs on both edges and a dashed centre line all the way round, open where the spokes join
+  for (let i = 0, n = Math.round(Math.PI*2*RING.r / SEG); i < n; i++){ const th = i / n * Math.PI*2, a = -th - Math.PI/2;
+    for (const rr of [RING.r - RING.w/2 - 0.12, RING.r + RING.w/2 + 0.12]){ const x = RING.x + Math.cos(th)*rr, z = RING.z + Math.sin(th)*rr; if (!inRoad(x, z, null, 0.4)) K.push({x, z, a, yellow: i % 2 === 0}); }
+    const cx = RING.x + Math.cos(th)*RING.r, cz = RING.z + Math.sin(th)*RING.r; if (i % 2 === 0 && !inRoad(cx, cz, null, 1.5)) L.push({x: cx, z: cz, a}); }
   make(K.filter(k=>k.yellow), '#E8B528', SEG, 0.2, 0.3, 0.1, true);
   make(K.filter(k=>!k.yellow), '#1C1C1E', SEG, 0.2, 0.3, 0.1, true);
   make(L, '#ECE8DE', 2.4, 0.02, 0.16, 0.085, false);
@@ -573,7 +600,8 @@ const PigeonRig = (()=>{
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0,1,0), sc = new THREE.Vector3();
     // keep the pavement walkable: no tree or bush on top of a lamp post, scooter stand or cart
     const busy = [...LAMP_SPOTS.map(([x,z])=>[x,z,1.6]), ...scooterSpots.map(([x,z])=>[x,z,2.0]), ...CART_SPOTS.map(c=>[c.x,c.z,2.4])];
-    const clear = t => !busy.some(([x,z,r]) => Math.hypot(t.x - x, t.z - z) < r * (t.type === 'scrub' ? 0 : 1));
+    const onRoad = t => ringBand(t.x, t.z, 1.0) || ROADS.some(r => Math.abs(t.x - r.x) < r.w/2 + 0.3 && Math.abs(t.z - r.z) < r.d/2 + 0.3);   // nothing growing out of the asphalt
+    const clear = t => !busy.some(([x,z,r]) => Math.hypot(t.x - x, t.z - z) < r * (t.type === 'scrub' ? 0 : 1)) && !onRoad(t);
     for (let i = TREE_SPOTS.length - 1; i >= 0; i--){ const t = TREE_SPOTS[i]; if (!clear(t)){ const c = circles.find(c => c.x === t.x && c.z === t.z); if (c) c.r = 0; TREE_SPOTS.splice(i, 1); } }
     TREE_SPOTS.forEach(t=>{ const [names, H] = KIND[t.type] || KIND.neem, nm = names[Math.floor(t.pick * names.length)], sh = shapes[nm]; if (!sh) return;
       const k = H * t.s / sh.h; q.setFromAxisAngle(up, t.rot); sc.setScalar(k); const sink = /Bush/.test(nm) ? H * t.s * 0.18 : 0;   // bushes have no trunk: settle their lower leaves into the soil
