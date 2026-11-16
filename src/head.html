@@ -6,6 +6,23 @@
 <title>People of Jaipur — walk the Pink City, meet its designers and builders</title>
 <meta name="description" content="A 3D Jaipur you can walk through. Visit Hawa Mahal, Jantar Mantar, Jal Mahal and the city’s favourite cafés, and meet the designers and builders who live here.">
 <meta name="theme-color" content="#B85C48">
+<link rel="canonical" href="https://peopleofjaipur.com/">
+<!-- link previews on WhatsApp, LinkedIn, X, Facebook, Slack, iMessage -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="People of Jaipur">
+<meta property="og:url" content="https://peopleofjaipur.com/">
+<meta property="og:title" content="People of Jaipur: walk a 3D Pink City and meet its builders">
+<meta property="og:description" content="Walk Hawa Mahal, ride an auto round Badi Chaupar, fly over Jal Mahal, and meet the designers, founders, shops and companies of Jaipur. Free, in your browser.">
+<meta property="og:image" content="https://peopleofjaipur.com/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A 3D Jaipur bazaar at dusk: pink buildings, string lights, an auto-rickshaw and the Badi Chaupar fountain">
+<meta property="og:locale" content="en_IN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="People of Jaipur: walk a 3D Pink City and meet its builders">
+<meta name="twitter:description" content="Walk Hawa Mahal, ride an auto, fly over Jal Mahal, and meet Jaipur's designers, founders, shops and companies.">
+<meta name="twitter:image" content="https://peopleofjaipur.com/og.jpg">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"People of Jaipur","url":"https://peopleofjaipur.com/","description":"A walkable 3D Jaipur where people, shops and companies meet.","inLanguage":"en-IN"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@400;500;600;700&family=Yatra+One&display=swap" rel="stylesheet">
@@ -148,7 +165,8 @@ body.touch #bottomStack{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 .mapsub{font-size:15px;color:#F5DCCB;text-shadow:0 1px 8px rgba(0,0,0,.7)}
 .mapzoom{position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;gap:8px}
 .mapzoom .pill{width:46px;height:46px;padding:0;font-size:22px}
-#joinWrap,#hangWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:10;overflow:auto}
+.shbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}.shbtns a{text-align:center;text-decoration:none}
+#joinWrap,#hangWrap,#shareWrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--scrim);padding:16px;z-index:10;overflow:auto}
 .hchips{display:flex;flex-wrap:wrap;gap:6px}
 .hchips button{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
 .hchips button[aria-pressed="true"]{background:var(--marigold);border-color:transparent;color:#3B1E19;font-weight:600}
@@ -325,6 +343,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
   <p class="lede">Fly over the Pink City at dusk. Land anywhere, and meet the people who design and build it, live.</p>
   <button class="start" id="startBtn">Enter the city</button>
   <button class="linkbtn introsign" id="introSign" hidden>Already a member? Sign in</button>
+  <p class="inspired" id="introInvite" hidden style="font-weight:700;font-size:16px"></p>
   <p class="inspired">Inspired by <a href="https://peopleofbengaluru.com/" target="_blank" rel="noopener">People of Bengaluru</a> · Built by Jaya Soorya</p>
   <p class="hint" id="hint">WASD or arrow keys to walk, drag to look around, Shift to run</p>
 </section>
@@ -375,6 +394,7 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
 <div id="menuWrap" hidden>
   <div class="menu" role="dialog" aria-label="Menu">
     <div class="mrow"><span>Time of day</span><div class="seg" id="timeSeg"><button data-t="live">Live (IST)</button><button data-t="day">Day</button><button data-t="dusk">Dusk</button><button data-t="night">Night</button></div></div>
+    <button class="mitem" id="shareBtn" style="font-weight:700">Invite friends to the city</button>
     <button class="mitem" id="musicBtn" aria-pressed="true">Music: on</button>
     <button class="mitem" id="runToggle" aria-pressed="false">Always run: off</button>
     <button class="mitem" id="notifBtn">Notifications</button>
@@ -652,6 +672,16 @@ body.dlg #topright, body.dlg #bottomStack, body.dlg #stick, body.dlg #runBtn, bo
       <button class="linkbtn" type="button" id="jRemove" hidden>Remove me from the city</button>
     </div>
   </form>
+</div>
+<div id="shareWrap" hidden>
+  <div class="card join" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <div class="card-top"><div><h2 id="shareTitle">Invite friends</h2><div class="role">Bring your friends, team and followers into the Pink City.</div></div></div>
+    <div class="card-body">
+      <div class="shbtns"><a id="shWa" target="_blank" rel="noopener" class="btn primary">WhatsApp</a><a id="shLi" target="_blank" rel="noopener" class="btn">LinkedIn</a><a id="shX" target="_blank" rel="noopener" class="btn">X</a><a id="shFb" target="_blank" rel="noopener" class="btn">Facebook</a></div>
+      <label class="fld" style="margin-top:14px"><span>Your link</span><div style="display:flex;gap:8px"><input id="shUrl" readonly><button type="button" class="btn" id="shCopy" style="flex:0 0 auto">Copy</button></div><small id="shNote"></small></label>
+      <div class="actions"><button type="button" class="btn" id="shClose">Close</button></div>
+    </div>
+  </div>
 </div>
 <div id="hangWrap" hidden>
   <form class="card join" id="hangForm" role="dialog" aria-modal="true" aria-labelledby="hangTitle" novalidate>

@@ -40,7 +40,7 @@ let yaw = 0, pitch = 0.22, dist = 6.2, mode = 'loading', cardOpen = false, nearN
 addEventListener('keydown', e=>{
   if (mode === 'intro'){ if (e.key==='Enter') start(); return; }
   if (mode !== 'play') return;
-  if (e.key==='Escape'){ for (const id of ['guideWrap','notifWrap','commWrap','meetWrap','clubWrap','recWrap']) if (!$(id).hidden){ $(id).hidden = true; cardOpen = false; return; } if (!menuWrap.hidden) toggleMenu(false); else if (!$('outfitWrap').hidden){ $('outfitWrap').hidden = true; cardOpen = false; } else if (!$('coWrap').hidden) closeCo(); else if (!$('jobsWrap').hidden) closeJobs(); else if (!$('chatWrap').hidden) closeChat(); else if (!$('bizWrap').hidden) closeBiz(); else if (prod) closeProducts(); else if (!$('joinWrap').hidden) closeJoin(); else if (cardOpen) closeCard(); else togglePanel(false); return; }
+  if (e.key==='Escape'){ for (const id of ['guideWrap','notifWrap','commWrap','meetWrap','clubWrap','recWrap','shareWrap']) if (!$(id).hidden){ $(id).hidden = true; cardOpen = false; return; } if (!menuWrap.hidden) toggleMenu(false); else if (!$('outfitWrap').hidden){ $('outfitWrap').hidden = true; cardOpen = false; } else if (!$('coWrap').hidden) closeCo(); else if (!$('jobsWrap').hidden) closeJobs(); else if (!$('chatWrap').hidden) closeChat(); else if (!$('bizWrap').hidden) closeBiz(); else if (prod) closeProducts(); else if (!$('joinWrap').hidden) closeJoin(); else if (cardOpen) closeCard(); else togglePanel(false); return; }
   if (!$('meetWrap').hidden || !$('clubWrap').hidden || !$('joinWrap').hidden || !$('chatWrap').hidden || !$('bizWrap').hidden || !$('coWrap').hidden || !$('outfitWrap').hidden) return;
   if (e.key==='e' || e.key==='E'){ if (prod) closeProducts(); else if (cardOpen) closeCard(); else doAction(); return; }
   if (mapOpen) return;
@@ -1022,7 +1022,7 @@ $('hangForm').addEventListener('submit', async e=>{
   $('hSave').disabled = true; $('hNote').textContent = 'Saving…';
   try { await db.collection('profiles').doc(myId).set(body); myDoc = body; $('joinBtn').textContent = 'Edit your profile and spot';
     closeHangout(); P.pos.set(spot.x + 2, 0, spot.z + 2); resolve(P.pos); snapCam = true;
-    showHint(`You’re in the city now, at ${h.label}. Add what you do from the Menu.`); setTimeout(()=>showHint(null), 6000); }
+    showHint(`You’re in the city now, at ${h.label}. Invite friends from the Menu: your link brings them straight to you.`); setTimeout(()=>showHint(null), 7000); }
   catch(err){ $('hNote').textContent = 'That didn’t save. Check your connection and try again.'; }
   $('hSave').disabled = false;
 });
@@ -1049,15 +1049,15 @@ async function openJoin(){
   $('jRemove').hidden = !myDoc; $('jNote').textContent = ''; $('joinWrap').hidden = false; $('jRole').focus();
 }
 /* Meet the creator: walk new members over to the creator's spot and open their card. */
-function meetCreator(isWelcome){
-  const m = CREATOR_ID && memberMap.get(CREATOR_ID); if (!m || myId === CREATOR_ID) return false;
-  if (isWelcome){ try { if (localStorage.getItem('jp-met-creator')) return false; localStorage.setItem('jp-met-creator', '1'); } catch(e){} }
+function meetCreator(isWelcome, who = CREATOR_ID, note = ''){   // also used for invite links: walk the visitor over to whoever invited them
+  const m = who && memberMap.get(who); if (!m || myId === who) return false;
+  if (isWelcome && who === CREATOR_ID){ try { if (localStorage.getItem('jp-met-creator')) return false; localStorage.setItem('jp-met-creator', '1'); } catch(e){} }
   if (mode !== 'play') start();
   if (!$('prodWrap').hidden && prod) closeProducts();
   for (const id of ['coWrap','bizWrap','joinWrap','jobsWrap','recWrap']) $(id).hidden = true;
   if (riding) exitAuto(); if (inShop) exitShop(); if (flying) setFly(false);
   // stand a few metres away on open ground (not pushed out of a wall right next to them), facing the creator
-  const lp = livePeerOf(CREATOR_ID);   // online right now? meet them where they are
+  const lp = livePeerOf(who);   // online right now? meet them where they are
   if (lp && lp.y > 3){ showHint(`${m.p.name.split(' ')[0]} is flying around right now. Try again in a moment.`); setTimeout(()=>showHint(''), 3000); return false; }
   const a = lp ? (lp.rot || 0) : (m.rot || 0), cx = lp ? lp.cur.x : m.ch.g.position.x, cz = lp ? lp.cur.z : m.ch.g.position.z; let spot = null;
   for (const d of [5, 6, 4.5, 7]){ for (const off of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 2.6, -2.6, Math.PI]){
@@ -1065,10 +1065,45 @@ function meetCreator(isWelcome){
     if (q.distanceTo(p) < 0.05){ spot = {p, th}; break; } } if (spot) break; }
   if (!spot){ const p = new THREE.Vector3(cx + Math.sin(a)*5, 0, cz + Math.cos(a)*5); resolve(p); spot = {p, th:Math.atan2(p.x-cx, p.z-cz)}; }
   P.pos.copy(spot.p); P.rot = spot.th + Math.PI; yaw = spot.th + 0.35; pitch = 0.22; dist = Math.max(dist, 4.5); snapCam = true;   // camera behind the visitor, a little to the side, so both are in view
-  setTimeout(()=>{ openCard(m); if (isWelcome) $('cNote').textContent = `Welcome to People of Jaipur! Meet ${m.p.name.split(' ')[0]}, who built this city. Tap Connect to say hello.`; }, 700);
+  setTimeout(()=>{ openCard(m); if (note) $('cNote').textContent = note; else if (isWelcome) $('cNote').textContent = `Welcome to People of Jaipur! Meet ${m.p.name.split(' ')[0]}, who built this city. Tap Connect to say hello.`; }, 700);
   return true;
 }
 $('creatorBtn').addEventListener('click', ()=>{ toggleMenu(false); meetCreator(false); });
+/* Invite friends: a personal link (?meet=you) that walks whoever opens it straight to your character */
+const SITE = 'https://peopleofjaipur.com/';
+function shareInfo(){
+  const mine = !!(myDoc && myId);
+  const url = mine ? `${SITE}?meet=${myId}` : SITE;
+  const text = mine ? `Come find me in a 3D Jaipur! I hang out at ${myDoc.place || 'Hawa Mahal'}. Walk the Pink City, ride an auto and meet its builders:` : 'Walk a 3D Jaipur: Hawa Mahal, Jal Mahal, autos, chai, and the designers and founders of the Pink City:';
+  return {url, text, title:'People of Jaipur'};
+}
+async function openShare(){
+  toggleMenu(false); const {url, text, title} = shareInfo();
+  if (navigator.share && isCoarse){ try { await navigator.share({title, text, url}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
+  const e = encodeURIComponent, w = $('shareWrap');
+  $('shWa').href = `https://wa.me/?text=${e(text + ' ' + url)}`;
+  $('shLi').href = `https://www.linkedin.com/sharing/share-offsite/?url=${e(url)}`;
+  $('shX').href = `https://x.com/intent/post?text=${e(text)}&url=${e(url)}`;
+  $('shFb').href = `https://www.facebook.com/sharer/sharer.php?u=${e(url)}`;
+  $('shUrl').value = url; $('shNote').textContent = myDoc ? 'Anyone who opens your link is walked straight to you.' : 'Tip: join the city first, and your link takes friends straight to you.';
+  cardOpen = true; w.hidden = false;
+}
+$('shareBtn').addEventListener('click', openShare);
+$('shCopy').addEventListener('click', async ()=>{ try { await navigator.clipboard.writeText($('shUrl').value); $('shCopy').textContent = 'Copied'; } catch(e){ $('shUrl').select(); document.execCommand('copy'); $('shCopy').textContent = 'Copied'; } setTimeout(()=>$('shCopy').textContent = 'Copy', 1800); });
+$('shClose').addEventListener('click', ()=>{ $('shareWrap').hidden = true; cardOpen = false; canvas.focus(); });
+$('shareWrap').addEventListener('click', ev=>{ if (ev.target === $('shareWrap')) $('shClose').click(); });
+// opened someone's invite link? once you're in the city, go and meet them
+(async ()=>{
+  let who = ''; try { who = new URLSearchParams(location.search).get('meet') || ''; } catch(e){}
+  if (!/^[0-9a-f-]{36}$/i.test(who)) return;
+  for (let i=0;i<150 && !(profilesLoaded && memberMap.has(who));i++) await new Promise(r=>setTimeout(r,200));
+  const m = memberMap.get(who); if (!m) return;
+  for (let i=0;i<40 && (!m.p.name || m.p.name === 'Someone');i++) await new Promise(r=>setTimeout(r,150));   // names arrive just after the profiles
+  const tag = $('introInvite'); if (tag){ tag.textContent = `${m.p.name} invited you. Enter the city to meet them.`; tag.hidden = false; }
+  while (mode !== 'play') await new Promise(r=>setTimeout(r,300));
+  setTimeout(()=>meetCreator(false, who, `${m.p.name.split(' ')[0]} invited you to Jaipur. Say hi, or tap Connect.`), 900);
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+})();
 function closeJoin(){ $('joinWrap').hidden = true; cardOpen = false; canvas.focus(); }
 $('joinBtn').addEventListener('click', openJoin);
 $('jCancel').addEventListener('click', closeJoin);
